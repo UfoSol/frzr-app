@@ -102,6 +102,39 @@ mark{background:var(--frost);color:inherit;border-radius:2px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
 .modal .card{max-width:440px;width:100%}
 svg text{fill:var(--muted);font:11px var(--body)}
+.wg-hero{display:flex;flex-direction:column;gap:6px}
+.wg-big{font:800 40px/1 var(--display);letter-spacing:-.02em}
+.wg-big span{font:600 15px var(--body);color:var(--muted);letter-spacing:0;margin-left:6px}
+.wg-track{position:relative;height:14px;background:var(--frost);border-radius:7px;margin:22px 0 22px}
+.wg-track > i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:7px}
+.wg-track .ms{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--surface);transform:translateX(-1px)}
+.wg-track .ms small{position:absolute;top:22px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+.wg-track .ms.done small{color:var(--accent)}
+.wg-track .ms.end{background:none}
+.wg-track .ms.end small{color:var(--ink);left:auto;right:0;transform:none}
+.wg-track .ms.start small{left:0;transform:none}
+.wg-track .me{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--surface);border:4px solid var(--accent);transform:translate(-50%,-50%);box-shadow:0 1px 4px rgb(0 0 0/.2)}
+.wg-track .me small{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap}
+.wg-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+@media (max-width:700px){.wg-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.wg-tile{background:var(--bg);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.wg-tile .lbl{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.wg-tile .v{font:800 24px/1.15 var(--display)}
+.wg-tile .v span{font:500 13px var(--body);color:var(--muted)}
+.wg-tile .s{font-size:12px;color:var(--muted)}
+.wg-tile .good{color:var(--ok)} .wg-tile .meh{color:var(--warn)}
+.dots{display:flex;gap:4px;margin:6px 0 2px}
+.dots i{width:14px;height:14px;border-radius:50%;background:var(--line)}
+.dots i.ok{background:var(--accent)} .dots i.over{background:var(--warn)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.badge{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;position:relative}
+.badge .ic{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font:800 13px var(--display)}
+.badge b{display:block;font-size:13px;line-height:1.2}
+.badge small{display:block;font-size:11px;color:var(--muted);line-height:1.3}
+.badge.locked .ic{background:var(--frost);color:var(--muted)}
+.badge.locked b{color:var(--muted)}
+.badge .new{position:absolute;top:-7px;right:6px;font-size:10px;font-weight:700;background:var(--warn);color:#fff;border-radius:99px;padding:1px 6px}
+details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;margin-top:14px}
 #print{display:none}
 @media print{
   body{background:#fff}
@@ -292,6 +325,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
         <label>Waga kg<input type="number" id="w-kg" step="0.05" style="width:100px"></label>
         <button class="btn" id="w-add">Zapisz</button>
       </div>
+      <div class="msg" id="w-msg" hidden style="margin-top:8px"></div>
     </div>
     <div class="card" id="w-analysis"></div>
     <div class="card"><h3>Waga i średnia 7-dniowa</h3><div id="w-chart"></div></div>
@@ -1074,9 +1108,112 @@ function renderFreezer() {
 
 /* ---------- WAGA ---------- */
 $("#w-date").value = todayIso();
-$("#w-add").onclick = () => { const d = $("#w-date").value, kg = num($("#w-kg").value); if (!d || !kg) return; S.weights[d] = kg; $("#w-kg").value = ""; save(); render(); };
+$("#w-add").onclick = () => {
+  const d = $("#w-date").value, kg = num($("#w-kg").value); if (!d || !kg) return;
+  const before = wgStats(); S.weights[d] = kg; $("#w-kg").value = ""; save(); render();
+  const after = wgStats(), bits = [`Zapisane: ${kg.toFixed(2).replace(".", ",")} kg.`];
+  if (after.weigh.cur > 1) bits.push(`Seria ważenia: ${after.weigh.cur} dni z rzędu.`);
+  if (after.bestAvg != null && (before.bestAvg == null || after.bestAvg < before.bestAvg - 0.001) && after.dir < 0) bits.push("Najniższa średnia 7 dni do tej pory!");
+  const fresh = after.badges.filter(b => b.got && !before.badges.find(x => x.id === b.id).got);
+  if (fresh.length) bits.push("Nowa odznaka: " + fresh.map(b => b.name).join(", ") + "!");
+  msg($("#w-msg"), bits.join(" "));
+};
 function avg(a) { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; }
 function weightAvg7(d) { const v = []; for (let i = 0; i < 7; i++) { const w = S.weights[addDays(d, -i)]; if (w) v.push(w); } return v.length >= 3 ? avg(v) : null; }
+/* ---------- grywalizacja wagi ---------- */
+const kg2 = x => x.toFixed(2).replace(".", ","), kg1 = x => x.toFixed(1).replace(".", ",");
+function runs(ok, from, maxBack) { /* najdłuższa i bieżąca seria dni spełniających ok(d), liczona wstecz od from */
+  let cur = 0, best = 0, run = 0, counting = true;
+  for (let i = 0; i < maxBack; i++) { const d = addDays(from, -i); if (ok(d)) { run++; if (counting) cur++; best = Math.max(best, run); } else { run = 0; counting = false; } }
+  return { cur, best };
+}
+function wgStats() {
+  const dates = Object.keys(S.weights).sort(), goal = S.settings.weightGoal, g = S.settings.goals, today = todayIso();
+  if (!dates.length) return { empty: true, badges: [] };
+  const first = dates[0], last = dates[dates.length - 1], start = S.weights[first];
+  const span = Math.round((new Date(today) - new Date(first)) / 864e5) + 1;
+  const cur = weightAvg7(last) ?? S.weights[last], prev = weightAvg7(addDays(last, -7));
+  const dir = goal && goal > start ? 1 : -1; /* -1: chudnięcie, 1: przybieranie */
+  const need = goal ? Math.abs(start - goal) : 0, done = (cur - start) * dir;
+  const avgs = dates.map(weightAvg7).filter(v => v != null);
+  const bestAvg = avgs.length ? (dir < 0 ? Math.min(...avgs) : Math.max(...avgs)) : null;
+  const bestDone = bestAvg != null ? (bestAvg - start) * dir : 0;
+  /* ważenie: seria liczy się też, gdy dziś jeszcze nie było pomiaru */
+  const wFrom = S.weights[today] ? today : addDays(today, -1);
+  const weigh = runs(d => !!S.weights[d], wFrom, span);
+  const inKcal = d => { const t = dayTotals(d); return t.n > 0 && t.k <= g.k; };
+  const inProt = d => { const t = dayTotals(d); return t.n > 0 && t.p >= g.p; };
+  const yest = addDays(today, -1);
+  const kcal = runs(inKcal, yest, span), prot = runs(inProt, yest, span);
+  const week = [...Array(7)].map((_, i) => addDays(yest, i - 6));
+  const atGoal = goal && (cur - goal) * dir >= -0.05;
+  const keep = goal ? runs(d => { const a = weightAvg7(d); return a != null && Math.abs(a - goal) <= 0.5; }, last, span) : { cur: 0, best: 0 };
+  let pace = prev != null ? (cur - prev) : null; /* kg na tydzień */
+  const weeksLeft = goal && !atGoal && pace != null && pace * dir > 0.02 ? Math.ceil((goal - cur) / pace) : null;
+  const B = (id, ic, name, got, desc, prog) => ({ id, ic, name, got: !!got, desc, prog });
+  const badges = [];
+  for (let k = 1; k <= Math.floor(need + 1e-9); k++) badges.push(B("kg" + k, (dir < 0 ? "−" : "+") + k, `${k} kg ${dir < 0 ? "mniej" : "więcej"}`, bestDone >= k - 1e-9, "średnia 7 dni", `${kg1(Math.max(0, bestDone))}/${k} kg`));
+  if (need) {
+    badges.push(B("half", "½", "Połowa drogi", bestDone >= need / 2, `do ${kg1(start + dir * need / 2)} kg`, `${r0(Math.max(0, bestDone) / need * 100)}%`));
+    badges.push(B("goal", "★", "Cel osiągnięty", bestDone >= need - 0.05, `średnia ${goal} kg`, `${r0(Math.min(1, Math.max(0, bestDone) / need) * 100)}%`));
+    badges.push(B("keep14", "=", "Utrzymanie 14 dni", keep.best >= 14, `±0,5 kg od celu`, `${keep.best}/14 dni`));
+  }
+  badges.push(B("w7", "7", "Tydzień ważenia", weigh.best >= 7, "7 dni z rzędu", `${weigh.best}/7`));
+  badges.push(B("w30", "30", "Miesiąc ważenia", weigh.best >= 30, "30 dni z rzędu", `${weigh.best}/30`));
+  badges.push(B("n50", "50", "50 pomiarów", dates.length >= 50, "łącznie", `${dates.length}/50`));
+  badges.push(B("n100", "100", "100 pomiarów", dates.length >= 100, "łącznie", `${dates.length}/100`));
+  badges.push(B("k7", "kcal", "Tydzień w kaloriach", kcal.best >= 7, `7 dni ≤ ${g.k} kcal`, `${kcal.best}/7`));
+  badges.push(B("k30", "kcal", "Miesiąc w kaloriach", kcal.best >= 30, `30 dni ≤ ${g.k} kcal`, `${kcal.best}/30`));
+  badges.push(B("p7", "B", "Białkowy tydzień", prot.best >= 7, `7 dni ≥ ${g.p} g białka`, `${prot.best}/7`));
+  return { dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, keep, pace, weeksLeft, weigh, kcal, prot, week, inKcal, inProt, badges };
+}
+function wgSummary() {
+  const st = wgStats(); if (st.empty) return `<p class="muted">Zapisz pierwszy pomiar, a tu pojawi się Twoja droga do celu.</p>`;
+  const g = S.settings.goals, { start, cur, goal, dir, need, done } = st;
+  /* odznaki: zapamiętaj, kiedy zdobyta, żeby oznaczyć nowe */
+  /* pierwsze uruchomienie: odznaki zdobyte wcześniej nie są oznaczane jako nowe */
+  const firstRun = !S.badgeDates; S.badgeDates = S.badgeDates || {}; let changed = firstRun;
+  st.badges.forEach(b => { if (b.got && !S.badgeDates[b.id]) { S.badgeDates[b.id] = firstRun ? "0000-00-00" : todayIso(); changed = true; } });
+  if (changed) save();
+  const isNew = b => b.got && S.badgeDates[b.id] && S.badgeDates[b.id] >= addDays(todayIso(), -3);
+  let hero;
+  if (!goal || !need) {
+    hero = `<div class="wg-big">${kg2(cur)} kg<span>średnia 7 dni</span></div><p class="muted" style="margin:0">Ustaw cel wagi w Ustawieniach, żeby zobaczyć postęp.</p>`;
+  } else {
+    const pct = Math.max(0, Math.min(1, done / need)), left = (goal - cur) * dir;
+    const ms = []; for (let k = 1; k < need - 0.15; k++) ms.push(`<span class="ms${done >= k ? " done" : ""}" style="left:${k / need * 100}%"><small>${dir < 0 ? "−" : "+"}${k}</small></span>`);
+    const head = st.atGoal ? `Cel osiągnięty<span>${kg2(cur)} kg, średnia 7 dni</span>`
+      : `${kg1(Math.max(0, done))} kg<span>${dir < 0 ? "zrzucone" : "przybrane"} z ${kg1(need)} kg</span>`;
+    const sub = st.atGoal
+      ? `Teraz utrzymanie: ${st.keep.cur} ${st.keep.cur === 1 ? "dzień" : "dni"} z rzędu w zakresie ${kg1(goal - 0.5)}–${kg1(goal + 0.5)} kg.`
+      : `Zostało ${kg2(Math.max(0, left))} kg do ${goal} kg. ` + (st.weeksLeft ? `W tym tempie to ok. ${st.weeksLeft} ${st.weeksLeft === 1 ? "tydzień" : st.weeksLeft < 5 ? "tygodnie" : "tygodni"}.` : "Liczy się trend, nie pojedynczy dzień.");
+    hero = `<div class="wg-big">${head}</div>
+      <div class="wg-track" role="img" aria-label="Postęp do celu: ${r0(pct * 100)}%"><i style="width:${pct * 100}%"></i>${ms.join("")}
+        <span class="ms start" style="left:0"><small>${kg1(start)}</small></span><span class="ms end" style="left:100%"><small>cel ${kg1(goal)}</small></span>
+        <span class="me" style="left:${pct * 100}%"><small style="${pct > 0.93 ? "left:auto;right:-4px;transform:none" : pct < 0.07 ? "left:-4px;transform:none" : ""}">${r0(pct * 100)}%</small></span></div>
+      <p class="muted" style="margin:0">${sub}</p>`;
+  }
+  const wk = st.pace;
+  const dots = (ok, over) => `<div class="dots">${st.week.map(d => { const t = dayTotals(d); return `<i class="${!t.n ? "" : ok(d) ? "ok" : over ? "over" : ""}" title="${dm(d)}"></i>`; }).join("")}</div>`;
+  const cnt = ok => st.week.filter(ok).length;
+  const dni = n => n === 1 ? "dzień" : "dni";
+  const tiles = `<div class="wg-tiles">
+    <div class="wg-tile"><div class="lbl">Ten tydzień</div>
+      <div class="v ${wk == null ? "" : wk * st.dir > 0.02 ? "good" : wk * st.dir < -0.2 ? "meh" : ""}">${wk == null ? "–" : (wk >= 0 ? "+" : "−") + kg2(Math.abs(wk))}<span> kg</span></div>
+      <div class="s">${wk == null ? "za mało pomiarów" : wk * st.dir > 0.02 ? "średnia idzie w dobrą stronę" : Math.abs(wk) <= 0.02 || st.atGoal ? "stabilnie" : "wahania się zdarzają, trzymaj kurs"}</div></div>
+    <div class="wg-tile"><div class="lbl">Seria ważenia</div><div class="v">${st.weigh.cur}<span> ${dni(st.weigh.cur)}</span></div>
+      <div class="s">rekord: ${st.weigh.best} ${dni(st.weigh.best)}</div></div>
+    <div class="wg-tile"><div class="lbl">Kalorie w celu</div>${dots(st.inKcal, true)}
+      <div class="s">${cnt(st.inKcal)}/7 dni · seria ${st.kcal.cur}, rekord ${st.kcal.best}</div></div>
+    <div class="wg-tile"><div class="lbl">Białko ${g.p} g+</div>${dots(st.inProt, false)}
+      <div class="s">${cnt(st.inProt)}/7 dni · seria ${st.prot.cur}, rekord ${st.prot.best}</div></div>
+  </div>`;
+  const got = st.badges.filter(b => b.got).length;
+  const order = [...st.badges].sort((a, b) => (b.got - a.got));
+  const badges = `<h3 style="margin:18px 0 0">Odznaki <span class="pill">${got}/${st.badges.length}</span></h3><div class="badges">` +
+    order.map(b => `<div class="badge${b.got ? "" : " locked"}" title="${esc(b.desc)}">${isNew(b) ? `<span class="new">Nowa</span>` : ""}<span class="ic">${b.ic}</span><span><b>${esc(b.name)}</b><small>${b.got ? esc(b.desc) : esc(b.prog)}</small></span></div>`).join("") + `</div>`;
+  return `<div class="wg-hero">${hero}</div>${tiles}${badges}`;
+}
 function renderWeight() {
   const dates = Object.keys(S.weights).sort();
   const last = dates[dates.length - 1] || todayIso();
@@ -1095,7 +1232,7 @@ function renderWeight() {
     tdee = avg(kcSpan) - slope * 7700;
   }
   const line = (l, v) => `<tr><td>${l}</td><td class="n">${v}</td></tr>`;
-  $("#w-analysis").innerHTML = `<h3>Podsumowanie</h3><div class="tablebox"><table><tbody>
+  const details = `<div class="tablebox"><table><tbody>
     ${line("Ostatni pomiar", dates.length ? `${dm(last)}: ${S.weights[last].toFixed(2).replace(".", ",")} kg` : "brak")}
     ${line("Średnia 7 dni", a7 ? a7.toFixed(2).replace(".", ",") + " kg" + (goal ? ` (cel ${goal} kg, ${a7 - goal >= 0 ? "+" : ""}${(a7 - goal).toFixed(2).replace(".", ",")})` : "") : "za mało pomiarów")}
     ${line("Zmiana średniej tydzień do tygodnia", a7 && a7prev ? `${a7 - a7prev >= 0 ? "+" : ""}${(a7 - a7prev).toFixed(2).replace(".", ",")} kg` : "za mało danych")}
@@ -1103,6 +1240,7 @@ function renderWeight() {
     ${line("Szacowany dzienny wydatek energii", tdee ? `${r0(tdee)} kcal (trend wagi ${slope * 7 >= 0 ? "+" : ""}${(slope * 7).toFixed(2).replace(".", ",")} kg/tydz.)` : "potrzeba min. 10 dni wagi i kalorii w ostatnich 3 tygodniach")}
   </tbody></table></div>
   <p class="muted" style="margin:8px 0 0">Wydatek energii liczony z Twoich danych: średnie kalorie minus zmiana wagi przeliczona na kalorie (7700 kcal na kg). Gdy zgadza się z kaloriami, przy których waga stoi, liczenie działa.</p>`;
+  $("#w-analysis").innerHTML = `<h3>Podsumowanie</h3>${wgSummary()}<details class="wg-more"><summary>Szczegóły i wydatek energii</summary>${details}</details>`;
   // wykres
   const pts = dates.slice(-60);
   if (pts.length < 2) { $("#w-chart").innerHTML = `<p class="muted">Wykres pojawi się po dwóch pomiarach.</p>`; }
