@@ -115,7 +115,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
 .wg-track .ms.start small{left:0;transform:none}
 .wg-track .me{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--surface);border:4px solid var(--accent);transform:translate(-50%,-50%);box-shadow:0 1px 4px rgb(0 0 0/.2)}
 .wg-track .me small{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap}
-.wg-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.wg-tiles{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:10px;margin-top:14px}
 @media (max-width:700px){.wg-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .wg-tile{background:var(--bg);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .wg-tile .lbl{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
@@ -351,6 +351,14 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Błonnik g<input type="number" id="g-f" style="width:90px"></label>
         <label>Cel wagi kg<input type="number" id="g-w" step="0.1" style="width:90px"></label>
         <button class="btn" id="g-save">Zapisz</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label>Serie i kropki w zakładce Waga<select id="g-track">
+          <option value="k">tylko kalorie</option>
+          <option value="kp">kalorie i białko</option>
+          <option value="kf">kalorie i błonnik</option>
+          <option value="kpf">kalorie, białko i błonnik</option>
+        </select></label>
       </div>
     </div>
     <div class="card">
@@ -1147,8 +1155,10 @@ function wgStats() {
   const weigh = runs(d => !!S.weights[d], wFrom, span);
   const inKcal = d => { const t = dayTotals(d); return t.n > 0 && t.k <= g.k; };
   const inProt = d => { const t = dayTotals(d); return t.n > 0 && t.p >= g.p; };
+  const inFib = d => { const t = dayTotals(d); return t.n > 0 && t.f >= g.f; };
+  const track = S.settings.track || "kp", trP = track.includes("p"), trF = track.includes("f");
   const yest = addDays(today, -1);
-  const kcal = runs(inKcal, yest, span), prot = runs(inProt, yest, span);
+  const kcal = runs(inKcal, yest, span), prot = runs(inProt, yest, span), fib = runs(inFib, yest, span);
   const week = [...Array(7)].map((_, i) => addDays(yest, i - 6));
   const atGoal = goal && (cur - goal) * dir >= -0.05;
   /* zakres utrzymania: cel ±0,5 kg. Poniżej zakresu chudnięcie przestaje być sukcesem */
@@ -1173,8 +1183,9 @@ function wgStats() {
   badges.push(B("n100", "100", "100 pomiarów", dates.length >= 100, "łącznie", `${dates.length}/100`));
   badges.push(B("k7", "kcal", "Tydzień w kaloriach", kcal.best >= 7, `7 dni ≤ ${g.k} kcal`, `${kcal.best}/7`));
   badges.push(B("k30", "kcal", "Miesiąc w kaloriach", kcal.best >= 30, `30 dni ≤ ${g.k} kcal`, `${kcal.best}/30`));
-  badges.push(B("p7", "B", "Białkowy tydzień", prot.best >= 7, `7 dni ≥ ${g.p} g białka`, `${prot.best}/7`));
-  return { dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, week, inKcal, inProt, badges };
+  if (trP) badges.push(B("p7", "B", "Białkowy tydzień", prot.best >= 7, `7 dni ≥ ${g.p} g białka`, `${prot.best}/7`));
+  if (trF) badges.push(B("f7", "F", "Błonnikowy tydzień", fib.best >= 7, `7 dni ≥ ${g.f} g błonnika`, `${fib.best}/7`));
+  return { dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, fib, week, inKcal, inProt, inFib, trP, trF, badges };
 }
 function wgRange(st) { /* oś od min do max z zaznaczonym zakresem utrzymania i aktualną średnią */
   const lo = Math.min(st.cur, st.lowEdge) - 0.6, hi = Math.max(st.cur, st.highEdge) + 0.6, x = v => (v - lo) / (hi - lo) * 100;
@@ -1219,8 +1230,8 @@ function wgSummary() {
   const wk = st.pace;
   /* dobry kierunek: przed celem w stronę celu, poniżej zakresu w górę, ponad zakresem w dół, w zakresie stabilnie */
   const want = st.below ? 1 : st.above ? -1 : st.reached || st.atGoal ? 0 : st.dir;
-  const wkGood = wk != null && (want === 0 ? Math.abs(wk) <= 0.2 : wk * want > 0.02);
-  const wkBad = wk != null && (want === 0 ? Math.abs(wk) > 0.4 : wk * want < (st.below ? -0.02 : -0.2));
+  const wkGood = wk != null && (want === 0 ? Math.abs(wk) <= 0.3 : wk * want > 0.02);
+  const wkBad = wk != null && (want === 0 ? Math.abs(wk) > 0.5 : wk * want < (st.below ? -0.02 : -0.2));
   const wkText = wk == null ? "za mało pomiarów"
     : st.below ? (wk > 0.02 ? "średnia wraca do zakresu" : "średnia dalej spada, jedz więcej")
     : st.above ? (wk < -0.02 ? "średnia wraca do zakresu" : "wahania się zdarzają, trzymaj kurs")
@@ -1229,7 +1240,7 @@ function wgSummary() {
   const dots = (ok, over) => `<div class="dots">${st.week.map(d => { const t = dayTotals(d); return `<i class="${!t.n ? "" : ok(d) ? "ok" : over ? "over" : ""}" title="${dm(d)}"></i>`; }).join("")}</div>`;
   const cnt = ok => st.week.filter(ok).length;
   const dni = n => n === 1 ? "dzień" : "dni";
-  const tiles = `<div class="wg-tiles">
+  const tiles = `<div class="wg-tiles" style="--n:${3 + st.trP + st.trF}">
     <div class="wg-tile"><div class="lbl">Ten tydzień</div>
       <div class="v ${wkGood ? "good" : wkBad ? "meh" : ""}">${wk == null ? "–" : (wk >= 0 ? "+" : "−") + kg2(Math.abs(wk))}<span> kg</span></div>
       <div class="s">${wkText}</div></div>
@@ -1239,8 +1250,10 @@ function wgSummary() {
       <div class="s">${cnt(st.eatsEnough)}/7 dni z co najmniej ${r0(g.k * 0.95)} kcal</div></div>`
     : `<div class="wg-tile"><div class="lbl">Kalorie w celu</div>${dots(st.inKcal, true)}
       <div class="s">${cnt(st.inKcal)}/7 dni · seria ${st.kcal.cur}, rekord ${st.kcal.best}</div></div>`}
-    <div class="wg-tile"><div class="lbl">Białko ${g.p} g+</div>${dots(st.inProt, false)}
-      <div class="s">${cnt(st.inProt)}/7 dni · seria ${st.prot.cur}, rekord ${st.prot.best}</div></div>
+    ${st.trP ? `<div class="wg-tile"><div class="lbl">Białko ${g.p} g+</div>${dots(st.inProt, false)}
+      <div class="s">${cnt(st.inProt)}/7 dni · seria ${st.prot.cur}, rekord ${st.prot.best}</div></div>` : ""}
+    ${st.trF ? `<div class="wg-tile"><div class="lbl">Błonnik ${g.f} g+</div>${dots(st.inFib, false)}
+      <div class="s">${cnt(st.inFib)}/7 dni · seria ${st.fib.cur}, rekord ${st.fib.best}</div></div>` : ""}
   </div>`;
   const got = st.badges.filter(b => b.got).length;
   const order = [...st.badges].sort((a, b) => (b.got - a.got));
@@ -1318,10 +1331,11 @@ $("#w-copy").onclick = async () => {
 
 /* ---------- USTAWIENIA ---------- */
 function fillSettings() {
-  const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal;
+  const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal; $("#g-track").value = s.track || "kp";
   $("#s-key").value = s.key; $("#s-model").value = s.model;
 }
-$("#g-save").onclick = () => { S.settings.goals = { k: num($("#g-k").value), p: num($("#g-p").value), f: num($("#g-f").value) }; S.settings.weightGoal = num($("#g-w").value); save(); render(); };
+$("#g-track").onchange = () => { S.settings.track = $("#g-track").value; save(); render(); };
+$("#g-save").onclick = () => { S.settings.track = $("#g-track").value; S.settings.goals = { k: num($("#g-k").value), p: num($("#g-p").value), f: num($("#g-f").value) }; S.settings.weightGoal = num($("#g-w").value); save(); render(); };
 $("#s-save").onclick = () => { S.settings.key = $("#s-key").value.trim(); S.settings.model = $("#s-model").value.trim() || "gemini-3.8-flash"; save(); msg($("#s-msg"), "Zapisano."); };
 $("#s-test").onclick = async () => {
   $("#s-save").click(); msg($("#s-msg"), "Pytam Gemini o łyżkę oliwy…");
