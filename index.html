@@ -382,7 +382,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     </div>
     <div class="card">
       <h3>Import z czatów</h3>
-      <p class="muted" style="margin:0 0 8px">Jedna linia na dzień. Waga: „17.10 54,15”. Suma dnia: „16.10 1704 68,4 14,3” (kcal, białko, błonnik).</p>
+      <p class="muted" style="margin:0 0 8px">Jedna linia na dzień. Waga: „17.10 70,4”. Suma dnia: „16.10 1850 80 20” (kcal, białko, błonnik).</p>
       <textarea id="chat-imp"></textarea>
       <div class="row" style="margin-top:8px"><button class="btn" id="chat-imp-btn">Importuj</button></div>
       <div class="msg" id="chat-imp-msg" hidden></div>
@@ -461,24 +461,8 @@ const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isF
 
 /* ---------- dane ---------- */
 function seed() {
-  const row = (name, qty, g, k, p, f) => ({ name, qty, g, k100: k / g * 100, p100: p / g * 100, f100: f / g * 100, src: "z czatu Perplexity" });
-  const ciasto = { id: uid(), name: "Ciasto na hot dogi", portions: 10, share: 100, stock: 0, date: "2026-10-17",
-    rows: [row("Mąka pełnoziarnista", "150 g", 150, 491, 17.9, 16.2), row("Mąka pszenna", "250 g", 250, 900, 30, 7.5),
-      row("Oliwa", "29 g", 29, 261, 0, 0), row("Drożdże suche", "1 łyżeczka", 4, 14, 2, 1),
-      row("Mleko", "125 g", 125, 61, 4, 0), row("Miód", "1 łyżeczka", 7, 21, 0, 0)] };
-  const e = (date, name, k, p, f) => ({ id: uid(), date, name, k, p, f });
-  return {
-    settings: { key: "", model: "gemini-3.8-flash", goals: { k: 1700, p: 90, f: 25 }, weightGoal: 55 },
-    meals: [ciasto],
-    log: [
-      e("2026-10-12", "Suma dnia (z czatu)", 1688, 71.7, 9.6), e("2026-10-13", "Suma dnia (z czatu)", 1479, 64.1, 17.8),
-      e("2026-10-14", "Suma dnia (z czatu)", 1897, 71.6, 13.8), e("2026-10-15", "Suma dnia (z czatu)", 1477, 62.3, 6.9),
-      e("2026-10-16", "Suma dnia (z czatu)", 1704, 68.4, 14.3),
-      e("2026-10-17", "Monte, 55 g", 101, 1.4, 0.5), e("2026-10-17", "Owsianka z kremem Biscoff", 397, 25.1, 8.8),
-      e("2026-10-17", "Ryż z warzywami", 622, 37.1, 7.4), e("2026-10-17", "Kawa z mlekiem", 30, 0, 0),
-      e("2026-10-17", "Pizza", 438, 20.3, 2.1)],
-    weights: { "2026-10-12": 54.9, "2026-10-13": 55.65, "2026-10-14": 55.4, "2026-10-15": 54.9, "2026-10-16": 54.6, "2026-10-17": 54.15 }
-  };
+  /* pusty start: bez cudzych posiłków, wag i celów; cele kalorii i makro to typowe wartości do zmiany w Ustawieniach */
+  return { settings: { key: "", model: "gemini-3.8-flash", goals: { k: 2000, p: 50, f: 25 }, weightGoal: null }, meals: [], log: [], weights: {} };
 }
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
@@ -1322,7 +1306,7 @@ function renderWeight() {
 $("#w-copy").onclick = async () => {
   const g = S.settings.goals; const all = new Set(Object.keys(S.weights)); S.log.forEach(e => all.add(e.date));
   const list = [...all].sort().slice(-30);
-  const txt = `Moje dane z ostatnich dni (cel: ${g.k} kcal, białko ${g.p} g, błonnik ${g.f} g, waga ${S.settings.weightGoal} kg).\nData | waga rano kg | kcal | białko g | błonnik g\n` +
+  const txt = `Moje dane z ostatnich dni (cel: ${g.k} kcal, białko ${g.p} g, błonnik ${g.f} g${S.settings.weightGoal ? `, waga ${S.settings.weightGoal} kg` : ""}).\nData | waga rano kg | kcal | białko g | błonnik g\n` +
     list.map(d => { const t = dayTotals(d); return `${dm(d)} | ${S.weights[d] ?? "-"} | ${t.n ? r0(t.k) : "-"} | ${t.n ? r1(t.p) : "-"} | ${t.n ? r1(t.f) : "-"}`; }).join("\n") +
     `\n\nPrzeanalizuj trend wagi względem kalorii i powiedz, czy liczenie zgadza się z rzeczywistością i czy korygować spożycie.`;
   try { await navigator.clipboard.writeText(txt); $("#w-copy").textContent = "Skopiowano"; } catch (e) { $("#w-copy").textContent = "Nie udało się skopiować"; }
