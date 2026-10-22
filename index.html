@@ -523,12 +523,13 @@ function renderToday() {
   const t = dayTotals(day), g = S.settings.goals;
   const m = (lbl, v, goal, unit) => {
     const fmt = x => unit === "kcal" ? r0(x) : f1(x);
-    const over = unit === "kcal" && v > goal, scale = Math.max(goal, v) || 1;
+    /* przekroczone kalorie: pomarańczowa nadwyżka; białko i błonnik ponad cel: pełny zielony pasek */
+    const over = unit === "kcal" && v > goal, scale = (over ? v : goal) || 1;
     const okW = Math.min(v, goal) / scale * 100, overW = over ? (v - goal) / scale * 100 : 0, goalX = goal / scale * 100;
     const rest = goal - v;
     return `<div class="meter${over ? " is-over" : ""}"><div class="lbl">${lbl}</div><div class="val">${fmt(v)} <span>/ ${goal} ${unit}</span></div>
       <div class="bar"><i style="width:${okW}%"></i>${over ? `<i class="over" style="width:${overW}%"></i><b style="left:${goalX}%"></b>` : ""}</div>
-      <div class="rest">${rest >= 0 ? "Zostało " + fmt(rest) + " " + unit : "Ponad cel o " + fmt(-rest) + " " + unit + ` (+${r0(-rest / goal * 100)}%)`}</div></div>`;
+      <div class="rest">${rest > 0 ? "Zostało " + fmt(rest) + " " + unit : over ? "Ponad cel o " + fmt(-rest) + " " + unit + ` (+${r0(-rest / goal * 100)}%)` : "Cel osiągnięty" + (rest < 0 ? ", +" + fmt(-rest) + " " + unit : "")}</div></div>`;
   };
   $("#meters").innerHTML = m("Kalorie", t.k, g.k, "kcal") + m("Białko", t.p, g.p, "g") + m("Błonnik", t.f, g.f, "g");
   const rows = S.log.filter(e => e.date === day);
