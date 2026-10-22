@@ -134,6 +134,9 @@ svg text{fill:var(--muted);font:11px var(--body)}
 .badge.locked .ic{background:var(--frost);color:var(--muted)}
 .badge.locked b{color:var(--muted)}
 .badge .new{position:absolute;top:-7px;right:6px;font-size:10px;font-weight:700;background:var(--warn);color:#fff;border-radius:99px;padding:1px 6px}
+.wg-big .wg-warn{font:inherit;color:var(--warn);margin:0;letter-spacing:inherit}
+.wg-range > i{border-radius:0;opacity:.85}
+.wg-track .me.off{border-color:var(--warn)}
 details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;margin-top:14px}
 #print{display:none}
 @media print{
@@ -1113,7 +1116,8 @@ $("#w-add").onclick = () => {
   const before = wgStats(); S.weights[d] = kg; $("#w-kg").value = ""; save(); render();
   const after = wgStats(), bits = [`Zapisane: ${kg.toFixed(2).replace(".", ",")} kg.`];
   if (after.weigh.cur > 1) bits.push(`Seria ważenia: ${after.weigh.cur} dni z rzędu.`);
-  if (after.bestAvg != null && (before.bestAvg == null || after.bestAvg < before.bestAvg - 0.001) && after.dir < 0) bits.push("Najniższa średnia 7 dni do tej pory!");
+  if (after.bestAvg != null && (before.bestAvg == null || after.bestAvg < before.bestAvg - 0.001) && after.dir < 0 && !before.reached && !after.below) bits.push("Najniższa średnia 7 dni do tej pory!");
+  if (after.below) bits.push(`Średnia jest poniżej Twojego zakresu (${kg1(after.lowEdge)}–${kg1(after.highEdge)} kg), dodaj trochę jedzenia.`);
   const fresh = after.badges.filter(b => b.got && !before.badges.find(x => x.id === b.id).got);
   if (fresh.length) bits.push("Nowa odznaka: " + fresh.map(b => b.name).join(", ") + "!");
   msg($("#w-msg"), bits.join(" "));
@@ -1147,6 +1151,11 @@ function wgStats() {
   const kcal = runs(inKcal, yest, span), prot = runs(inProt, yest, span);
   const week = [...Array(7)].map((_, i) => addDays(yest, i - 6));
   const atGoal = goal && (cur - goal) * dir >= -0.05;
+  /* zakres utrzymania: cel ±0,5 kg. Poniżej zakresu chudnięcie przestaje być sukcesem */
+  const lowEdge = goal ? goal - 0.5 : null, highEdge = goal ? goal + 0.5 : null;
+  const below = !!goal && cur < lowEdge, reached = !!goal && bestDone >= need - 0.05;
+  const above = reached && cur > highEdge;
+  const eatsEnough = d => { const t = dayTotals(d); return t.n > 0 && t.k >= g.k * 0.95; };
   const keep = goal ? runs(d => { const a = weightAvg7(d); return a != null && Math.abs(a - goal) <= 0.5; }, last, span) : { cur: 0, best: 0 };
   let pace = prev != null ? (cur - prev) : null; /* kg na tydzień */
   const weeksLeft = goal && !atGoal && pace != null && pace * dir > 0.02 ? Math.ceil((goal - cur) / pace) : null;
@@ -1165,7 +1174,14 @@ function wgStats() {
   badges.push(B("k7", "kcal", "Tydzień w kaloriach", kcal.best >= 7, `7 dni ≤ ${g.k} kcal`, `${kcal.best}/7`));
   badges.push(B("k30", "kcal", "Miesiąc w kaloriach", kcal.best >= 30, `30 dni ≤ ${g.k} kcal`, `${kcal.best}/30`));
   badges.push(B("p7", "B", "Białkowy tydzień", prot.best >= 7, `7 dni ≥ ${g.p} g białka`, `${prot.best}/7`));
-  return { dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, keep, pace, weeksLeft, weigh, kcal, prot, week, inKcal, inProt, badges };
+  return { dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, week, inKcal, inProt, badges };
+}
+function wgRange(st) { /* oś od min do max z zaznaczonym zakresem utrzymania i aktualną średnią */
+  const lo = Math.min(st.cur, st.lowEdge) - 0.6, hi = Math.max(st.cur, st.highEdge) + 0.6, x = v => (v - lo) / (hi - lo) * 100;
+  return `<div class="wg-track wg-range" role="img" aria-label="Średnia ${kg2(st.cur)} kg, zakres ${kg1(st.lowEdge)}–${kg1(st.highEdge)} kg">
+    <i style="left:${x(st.lowEdge)}%;width:${x(st.highEdge) - x(st.lowEdge)}%"></i>
+    <span class="ms" style="left:${x(st.lowEdge)}%"><small>${kg1(st.lowEdge)}</small></span><span class="ms" style="left:${x(st.highEdge)}%"><small>${kg1(st.highEdge)}</small></span>
+    <span class="me off" style="left:${x(st.cur)}%"><small>${kg2(st.cur)}</small></span></div>`;
 }
 function wgSummary() {
   const st = wgStats(); if (st.empty) return `<p class="muted">Zapisz pierwszy pomiar, a tu pojawi się Twoja droga do celu.</p>`;
@@ -1182,29 +1198,47 @@ function wgSummary() {
   } else {
     const pct = Math.max(0, Math.min(1, done / need)), left = (goal - cur) * dir;
     const ms = []; for (let k = 1; k < need - 0.15; k++) ms.push(`<span class="ms${done >= k ? " done" : ""}" style="left:${k / need * 100}%"><small>${dir < 0 ? "−" : "+"}${k}</small></span>`);
-    const head = st.atGoal ? `Cel osiągnięty<span>${kg2(cur)} kg, średnia 7 dni</span>`
+    const head = st.below ? `<span class="wg-warn">${kg1(st.lowEdge - cur + 0.5)} kg poniżej celu</span><span>${kg2(cur)} kg, średnia 7 dni</span>`
+      : st.above ? `${kg1(cur - st.highEdge)} kg ponad zakres<span>${kg2(cur)} kg, średnia 7 dni</span>`
+      : st.atGoal ? `Cel osiągnięty<span>${kg2(cur)} kg, średnia 7 dni</span>`
       : `${kg1(Math.max(0, done))} kg<span>${dir < 0 ? "zrzucone" : "przybrane"} z ${kg1(need)} kg</span>`;
-    const sub = st.atGoal
+    const range = `${kg1(st.lowEdge)}–${kg1(st.highEdge)} kg`;
+    const sub = st.below
+      ? `Twój zakres to ${range}. Dalsze chudnięcie nie jest już celem: dodaj trochę jedzenia, np. 200–300 kcal dziennie, aż średnia wróci do zakresu. Jeśli waga spada mimo jedzenia albo jedzenie staje się trudne, porozmawiaj z lekarzem lub dietetykiem.`
+      : st.above
+      ? `Twój zakres to ${range}. Spokojnie, to się zdarza: wróć do swoich kalorii, a średnia sama zejdzie.`
+      : st.atGoal
       ? `Teraz utrzymanie: ${st.keep.cur} ${st.keep.cur === 1 ? "dzień" : "dni"} z rzędu w zakresie ${kg1(goal - 0.5)}–${kg1(goal + 0.5)} kg.`
       : `Zostało ${kg2(Math.max(0, left))} kg do ${goal} kg. ` + (st.weeksLeft ? `W tym tempie to ok. ${st.weeksLeft} ${st.weeksLeft === 1 ? "tydzień" : st.weeksLeft < 5 ? "tygodnie" : "tygodni"}.` : "Liczy się trend, nie pojedynczy dzień.");
-    hero = `<div class="wg-big">${head}</div>
+    hero = st.below || st.above ? `<div class="wg-big">${head}</div>${wgRange(st)}<p class="muted" style="margin:0">${sub}</p>` : `<div class="wg-big">${head}</div>
       <div class="wg-track" role="img" aria-label="Postęp do celu: ${r0(pct * 100)}%"><i style="width:${pct * 100}%"></i>${ms.join("")}
         <span class="ms start" style="left:0"><small>${kg1(start)}</small></span><span class="ms end" style="left:100%"><small>cel ${kg1(goal)}</small></span>
         <span class="me" style="left:${pct * 100}%"><small style="${pct > 0.93 ? "left:auto;right:-4px;transform:none" : pct < 0.07 ? "left:-4px;transform:none" : ""}">${r0(pct * 100)}%</small></span></div>
       <p class="muted" style="margin:0">${sub}</p>`;
   }
   const wk = st.pace;
+  /* dobry kierunek: przed celem w stronę celu, poniżej zakresu w górę, ponad zakresem w dół, w zakresie stabilnie */
+  const want = st.below ? 1 : st.above ? -1 : st.reached || st.atGoal ? 0 : st.dir;
+  const wkGood = wk != null && (want === 0 ? Math.abs(wk) <= 0.2 : wk * want > 0.02);
+  const wkBad = wk != null && (want === 0 ? Math.abs(wk) > 0.4 : wk * want < (st.below ? -0.02 : -0.2));
+  const wkText = wk == null ? "za mało pomiarów"
+    : st.below ? (wk > 0.02 ? "średnia wraca do zakresu" : "średnia dalej spada, dodaj jedzenia")
+    : st.above ? (wk < -0.02 ? "średnia wraca do zakresu" : "wahania się zdarzają, trzymaj kurs")
+    : want === 0 ? (wkGood ? "stabilnie, tak trzymaj" : wk < 0 ? "uwaga, średnia spada" : "wahania się zdarzają")
+    : wkGood ? "średnia idzie w dobrą stronę" : "wahania się zdarzają, trzymaj kurs";
   const dots = (ok, over) => `<div class="dots">${st.week.map(d => { const t = dayTotals(d); return `<i class="${!t.n ? "" : ok(d) ? "ok" : over ? "over" : ""}" title="${dm(d)}"></i>`; }).join("")}</div>`;
   const cnt = ok => st.week.filter(ok).length;
   const dni = n => n === 1 ? "dzień" : "dni";
   const tiles = `<div class="wg-tiles">
     <div class="wg-tile"><div class="lbl">Ten tydzień</div>
-      <div class="v ${wk == null ? "" : wk * st.dir > 0.02 ? "good" : wk * st.dir < -0.2 ? "meh" : ""}">${wk == null ? "–" : (wk >= 0 ? "+" : "−") + kg2(Math.abs(wk))}<span> kg</span></div>
-      <div class="s">${wk == null ? "za mało pomiarów" : wk * st.dir > 0.02 ? "średnia idzie w dobrą stronę" : Math.abs(wk) <= 0.02 || st.atGoal ? "stabilnie" : "wahania się zdarzają, trzymaj kurs"}</div></div>
+      <div class="v ${wkGood ? "good" : wkBad ? "meh" : ""}">${wk == null ? "–" : (wk >= 0 ? "+" : "−") + kg2(Math.abs(wk))}<span> kg</span></div>
+      <div class="s">${wkText}</div></div>
     <div class="wg-tile"><div class="lbl">Seria ważenia</div><div class="v">${st.weigh.cur}<span> ${dni(st.weigh.cur)}</span></div>
       <div class="s">rekord: ${st.weigh.best} ${dni(st.weigh.best)}</div></div>
-    <div class="wg-tile"><div class="lbl">Kalorie w celu</div>${dots(st.inKcal, true)}
-      <div class="s">${cnt(st.inKcal)}/7 dni · seria ${st.kcal.cur}, rekord ${st.kcal.best}</div></div>
+    ${st.below ? `<div class="wg-tile"><div class="lbl">Dojedzone kalorie</div>${dots(st.eatsEnough, false)}
+      <div class="s">${cnt(st.eatsEnough)}/7 dni z co najmniej ${r0(g.k * 0.95)} kcal</div></div>`
+    : `<div class="wg-tile"><div class="lbl">Kalorie w celu</div>${dots(st.inKcal, true)}
+      <div class="s">${cnt(st.inKcal)}/7 dni · seria ${st.kcal.cur}, rekord ${st.kcal.best}</div></div>`}
     <div class="wg-tile"><div class="lbl">Białko ${g.p} g+</div>${dots(st.inProt, false)}
       <div class="s">${cnt(st.inProt)}/7 dni · seria ${st.prot.cur}, rekord ${st.prot.best}</div></div>
   </div>`;
