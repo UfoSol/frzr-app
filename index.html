@@ -86,6 +86,12 @@ td input.num{width:72px;text-align:right}
 .chip{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:6px 12px;font:500 14px var(--body);cursor:pointer}
 .chip:hover{border-color:var(--accent)}
 .chip small{color:var(--muted);font-size:12px}
+.sugg{position:relative}
+.sugg-list{position:absolute;left:0;right:0;min-width:260px;top:100%;z-index:5;margin:4px 0 0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgb(0 0 0/.12);max-height:260px;overflow:auto}
+.sugg-list button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:7px 9px;font:500 14px var(--body);color:var(--ink);cursor:pointer}
+.sugg-list button:hover,.sugg-list button:focus-visible{background:var(--frost)}
+.sugg-list small{color:var(--muted);font-size:12px;white-space:nowrap}
+.sugg-list .hint{padding:4px 9px 6px;font-size:12px;color:var(--muted)}
 input[type="search"]{width:100%;font-size:16px;padding:10px 12px}
 .results{display:flex;flex-direction:column;margin-top:6px}
 .res{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -157,7 +163,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
     <div class="card">
       <h3>Dodaj coś spoza zamrażarki</h3>
       <div class="row">
-        <label style="flex:2">Nazwa lub opis<input id="free-name" list="food-list" placeholder="np. kawa z mlekiem 30 kcal, Monte 55 g"></label>
+        <div class="sugg" style="flex:2 1 240px;display:flex;flex-direction:column"><label>Nazwa lub opis<input id="free-name" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="np. kawa z mlekiem 30 kcal, Monte 55 g"></label><ul class="sugg-list" id="free-sugg" hidden></ul></div>
         <label>kcal<input type="number" id="free-k" step="1" style="width:80px"></label>
         <label>Białko g<input type="number" id="free-p" step="0.1" style="width:80px"></label>
         <label>Błonnik g<input type="number" id="free-f" step="0.1" style="width:80px"></label>
@@ -168,7 +174,6 @@ svg text{fill:var(--muted);font:11px var(--body)}
         <button class="btn ghost" id="free-ean">Z kodu kreskowego</button>
       </div>
       <div class="msg" id="free-msg" hidden></div>
-      <datalist id="food-list"></datalist>
     </div>
   </section>
 
@@ -560,6 +565,8 @@ $("#free-add").onclick = async () => {
   msg($("#free-msg"), "");
   const parsed = parseFree(name);
   name = parsed.name || name;
+  const same = !$("#free-k").value && !parsed.k && (S.foods || []).find(z => z.name.toLowerCase() === name.toLowerCase());
+  if (same) { $("#free-k").value = r0(same.k); if ($("#free-p").value === "") $("#free-p").value = r1(same.p); if ($("#free-f").value === "") $("#free-f").value = r1(same.f); }
   let k = num($("#free-k").value) || parsed.k || 0;
   let p = $("#free-p").value, f = $("#free-f").value;
   if (p === "" && parsed.p !== undefined) p = parsed.p;
@@ -577,15 +584,39 @@ $("#free-add").onclick = async () => {
   }
   S.log.push({ id: uid(), date: day, name, k, p: num(p), f: num(f) });
   upsertFood(name, k, num(p), num(f), day);
-  ["#free-name", "#free-k", "#free-p", "#free-f"].forEach(s => $(s).value = "");
+  ["#free-name", "#free-k", "#free-p", "#free-f"].forEach(s => $(s).value = ""); freePicked = null; hideFreeSugg();
   if (!$("#free-msg").classList.contains("err")) msg($("#free-msg"), `Dodano: ${name}, ${r0(k)} kcal, białko ${f1(num(p))} g, błonnik ${f1(num(f))} g.`);
   save(); render();
 };
+/* podpowiedzi z bazy: nic się nie wpisuje samo, tylko kliknięcie w podpowiedź bierze jej wartości */
+let freePicked = null;
+function showFreeSugg() {
+  const q = $("#free-name").value.trim(), box = $("#free-sugg");
+  const list = q.length < 2 ? [] : (S.foods || []).filter(x => matches(x, q)).sort((a, b) => (b.count - a.count) || (b.last || "").localeCompare(a.last || "")).slice(0, 6);
+  if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.innerHTML = `<li class="hint">Z bazy, kliknij, żeby wziąć wartości. Enter dodaje to, co wpisane.</li>` +
+    list.map(x => `<li><button type="button" data-sugg="${x.id}"><span>${hl(x.name, q)}</span> <small>${r0(x.k)} kcal</small></button></li>`).join("");
+  box.hidden = false;
+  box.querySelectorAll("[data-sugg]").forEach(b => {
+    b.onmousedown = e => e.preventDefault();
+    b.onclick = () => {
+      const x = S.foods.find(z => z.id === b.dataset.sugg); if (!x) return;
+      $("#free-name").value = x.name; $("#free-k").value = r0(x.k); $("#free-p").value = r1(x.p); $("#free-f").value = r1(x.f);
+      freePicked = x.name; hideFreeSugg(); msg($("#free-msg"), "Wartości z Twojej bazy. Kliknij Dodaj.");
+    };
+  });
+}
+function hideFreeSugg() { $("#free-sugg").hidden = true; }
 $("#free-name").oninput = () => {
-  const x = (S.foods || []).find(z => z.name.toLowerCase() === $("#free-name").value.trim().toLowerCase());
-  if (x) { $("#free-k").value = r0(x.k); $("#free-p").value = r1(x.p); $("#free-f").value = r1(x.f); msg($("#free-msg"), "Wartości z Twojej bazy. Kliknij Dodaj."); }
+  /* zmieniona nazwa po wybraniu podpowiedzi: stare wartości już nie pasują */
+  if (freePicked !== null && $("#free-name").value.trim() !== freePicked) { ["#free-k", "#free-p", "#free-f"].forEach(s => $(s).value = ""); freePicked = null; msg($("#free-msg"), ""); }
+  showFreeSugg();
 };
-$("#free-name").onkeydown = e => { if (e.key === "Enter") $("#free-add").click(); };
+$("#free-name").onkeydown = e => {
+  if (e.key === "Escape") hideFreeSugg();
+  if (e.key === "Enter") { hideFreeSugg(); $("#free-add").click(); }
+};
+$("#free-name").onblur = () => setTimeout(hideFreeSugg, 150);
 $("#free-ai").onclick = async () => {
   const txt = $("#free-name").value.trim(); if (!txt) return msg($("#free-msg"), "Wpisz, co zjadłaś, z ilością.", true);
   const b = $("#free-ai"); b.disabled = true; msg($("#free-msg"), "Gemini szuka wartości…");
@@ -1158,7 +1189,6 @@ function renderFoods() {
     const x = foods.find(z => z.id === b.dataset.fav); S.log.push({ id: uid(), date: day, name: x.name, k: x.k, p: x.p, f: x.f });
     x.count++; x.last = day; save(); render(); msg($("#free-msg"), `Dodano: ${x.name}, ${r0(x.k)} kcal.`);
   });
-  $("#food-list").innerHTML = foods.map(x => `<option value="${esc(x.name)}"></option>`).join("");
   const rq = $("#rc-search").value.trim();
   const rows = foods.filter(x => matches(x, rq)).sort((a, b) => a.name.localeCompare(b.name, "pl"));
   $("#fd-table").innerHTML = foods.length ? `<thead><tr><th>Produkt</th><th class="n">kcal</th><th class="n">Białko g</th><th class="n">Błonnik g</th><th class="n">Razy</th><th></th></tr></thead><tbody>` +
