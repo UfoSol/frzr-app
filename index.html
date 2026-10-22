@@ -136,6 +136,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
         <button class="btn ghost small" id="day-prev">←</button>
         <input type="date" id="day-date">
         <button class="btn ghost small" id="day-next">→</button>
+        <button class="btn small" id="day-today" hidden>Dziś</button>
       </div>
       <button class="btn" id="scan-btn">Skanuj kod QR</button>
     </div>
@@ -517,9 +518,11 @@ $("#day-date").value = day;
 $("#day-date").onchange = e => { day = e.target.value || todayIso(); render(); };
 $("#day-prev").onclick = () => { day = addDays(day, -1); $("#day-date").value = day; render(); };
 $("#day-next").onclick = () => { day = addDays(day, 1); $("#day-date").value = day; render(); };
+$("#day-today").onclick = () => { day = todayIso(); $("#day-date").value = day; render(); };
 
 function renderToday() {
   $("#today-lbl").textContent = new Date().toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+  $("#day-today").hidden = day === todayIso();
   const t = dayTotals(day), g = S.settings.goals;
   const m = (lbl, v, goal, unit) => {
     const fmt = x => unit === "kcal" ? r0(x) : f1(x);
