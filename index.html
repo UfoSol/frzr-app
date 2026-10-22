@@ -1117,7 +1117,7 @@ $("#w-add").onclick = () => {
   const after = wgStats(), bits = [`Zapisane: ${kg.toFixed(2).replace(".", ",")} kg.`];
   if (after.weigh.cur > 1) bits.push(`Seria ważenia: ${after.weigh.cur} dni z rzędu.`);
   if (after.bestAvg != null && (before.bestAvg == null || after.bestAvg < before.bestAvg - 0.001) && after.dir < 0 && !before.reached && !after.below) bits.push("Najniższa średnia 7 dni do tej pory!");
-  if (after.below) bits.push(`Średnia jest poniżej Twojego zakresu (${kg1(after.lowEdge)}–${kg1(after.highEdge)} kg), dodaj trochę jedzenia.`);
+  if (after.below) bits.push(`Średnia jest poniżej Twojego zakresu (${kg1(after.lowEdge)}–${kg1(after.highEdge)} kg), jedz więcej.`);
   const fresh = after.badges.filter(b => b.got && !before.badges.find(x => x.id === b.id).got);
   if (fresh.length) bits.push("Nowa odznaka: " + fresh.map(b => b.name).join(", ") + "!");
   msg($("#w-msg"), bits.join(" "));
@@ -1204,7 +1204,7 @@ function wgSummary() {
       : `${kg1(Math.max(0, done))} kg<span>${dir < 0 ? "zrzucone" : "przybrane"} z ${kg1(need)} kg</span>`;
     const range = `${kg1(st.lowEdge)}–${kg1(st.highEdge)} kg`;
     const sub = st.below
-      ? `Twój zakres to ${range}. Dalsze chudnięcie nie jest już celem: dodaj trochę jedzenia, np. 200–300 kcal dziennie, aż średnia wróci do zakresu. Jeśli waga spada mimo jedzenia albo jedzenie staje się trudne, porozmawiaj z lekarzem lub dietetykiem.`
+      ? `Twój zakres to ${range}. Dalsze chudnięcie nie jest już celem: jedz więcej, np. o 200–300 kcal dziennie, aż średnia wróci do zakresu. Jeśli waga spada mimo jedzenia albo jedzenie staje się trudne, porozmawiaj z lekarzem lub dietetykiem.`
       : st.above
       ? `Twój zakres to ${range}. Spokojnie, to się zdarza: wróć do swoich kalorii, a średnia sama zejdzie.`
       : st.atGoal
@@ -1222,7 +1222,7 @@ function wgSummary() {
   const wkGood = wk != null && (want === 0 ? Math.abs(wk) <= 0.2 : wk * want > 0.02);
   const wkBad = wk != null && (want === 0 ? Math.abs(wk) > 0.4 : wk * want < (st.below ? -0.02 : -0.2));
   const wkText = wk == null ? "za mało pomiarów"
-    : st.below ? (wk > 0.02 ? "średnia wraca do zakresu" : "średnia dalej spada, dodaj jedzenia")
+    : st.below ? (wk > 0.02 ? "średnia wraca do zakresu" : "średnia dalej spada, jedz więcej")
     : st.above ? (wk < -0.02 ? "średnia wraca do zakresu" : "wahania się zdarzają, trzymaj kurs")
     : want === 0 ? (wkGood ? "stabilnie, tak trzymaj" : wk < 0 ? "uwaga, średnia spada" : "wahania się zdarzają")
     : wkGood ? "średnia idzie w dobrą stronę" : "wahania się zdarzają, trzymaj kurs";
