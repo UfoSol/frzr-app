@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FRZR</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232E6A4E'/%3E%3Cg stroke='white' stroke-width='4' stroke-linecap='round' fill='none'%3E%3Cpath d='M32 10v44M13 21l38 22M13 43l38-22'/%3E%3Cpath d='M26 13l6 6 6-6M26 51l6-6 6 6M12 28l8-2-2-8M52 36l-8 2 2 8M12 36l8 2-2 8M52 28l-8-2 2-8'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+/* Układ: wąska kolumna robocza, zakładki u góry, liczby w kolumnach tabelarycznych */
+:root{
+  --bg:#F2F5F3; --surface:#FFFFFF; --ink:#18221F; --muted:#5E6B66; --line:#D9E1DD;
+  --accent:#2E6A4E; --accent-ink:#FFFFFF; --frost:#E3EEF1; --warn:#B4651A; --bad:#B23A3A; --ok:#2E6A4E;
+  --display:"Bricolage Grotesque",Georgia,serif; --body:"Instrument Sans",system-ui,"Segoe UI",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121816; --surface:#1B2320; --ink:#E6ECE9; --muted:#97A39E; --line:#2C3632;
+  --accent:#6BBF95; --accent-ink:#0F1513; --frost:#1F2C30; --warn:#E3A35C; --bad:#E27C7C; --ok:#6BBF95; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121816; --surface:#1B2320; --ink:#E6ECE9; --muted:#97A39E; --line:#2C3632;
+  --accent:#6BBF95; --accent-ink:#0F1513; --frost:#1F2C30; --warn:#E3A35C; --bad:#E27C7C; --ok:#6BBF95; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+.wrap{max-width:860px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font:800 30px/1 var(--display);margin:0;letter-spacing:-.02em}
+h1 small{font:500 13px var(--body);color:var(--muted);margin-left:8px;letter-spacing:0}
+h2{font:600 20px/1.2 var(--display);margin:0 0 10px;text-wrap:balance}
+h3{font:600 15px var(--body);margin:0 0 8px}
+nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:18px}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;font:600 14px var(--body);color:var(--muted);cursor:pointer}
+nav button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+section.panel{display:flex;flex-direction:column;gap:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.row>*{min-width:0}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+input,textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
+textarea{width:100%;min-height:110px;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.btn{font:600 14px var(--body);border-radius:6px;padding:8px 14px;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink)}
+button.ghost{background:transparent;color:var(--accent)}
+button.small{padding:4px 9px;font-size:13px}
+button.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
+button.x:hover{color:var(--bad)}
+button:disabled{opacity:.5;cursor:wait}
+.meters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.meters{grid-template-columns:1fr}}
+.meter .lbl{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.meter .val{font:800 26px/1.1 var(--display)}
+.meter .val span{font:500 14px var(--body);color:var(--muted)}
+.bar{height:8px;background:var(--frost);border-radius:4px;overflow:hidden;margin:6px 0 4px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar{display:flex;position:relative}
+.bar i.over{background:var(--warn)}
+.bar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);transform:translateX(-1px)}
+.meter.is-over .val{color:var(--warn)}
+.meter.is-over .rest{color:var(--warn);font-weight:600}
+.meter .rest{font-size:13px;color:var(--muted)}
+.tablebox{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right}
+tfoot td{font-weight:600;border-bottom:0}
+td input{width:100%;padding:4px 6px}
+td input.num{width:72px;text-align:right}
+.muted{color:var(--muted);font-size:13px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--frost);color:var(--ink)}
+.stock{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.item .name{font-weight:600}
+.item .macro{font-size:13px;color:var(--muted)}
+.item .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.count{font:800 22px var(--display)}
+.msg{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
+.msg.err{color:var(--bad)}
+#reader{width:100%;max-width:380px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:6px 12px;font:500 14px var(--body);cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip small{color:var(--muted);font-size:12px}
+input[type="search"]{width:100%;font-size:16px;padding:10px 12px}
+.results{display:flex;flex-direction:column;margin-top:6px}
+.res{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.res .t{min-width:0;flex:1}
+.res .t small{display:block;color:var(--muted);font-size:12px}
+.kind{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:6px}
+mark{background:var(--frost);color:inherit;border-radius:2px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal .card{max-width:440px;width:100%}
+svg text{fill:var(--muted);font:11px var(--body)}
+#print{display:none}
+@media print{
+  body{background:#fff}
+  .wrap,.modal{display:none!important}
+  #print{display:grid!important;grid-template-columns:repeat(3,62mm);gap:4mm;padding:6mm}
+  .label{border:1px dashed #999;padding:3mm;display:flex;gap:3mm;align-items:center;break-inside:avoid;color:#000;font:10pt Arial,sans-serif}
+  .label img{width:22mm;height:22mm}
+  .label b{display:block;font-size:10.5pt}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>FRZR <small id="today-lbl"></small></h1>
+    <span class="muted" id="save-state"></span>
+  </header>
+  <nav role="tablist">
+    <button data-tab="dzis" aria-selected="true">Dziś</button>
+    <button data-tab="zamrazarka">Zamrażarka</button>
+    <button data-tab="gotuje">Gotuję</button>
+    <button data-tab="przepisy">Przepisy</button>
+    <button data-tab="waga">Waga</button>
+    <button data-tab="ustawienia">Ustawienia</button>
+  </nav>
+
+  <!-- DZIŚ -->
+  <section class="panel" id="tab-dzis">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <button class="btn ghost small" id="day-prev">←</button>
+        <input type="date" id="day-date">
+        <button class="btn ghost small" id="day-next">→</button>
+      </div>
+      <button class="btn" id="scan-btn">Skanuj kod QR</button>
+    </div>
+    <div class="card meters" id="meters"></div>
+    <div class="card">
+      <h3>Zjedzone</h3>
+      <div class="tablebox"><table id="log-table"></table></div>
+    </div>
+    <div class="card">
+      <h3>Dodaj z zamrażarki</h3>
+      <div class="row">
+        <label style="flex:1">Posiłek<select id="quick-meal"></select></label>
+        <label>Pudełka<input type="number" id="quick-meal-n" value="1" min="0.25" step="0.25" style="width:80px"></label>
+        <label>Moja część %<input type="number" id="quick-meal-share" value="100" min="1" max="100" step="5" style="width:90px"></label>
+        <button class="btn" id="quick-meal-add">Dodaj</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <h3 style="margin:0">Często jem</h3>
+        <input type="search" id="fav-search" placeholder="Szukaj w bazie" autocomplete="off" aria-label="Szukaj w bazie" style="width:200px;font-size:14px;padding:6px 10px">
+      </div>
+      <div class="chips" id="favs"></div>
+    </div>
+    <div class="card">
+      <h3>Dodaj coś spoza zamrażarki</h3>
+      <div class="row">
+        <label style="flex:2">Nazwa lub opis<input id="free-name" list="food-list" placeholder="np. kawa z mlekiem 30 kcal, Monte 55 g"></label>
+        <label>kcal<input type="number" id="free-k" step="1" style="width:80px"></label>
+        <label>Białko g<input type="number" id="free-p" step="0.1" style="width:80px"></label>
+        <label>Błonnik g<input type="number" id="free-f" step="0.1" style="width:80px"></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="free-add">Dodaj</button>
+        <button class="btn ghost" id="free-ai">Policz z Gemini</button>
+        <button class="btn ghost" id="free-ean">Z kodu kreskowego</button>
+      </div>
+      <div class="msg" id="free-msg" hidden></div>
+      <datalist id="food-list"></datalist>
+    </div>
+  </section>
+
+  <!-- ZAMRAŻARKA -->
+  <section class="panel" id="tab-zamrazarka" hidden>
+    <div class="card">
+      <h3>Dodaj do zamrażarki</h3>
+      <div class="row">
+        <label style="flex:2;min-width:220px">Nazwa i sumy albo składniki do policzenia<textarea id="fa-name" style="min-height:70px" placeholder="dorsz z bulgurem 1635 kcal, 106,5 g białka, 38 g błonnika&#10;albo: pizza Baza: 42 g mąki, 1 g oliwy… Wersja 1: … Wersja 2: …"></textarea></label>
+        <label>Wartości dla<select id="fa-scope"><option value="pot">całego garnka</option><option value="box">jednego pudełka</option><option value="mine">mojej porcji</option></select></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>kcal<input type="number" id="fa-k" step="1" style="width:90px"></label>
+        <label>Białko g<input type="number" id="fa-p" step="0.1" style="width:90px"></label>
+        <label>Błonnik g<input type="number" id="fa-f" step="0.1" style="width:90px"></label>
+        <label>Pudełka<input type="number" id="fa-n" value="2" min="1" step="1" style="width:80px"></label>
+        <label>Moja część %<input type="number" id="fa-share" value="40" min="1" max="100" step="5" style="width:90px"></label>
+        <div class="row" style="gap:4px"><button class="btn ghost small" data-fa-share="40">40%</button><button class="btn ghost small" data-fa-share="100">100%</button></div>
+      </div>
+      <p class="muted" style="margin:8px 0 0">„Dodaj do zamrażarki” zapisuje wpisane sumy bez Gemini. „Policz z Gemini” liczy składniki, a każda wersja staje się osobną pozycją. Przepis to cała partia dzielona na podaną liczbę pudełek: dla pojedynczej pizzy ustaw 1 pudełko i 100%.</p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="fa-add">Dodaj do zamrażarki</button>
+        <button class="btn ghost" id="fa-ai">Policz z Gemini</button>
+        <button class="btn ghost" id="fa-add-print">Dodaj i drukuj etykiety</button>
+      </div>
+      <div class="msg" id="fa-msg" hidden></div>
+      <div id="fa-preview"></div>
+    </div>
+    <input type="search" id="fz-search" placeholder="Szukaj w zamrażarce i historii" autocomplete="off" aria-label="Szukaj">
+    <div>
+      <h2>W zamrażarce</h2>
+      <div class="stock" id="stock"></div>
+    </div>
+    <div class="card">
+      <h3>Wszystkie posiłki</h3>
+      <p class="muted" style="margin:0 0 8px">Posiłki, których już nie ma, zostają tutaj. „Ugotuj ponownie” wczytuje przepis do zakładki Gotuję.</p>
+      <div class="tablebox"><table id="meals-table"></table></div>
+    </div>
+  </section>
+
+  <!-- GOTUJĘ -->
+  <section class="panel" id="tab-gotuje" hidden>
+    <div class="card" id="ck-start">
+      <div class="row">
+        <label style="flex:1">Zacznij od przepisu albo przyprawy<input type="search" id="ck-search" placeholder="Szukaj po nazwie albo składniku, np. curry, kurczak" autocomplete="off"></label>
+      </div>
+      <div class="results" id="ck-results"></div>
+      <div class="msg" id="ck-from" hidden></div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <label style="flex:2">Nazwa posiłku<input id="ck-name" placeholder="np. Ciasto na hot dogi"></label>
+        <label>Pudełka / porcje<input type="number" id="ck-portions" value="2" min="1" step="1" style="width:90px"></label>
+        <label>Moja część pudełka %<input type="number" id="ck-share" value="40" min="1" max="100" step="5" style="width:110px"></label>
+        <div class="row" style="gap:4px"><button class="btn ghost small" data-share="40">40%</button><button class="btn ghost small" data-share="100">100%</button></div>
+      </div>
+      <label style="margin-top:10px">Składniki, jak piszesz do czatu
+        <textarea id="ck-text" placeholder="150 g mąki pełnoziarnistej, 250 g zwykłej mąki, 29 g oliwy, łyżeczka suchych drożdży, 125 g mleka, łyżeczka miodu"></textarea>
+      </label>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="ck-ai">Policz z Gemini</button>
+        <button class="btn ghost" id="ck-row">Dodaj wiersz ręcznie</button>
+        <button class="btn ghost" id="ck-ean">Dodaj z kodu kreskowego</button>
+        <span class="row" style="gap:4px"><select id="ck-spice" aria-label="Moja przyprawa"></select><input type="number" id="ck-spice-g" placeholder="g" style="width:64px" aria-label="Gramy przyprawy"><button class="btn ghost" id="ck-spice-add">Dodaj przyprawę</button></span>
+        <button class="btn ghost" id="ck-clear">Wyczyść</button>
+      </div>
+      <div class="msg" id="ck-msg" hidden></div>
+    </div>
+    <div class="card">
+      <h3>Wyliczenie</h3>
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <p class="muted" style="margin:0">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same. Składnik wpisany ręcznie dostaje wartości z poprzednich przepisów.</p>
+        <span class="row" style="gap:4px"><input type="number" id="ck-scale" value="1" step="0.25" min="0.1" style="width:70px" aria-label="Mnożnik"><button class="btn ghost small" id="ck-scale-go">Przeskaluj gramy ×</button></span>
+      </div>
+      <datalist id="ing-list"></datalist>
+      <div class="tablebox"><table id="ck-table"></table></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="ck-save">Zapisz do zamrażarki</button>
+        <button class="btn ghost" id="ck-save-print">Zapisz i drukuj etykiety</button>
+      </div>
+      <label class="muted" id="ck-upd-wrap" style="flex-direction:row;align-items:center;gap:6px;margin-top:10px" hidden><input type="checkbox" id="ck-upd"> Zaktualizuj też przepis bazowy o dzisiejsze zmiany</label>
+      <div class="row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+        <button class="btn ghost" id="ck-as-recipe">Zapisz jako przepis bazowy</button>
+        <button class="btn ghost" id="ck-as-spice">Zapisz jako moją przyprawę</button>
+      </div>
+      <div class="msg" id="ck-msg2" hidden></div>
+    </div>
+  </section>
+
+  <!-- PRZEPISY -->
+  <section class="panel" id="tab-przepisy" hidden>
+    <input type="search" id="rc-search" placeholder="Szukaj przepisu, przyprawy albo składnika" autocomplete="off" aria-label="Szukaj">
+    <div class="card">
+      <h3>Moje przepisy</h3>
+      <p class="muted" style="margin:0 0 8px">„Gotuję” wczytuje przepis z aktualnymi gramami. Nowy przepis zapiszesz w zakładce Gotuję przyciskiem „Zapisz jako przepis bazowy”.</p>
+      <div class="tablebox"><table id="rc-table"></table></div>
+    </div>
+    <div class="card">
+      <h3>Moje produkty</h3>
+      <p class="muted" style="margin:0 0 8px">Wszystko, co dodajesz w „Dodaj coś spoza zamrażarki”, trafia tutaj. Wartości możesz poprawić, zmiana działa przy następnym dodaniu.</p>
+      <div class="tablebox"><table id="fd-table"></table></div>
+    </div>
+    <div class="card">
+      <h3>Moje przyprawy</h3>
+      <p class="muted" style="margin:0 0 8px">Mieszankę tworzysz w zakładce Gotuję: wpisz jej skład i kliknij „Zapisz jako moją przyprawę”. Wartości liczą się na 100 g gotowej mieszanki.</p>
+      <div class="tablebox"><table id="sp-table"></table></div>
+    </div>
+  </section>
+
+  <!-- WAGA -->
+  <section class="panel" id="tab-waga" hidden>
+    <div class="card">
+      <div class="row">
+        <label>Data<input type="date" id="w-date"></label>
+        <label>Waga kg<input type="number" id="w-kg" step="0.05" style="width:100px"></label>
+        <button class="btn" id="w-add">Zapisz</button>
+      </div>
+    </div>
+    <div class="card" id="w-analysis"></div>
+    <div class="card"><h3>Waga i średnia 7-dniowa</h3><div id="w-chart"></div></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px">
+        <h3 style="margin:0">Dni</h3>
+        <button class="btn ghost small" id="w-copy">Kopiuj dane dla Claude</button>
+      </div>
+      <div class="tablebox"><table id="w-table"></table></div>
+    </div>
+  </section>
+
+  <!-- USTAWIENIA -->
+  <section class="panel" id="tab-ustawienia" hidden>
+    <div class="card">
+      <h3>Cele</h3>
+      <div class="row">
+        <label>kcal<input type="number" id="g-k" style="width:90px"></label>
+        <label>Białko g<input type="number" id="g-p" style="width:90px"></label>
+        <label>Błonnik g<input type="number" id="g-f" style="width:90px"></label>
+        <label>Cel wagi kg<input type="number" id="g-w" step="0.1" style="width:90px"></label>
+        <button class="btn" id="g-save">Zapisz</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Gemini</h3>
+      <p class="muted" style="margin:0 0 8px">Darmowy klucz: aistudio.google.com/apikey. Do Gemini trafiają tylko nazwy i ilości składników, nigdy waga ani dziennik.</p>
+      <div class="row">
+        <label style="flex:2">Klucz API<input type="password" id="s-key" autocomplete="off"></label>
+        <label>Model<input id="s-model" style="width:170px"></label>
+        <button class="btn" id="s-save">Zapisz</button>
+        <button class="btn ghost" id="s-test">Testuj</button>
+      </div>
+      <div class="msg" id="s-msg" hidden></div>
+    </div>
+    <div class="card">
+      <h3>Kopia danych</h3>
+      <p class="muted" style="margin:0 0 8px">Dane są zapisane w tej przeglądarce na tym komputerze. Plik kopii warto zrobić raz w tygodniu i przy przenosinach na serwer.</p>
+      <div class="row">
+        <button class="btn" id="exp">Pobierz kopię (JSON)</button>
+        <label class="btn ghost" style="flex-direction:row;cursor:pointer;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:8px 14px;font-size:14px">Wczytaj kopię<input type="file" id="imp" accept=".json" hidden></label>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Import z czatów</h3>
+      <p class="muted" style="margin:0 0 8px">Jedna linia na dzień. Waga: „17.10 54,15”. Suma dnia: „16.10 1704 68,4 14,3” (kcal, białko, błonnik).</p>
+      <textarea id="chat-imp"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" id="chat-imp-btn">Importuj</button></div>
+      <div class="msg" id="chat-imp-msg" hidden></div>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="scan-modal" hidden>
+  <div class="card">
+    <h3>Skanuj etykietę</h3>
+    <div id="reader"></div>
+    <div class="msg" id="scan-msg" hidden></div>
+    <div class="row" style="margin-top:10px"><button class="btn ghost" id="scan-close">Zamknij</button></div>
+  </div>
+</div>
+
+<div class="modal" id="ed-modal" hidden>
+  <div class="card" style="max-width:520px">
+    <h3>Edytuj posiłek</h3>
+    <div class="row">
+      <label style="flex:1;min-width:200px">Nazwa<input id="ed-name"></label>
+      <label>Data<input type="date" id="ed-date"></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label>Pudełka razem<input type="number" id="ed-portions" min="1" step="1" style="width:90px"></label>
+      <label>W zamrażarce<input type="number" id="ed-stock" min="0" step="0.5" style="width:90px"></label>
+      <label>Moja część %<input type="number" id="ed-share" min="1" max="100" step="5" style="width:90px"></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label>Wartości dla<select id="ed-scope"><option value="pot">całego garnka</option><option value="box">jednego pudełka</option><option value="mine">mojej porcji</option></select></label>
+      <label>kcal<input type="number" id="ed-k" step="1" style="width:90px"></label>
+      <label>Białko g<input type="number" id="ed-p" step="0.1" style="width:90px"></label>
+      <label>Błonnik g<input type="number" id="ed-f" step="0.1" style="width:90px"></label>
+    </div>
+    <p class="muted" id="ed-note" style="margin:8px 0 0"></p>
+    <div class="msg" id="ed-msg" hidden></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="ed-save">Zapisz</button>
+      <button class="btn ghost" id="ed-cancel">Anuluj</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="ean-modal" hidden>
+  <div class="card">
+    <h3>Produkt z kodu kreskowego</h3>
+    <p class="muted" style="margin:0 0 8px">Wartości z etykiety z bazy Open Food Facts.</p>
+    <div class="row">
+      <label style="flex:1">Kod EAN<input id="ean-code" inputmode="numeric"></label>
+      <label>Gramy<input type="number" id="ean-g" style="width:90px"></label>
+    </div>
+    <div class="msg" id="ean-msg" hidden></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="ean-go">Pobierz i dodaj</button>
+      <button class="btn ghost" id="ean-close">Anuluj</button>
+    </div>
+  </div>
+</div>
+
+<div id="print"></div>
+
+<script>
+"use strict";
+const KEY = "mroznik.v1";
+const $ = s => document.querySelector(s);
+const r1 = x => Math.round(x * 10) / 10;
+const r0 = x => Math.round(x);
+const f1 = x => r1(x).toLocaleString("pl-PL");
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const iso = d => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
+const todayIso = () => iso(new Date());
+const dm = s => s.slice(8, 10) + "." + s.slice(5, 7);
+const addDays = (s, n) => { const d = new Date(s + "T12:00:00"); d.setDate(d.getDate() + n); return iso(d); };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isFinite(x) ? x : 0; };
+
+/* ---------- dane ---------- */
+function seed() {
+  const row = (name, qty, g, k, p, f) => ({ name, qty, g, k100: k / g * 100, p100: p / g * 100, f100: f / g * 100, src: "z czatu Perplexity" });
+  const ciasto = { id: uid(), name: "Ciasto na hot dogi", portions: 10, share: 100, stock: 0, date: "2026-10-17",
+    rows: [row("Mąka pełnoziarnista", "150 g", 150, 491, 17.9, 16.2), row("Mąka pszenna", "250 g", 250, 900, 30, 7.5),
+      row("Oliwa", "29 g", 29, 261, 0, 0), row("Drożdże suche", "1 łyżeczka", 4, 14, 2, 1),
+      row("Mleko", "125 g", 125, 61, 4, 0), row("Miód", "1 łyżeczka", 7, 21, 0, 0)] };
+  const e = (date, name, k, p, f) => ({ id: uid(), date, name, k, p, f });
+  return {
+    settings: { key: "", model: "gemini-3.8-flash", goals: { k: 1700, p: 90, f: 25 }, weightGoal: 55 },
+    meals: [ciasto],
+    log: [
+      e("2026-10-12", "Suma dnia (z czatu)", 1688, 71.7, 9.6), e("2026-10-13", "Suma dnia (z czatu)", 1479, 64.1, 17.8),
+      e("2026-10-14", "Suma dnia (z czatu)", 1897, 71.6, 13.8), e("2026-10-15", "Suma dnia (z czatu)", 1477, 62.3, 6.9),
+      e("2026-10-16", "Suma dnia (z czatu)", 1704, 68.4, 14.3),
+      e("2026-10-17", "Monte, 55 g", 101, 1.4, 0.5), e("2026-10-17", "Owsianka z kremem Biscoff", 397, 25.1, 8.8),
+      e("2026-10-17", "Ryż z warzywami", 622, 37.1, 7.4), e("2026-10-17", "Kawa z mlekiem", 30, 0, 0),
+      e("2026-10-17", "Pizza", 438, 20.3, 2.1)],
+    weights: { "2026-10-12": 54.9, "2026-10-13": 55.65, "2026-10-14": 55.4, "2026-10-15": 54.9, "2026-10-16": 54.6, "2026-10-17": 54.15 }
+  };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
+if (!S) S = seed();
+if (!S.recipes) { const seen = new Set(); S.recipes = S.meals.filter(m => !seen.has(m.name) && seen.add(m.name)).map(m => ({ id: uid(), name: m.name, portions: m.portions, share: m.share ?? 100, rows: m.rows.map(r => ({ ...r })), text: m.text || "" })); }
+if (!S.spices) S.spices = [];
+const KCAL_RE = /(\d+(?:[.,]\d+)?)\s*(?:kcal|kalori\w*|cal)\b/i;
+const PROT_RE = /(\d+(?:[.,]\d+)?)\s*g?\s*(?:białk\w*|bialk\w*|B\b)/i;
+const FIB_RE = /(\d+(?:[.,]\d+)?)\s*g?\s*(?:błonnik\w*|blonnik\w*)/i;
+/* baza produktów spoza zamrażarki */
+function upsertFood(name, k, p, f, date) {
+  if (!name) return; S.foods = S.foods || [];
+  const key = name.trim().toLowerCase(); let x = S.foods.find(z => z.name.toLowerCase() === key);
+  if (!x) { x = { id: uid(), name: name.trim(), count: 0 }; S.foods.push(x); }
+  Object.assign(x, { k, p, f, last: date || todayIso() }); x.count++;
+}
+/* rozbiera „owsianka z pastą pistacjową — 391 kcal, 25,7 g białka, 9,2 g błonnika” na nazwę i liczby */
+function parseFree(text) {
+  const out = {}, clean = s => s.replace(/\s+/g, " ").replace(/[\s,;:\-–—|]+$/, "").replace(/^[\s,;:\-–—|]+/, "").trim();
+  /* wiersz skopiowany z tabeli: nazwa, kcal, białko, błonnik w kolejnych kolumnach */
+  const cells = text.split(/\t+|\s*\|\s*/).map(c => c.trim()).filter(Boolean);
+  if (cells.length >= 2 && cells.slice(1).every(c => /^\d+(?:[.,]\d+)?\s*(?:kcal|kalori\w*|g)?$/i.test(c))) {
+    const n = cells.slice(1).map(num); out.name = clean(cells[0]); out.k = n[0]; if (n.length > 1) out.p = n[1]; if (n.length > 2) out.f = n[2]; return out;
+  }
+  /* nazwa to wszystko przed kaloriami, reszta to liczby */
+  const KL = /(?:kcal|kalori\w*|energia)\s*[:=]\s*(\d+(?:[.,]\d+)?)/i;
+  const PL = /(?:białk\w*|bialk\w*)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*g?/i;
+  const FL = /(?:błonnik\w*|blonnik\w*)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*g?/i;
+  let km = text.match(KCAL_RE), kl = text.match(KL), cut = -1;
+  if (km && (!kl || km.index <= kl.index)) { out.k = num(km[1]); cut = km.index; }
+  else if (kl) { out.k = num(kl[1]); cut = kl.index; }
+  if (cut < 0) {
+    let name = text;
+    [["p", PROT_RE], ["f", FIB_RE]].forEach(([key, re]) => { const m = name.match(re); if (m) { out[key] = num(m[1]); name = name.replace(m[0], " "); } });
+    out.name = clean(name); return out;
+  }
+  let after = text.slice(cut).replace(km && cut === km.index ? km[0] : kl[0], " ");
+  [["p", PROT_RE, PL], ["f", FIB_RE, FL]].forEach(([key, re, rl]) => {
+    const a = after.match(re), b = after.match(rl);
+    const m = a && (!b || a.index <= b.index) ? a : b;
+    if (m) { out[key] = num(m[1]); after = after.replace(m[0], " "); }
+  });
+  /* liczby bez opisu po kaloriach: najpierw białko, potem błonnik */
+  if (out.p === undefined || out.f === undefined) {
+    for (const m of [...after.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:g\b)?/gi)]) {
+      if (out.p === undefined) out.p = num(m[1]); else if (out.f === undefined) out.f = num(m[1]); else break;
+    }
+  }
+  out.name = clean(text.slice(0, cut)).replace(/\s*[—–-]\s*(,\s*)*$/, "").replace(/[:\s]+$/, "").trim();
+  return out;
+}
+if (!S.settings.model || S.settings.model === "gemini-2.5-flash") S.settings.model = "gemini-3.8-flash";
+/* naprawa wpisów, w których białko i błonnik zostały w nazwie */
+S.log.forEach(e => { if (!e.p && !e.f && (PROT_RE.test(e.name) || FIB_RE.test(e.name))) { const x = parseFree(e.name); if (x.p !== undefined) e.p = x.p; if (x.f !== undefined) e.f = x.f; if (x.k && !e.k) e.k = x.k; e.name = x.name || e.name; } });
+if (!S.foods) { S.foods = []; [...S.log].sort((a, b) => a.date.localeCompare(b.date)).forEach(e => { if (!e.mealId && !/^Suma dnia/.test(e.name)) upsertFood(e.name, e.k, e.p, e.f, e.date); }); }
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); $("#save-state").textContent = "Zapisano " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }); }
+  catch (e) { $("#save-state").textContent = "Nie udało się zapisać. Pobierz kopię w Ustawieniach."; }
+}
+save();
+
+const rowVal = r => r.abs ? { k: r.k || 0, p: r.p || 0, f: r.f || 0, g: r.g || 0 } : { k: r.g * r.k100 / 100, p: r.g * r.p100 / 100, f: r.g * r.f100 / 100, g: r.g };
+const mealTotals = m => m.rows.reduce((a, r) => { const v = rowVal(r); return { k: a.k + v.k, p: a.p + v.p, f: a.f + v.f, g: a.g + v.g }; }, { k: 0, p: 0, f: 0, g: 0 });
+const shareOf = m => (m.share ?? 100) / 100;
+const myPart = m => { const pp = perPortion(m), s = shareOf(m); return { k: pp.k * s, p: pp.p * s, f: pp.f * s }; };
+const perPortion = m => { const t = mealTotals(m), n = m.portions || 1; return { k: t.k / n, p: t.p / n, f: t.f / n }; };
+const dayTotals = d => S.log.filter(e => e.date === d).reduce((a, e) => ({ k: a.k + e.k, p: a.p + e.p, f: a.f + e.f, n: a.n + 1 }), { k: 0, p: 0, f: 0, n: 0 });
+
+function msg(el, text, err) { el.hidden = !text; el.textContent = text || ""; el.classList.toggle("err", !!err); }
+
+/* ---------- zakładki ---------- */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function showTab(t) {
+  document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t));
+  document.querySelectorAll("section.panel").forEach(s => s.hidden = s.id !== "tab-" + t);
+  render();
+}
+
+/* ---------- DZIŚ ---------- */
+let day = todayIso();
+$("#day-date").value = day;
+$("#day-date").onchange = e => { day = e.target.value || todayIso(); render(); };
+$("#day-prev").onclick = () => { day = addDays(day, -1); $("#day-date").value = day; render(); };
+$("#day-next").onclick = () => { day = addDays(day, 1); $("#day-date").value = day; render(); };
+
+function renderToday() {
+  $("#today-lbl").textContent = new Date().toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+  const t = dayTotals(day), g = S.settings.goals;
+  const m = (lbl, v, goal, unit) => {
+    const fmt = x => unit === "kcal" ? r0(x) : f1(x);
+    const over = unit === "kcal" && v > goal, scale = Math.max(goal, v) || 1;
+    const okW = Math.min(v, goal) / scale * 100, overW = over ? (v - goal) / scale * 100 : 0, goalX = goal / scale * 100;
+    const rest = goal - v;
+    return `<div class="meter${over ? " is-over" : ""}"><div class="lbl">${lbl}</div><div class="val">${fmt(v)} <span>/ ${goal} ${unit}</span></div>
+      <div class="bar"><i style="width:${okW}%"></i>${over ? `<i class="over" style="width:${overW}%"></i><b style="left:${goalX}%"></b>` : ""}</div>
+      <div class="rest">${rest >= 0 ? "Zostało " + fmt(rest) + " " + unit : "Ponad cel o " + fmt(-rest) + " " + unit + ` (+${r0(-rest / goal * 100)}%)`}</div></div>`;
+  };
+  $("#meters").innerHTML = m("Kalorie", t.k, g.k, "kcal") + m("Białko", t.p, g.p, "g") + m("Błonnik", t.f, g.f, "g");
+  const rows = S.log.filter(e => e.date === day);
+  $("#log-table").innerHTML = rows.length
+    ? `<thead><tr><th>Co</th><th class="n">kcal</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
+      rows.map(e => `<tr><td>${esc(e.name)}${e.mealId ? ' <span class="pill">z zamrażarki</span>' : ""}</td><td class="n">${r0(e.k)}</td><td class="n">${f1(e.p)}</td><td class="n">${f1(e.f)}</td><td class="n"><button class="x" data-del="${e.id}" title="Usuń">×</button></td></tr>`).join("") +
+      `</tbody><tfoot><tr><td>Razem</td><td class="n">${r0(t.k)}</td><td class="n">${f1(t.p)}</td><td class="n">${f1(t.f)}</td><td></td></tr></tfoot>`
+    : `<tbody><tr><td class="muted">Nic jeszcze nie zapisano tego dnia. Zeskanuj etykietę albo dodaj posiłek poniżej.</td></tr></tbody>`;
+  $("#log-table").querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+    const e = S.log.find(x => x.id === b.dataset.del);
+    if (e && e.mealId) { const meal = S.meals.find(m => m.id === e.mealId); if (meal) meal.stock = r1((meal.stock || 0) + (e.portions || 1)); }
+    S.log = S.log.filter(x => x.id !== b.dataset.del); save(); render();
+  });
+  const inStock = S.meals.filter(m => m.stock > 0), prevSel = $("#quick-meal").value;
+  $("#quick-meal").innerHTML = inStock.length
+    ? inStock.map(m => `<option value="${m.id}">${esc(m.name)} (${f1(m.stock)} szt., moja część ${m.share ?? 100}%: ${r0(myPart(m).k)} kcal)</option>`).join("")
+    : `<option value="">Zamrażarka jest pusta</option>`;
+  if (prevSel && inStock.some(m => m.id === prevSel)) $("#quick-meal").value = prevSel;
+  const sel = S.meals.find(x => x.id === $("#quick-meal").value); $("#quick-meal-share").value = sel ? (sel.share ?? 100) : 100;
+}
+function eat(mealId, n, sharePct) {
+  const m = S.meals.find(x => x.id === mealId); if (!m) return false;
+  const pp = perPortion(m), s = (sharePct ?? m.share ?? 100) / 100;
+  const label = m.name + (n !== 1 ? `, ${f1(n)} pudełka` : "") + (s < 1 ? `, moja część ${r0(s * 100)}%` : "");
+  S.log.push({ id: uid(), date: day, name: label, k: pp.k * n * s, p: pp.p * n * s, f: pp.f * n * s, mealId, portions: n });
+  m.stock = Math.max(0, r1((m.stock || 0) - n)); save(); render(); return true;
+}
+$("#quick-meal").onchange = () => { const m = S.meals.find(x => x.id === $("#quick-meal").value); if (m) $("#quick-meal-share").value = m.share ?? 100; };
+$("#quick-meal-add").onclick = () => { const id = $("#quick-meal").value; if (id) eat(id, num($("#quick-meal-n").value) || 1, num($("#quick-meal-share").value) || 100); };
+/* „kawa z mlekiem 30 kalorii” → kcal z opisu, białko i błonnik dolicza Gemini w proporcji do podanych kalorii */
+
+$("#free-add").onclick = async () => {
+  let name = $("#free-name").value.trim(); if (!name) return msg($("#free-msg"), "Wpisz nazwę.", true);
+  msg($("#free-msg"), "");
+  const parsed = parseFree(name);
+  name = parsed.name || name;
+  let k = num($("#free-k").value) || parsed.k || 0;
+  let p = $("#free-p").value, f = $("#free-f").value;
+  if (p === "" && parsed.p !== undefined) p = parsed.p;
+  if (f === "" && parsed.f !== undefined) f = parsed.f;
+  const btn = $("#free-add");
+  if (k && (p === "" || f === "") && S.settings.key) {
+    btn.disabled = true; msg($("#free-msg"), "Liczę białko i błonnik…");
+    try {
+      const rows = await geminiRows(name + " (porcja o łącznej wartości około " + k + " kcal)");
+      const t = rows.reduce((a, r) => ({ k: a.k + r.g * r.k100 / 100, p: a.p + r.g * r.p100 / 100, f: a.f + r.g * r.f100 / 100 }), { k: 0, p: 0, f: 0 });
+      const scale = t.k ? k / t.k : 0;
+      if (p === "") p = r1(t.p * scale); if (f === "") f = r1(t.f * scale);
+    } catch (e) { msg($("#free-msg"), "Gemini nie odpowiedział, zapisuję same kalorie. Szczegóły: " + e.message, true); if (p === "") p = 0; if (f === "") f = 0; }
+    btn.disabled = false;
+  }
+  S.log.push({ id: uid(), date: day, name, k, p: num(p), f: num(f) });
+  upsertFood(name, k, num(p), num(f), day);
+  ["#free-name", "#free-k", "#free-p", "#free-f"].forEach(s => $(s).value = "");
+  if (!$("#free-msg").classList.contains("err")) msg($("#free-msg"), `Dodano: ${name}, ${r0(k)} kcal, białko ${f1(num(p))} g, błonnik ${f1(num(f))} g.`);
+  save(); render();
+};
+$("#free-name").oninput = () => {
+  const x = (S.foods || []).find(z => z.name.toLowerCase() === $("#free-name").value.trim().toLowerCase());
+  if (x) { $("#free-k").value = r0(x.k); $("#free-p").value = r1(x.p); $("#free-f").value = r1(x.f); msg($("#free-msg"), "Wartości z Twojej bazy. Kliknij Dodaj."); }
+};
+$("#free-name").onkeydown = e => { if (e.key === "Enter") $("#free-add").click(); };
+$("#free-ai").onclick = async () => {
+  const txt = $("#free-name").value.trim(); if (!txt) return msg($("#free-msg"), "Wpisz, co zjadłaś, z ilością.", true);
+  const b = $("#free-ai"); b.disabled = true; msg($("#free-msg"), "Gemini szuka wartości…");
+  try {
+    const rows = await geminiRows(txt);
+    const t = rows.reduce((a, r) => ({ k: a.k + r.g * r.k100 / 100, p: a.p + r.g * r.p100 / 100, f: a.f + r.g * r.f100 / 100 }), { k: 0, p: 0, f: 0 });
+    $("#free-k").value = r0(t.k); $("#free-p").value = r1(t.p); $("#free-f").value = r1(t.f);
+    msg($("#free-msg"), "Policzone: " + rows.map(r => `${r.name} ${r0(r.g)} g`).join(", ") + ". Sprawdź i kliknij Dodaj.");
+  } catch (e) { msg($("#free-msg"), e.message, true); }
+  b.disabled = false;
+};
+
+/* ---------- skaner QR ---------- */
+let scanner = null, lastScan = 0;
+$("#scan-btn").onclick = async () => {
+  $("#scan-modal").hidden = false; msg($("#scan-msg"), "");
+  if (!window.Html5Qrcode) return msg($("#scan-msg"), "Nie wczytała się biblioteka skanera. Sprawdź internet i odśwież stronę.", true);
+  scanner = new Html5Qrcode("reader");
+  try {
+    await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 }, text => {
+      if (Date.now() - lastScan < 2500) return; lastScan = Date.now();
+      const id = text.startsWith("MROZNIK:") ? text.slice(8) : null;
+      const m = id && S.meals.find(x => x.id === id);
+      if (!m) return msg($("#scan-msg"), "Tego kodu nie ma w bazie.", true);
+      eat(m.id, 1); msg($("#scan-msg"), `Dodano: ${m.name}, moja część ${m.share ?? 100}%: ${r0(myPart(m).k)} kcal. Zostało ${f1(m.stock)} szt.`);
+    });
+  } catch (e) { msg($("#scan-msg"), "Brak dostępu do kamery: " + e, true); }
+};
+$("#scan-close").onclick = async () => { $("#scan-modal").hidden = true; try { if (scanner) { await scanner.stop(); scanner.clear(); } } catch (e) {} scanner = null; };
+
+/* ---------- kod kreskowy (Open Food Facts) ---------- */
+let eanTarget = "free";
+function openEan(target) { eanTarget = target; $("#ean-modal").hidden = false; msg($("#ean-msg"), ""); $("#ean-code").focus(); }
+$("#free-ean").onclick = () => openEan("free");
+$("#ck-ean").onclick = () => openEan("cook");
+$("#ean-close").onclick = () => $("#ean-modal").hidden = true;
+$("#ean-go").onclick = async () => {
+  const code = $("#ean-code").value.replace(/\D/g, ""), g = num($("#ean-g").value);
+  if (!code || !g) return msg($("#ean-msg"), "Podaj kod i gramy.", true);
+  msg($("#ean-msg"), "Szukam…");
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`);
+    const j = await res.json();
+    if (!j.product) throw new Error("Nie ma tego kodu w Open Food Facts. Dodaj produkt ręcznie albo przez Gemini.");
+    const n = j.product.nutriments || {};
+    const row = { name: [j.product.product_name, j.product.brands].filter(Boolean).join(", ") || code, qty: g + " g", g,
+      k100: num(n["energy-kcal_100g"]), p100: num(n.proteins_100g), f100: num(n.fiber_100g), src: "Open Food Facts " + code };
+    if (eanTarget === "cook") { draft.rows.push(row); renderCook(); }
+    else { $("#free-name").value = `${row.name}, ${g} g`; $("#free-k").value = r0(g * row.k100 / 100); $("#free-p").value = r1(g * row.p100 / 100); $("#free-f").value = r1(g * row.f100 / 100); msg($("#free-msg"), "Wartości z etykiety. Kliknij Dodaj."); }
+    $("#ean-modal").hidden = true; $("#ean-code").value = ""; $("#ean-g").value = "";
+  } catch (e) { msg($("#ean-msg"), e.message, true); }
+};
+
+/* ---------- Gemini ---------- */
+const mapRow = x => ({ name: x.nazwa, qty: x.ilosc, g: num(x.gramy), k100: num(x.kcal100), p100: num(x.bialko100), f100: num(x.blonnik100), src: x.zrodlo || "Gemini" });
+const RULES = `- Jeśli przy składniku podano kaloryczność w formacie typu „33k/100” albo „33 kcal/100 g”, użyj dokładnie tej wartości jako kcal100, a białko i błonnik dobierz do tego produktu.
+- Jeśli podano markę, sklep albo konkretny produkt (np. mozzarella w kostce Galbani, berlinka serowa, Monte), szukaj tego produktu w polskich sklepach internetowych.
+- Surowe składniki licz w postaci, w jakiej podano (mąka, surowy ryż, surowe mięso).
+- Miary domowe przelicz na gramy: łyżka, łyżeczka, szklanka, sztuka, plaster, opakowanie, ml.
+- Nie pomijaj żadnego składnika i nie dodawaj własnych.`;
+async function geminiRows(text) {
+  const prompt = `Jesteś kalkulatorem wartości odżywczych. Dla każdego składnika z listy poniżej znajdź w internecie wartości odżywcze na 100 g.
+Zasady:
+${RULES}
+Zwróć WYŁĄCZNIE tablicę JSON, bez komentarza, w formacie:
+[{"nazwa":"…","ilosc":"ilość tak jak podano","gramy":liczba,"kcal100":liczba,"bialko100":liczba,"blonnik100":liczba,"zrodlo":"krótko skąd wartości"}]
+Lista składników:
+${text}`;
+  const out = await geminiText(prompt);
+  const a = out.indexOf("["), b = out.lastIndexOf("]");
+  if (a < 0 || b < a) throw new Error("Gemini nie zwrócił tabeli. Spróbuj jeszcze raz.");
+  let arr; try { arr = JSON.parse(out.slice(a, b + 1)); } catch (e) { throw new Error("Nie udało się odczytać odpowiedzi Gemini. Spróbuj jeszcze raz."); }
+  return arr.map(mapRow);
+}
+/* przepis z bazą i wersjami: jedno zapytanie, każda wersja osobno */
+async function geminiVersions(text) {
+  const prompt = `Jesteś kalkulatorem wartości odżywczych. Poniżej jest przepis, czasem ze wspólną bazą i kilkoma wersjami dodatków. Dla każdego składnika znajdź w internecie wartości odżywcze na 100 g.
+Zasady:
+${RULES}
+- Jeśli w jednej wersji przy składniku brakuje ilości, a w innej wersji ten sam składnik ma ilość, użyj tej samej ilości i zaznacz to w polu "ilosc".
+- Jeśli przepis nie ma wersji, wszystkie składniki wpisz do "baza", a "wersje" zostaw pustą tablicą.
+- "danie" to nazwa dania w mianowniku, z wielkiej litery (np. „policz pizzę” daje „Pizza”).
+Zwróć WYŁĄCZNIE obiekt JSON, bez komentarza, w formacie:
+{"danie":"…","baza":[SKŁADNIK],"wersje":[{"nazwa":"Wersja 1","skladniki":[SKŁADNIK]}]}
+gdzie SKŁADNIK to {"nazwa":"…","ilosc":"ilość tak jak podano","gramy":liczba,"kcal100":liczba,"bialko100":liczba,"blonnik100":liczba,"zrodlo":"krótko skąd wartości"}
+Przepis:
+${text}`;
+  const out = await geminiText(prompt);
+  const a = out.indexOf("{"), b = out.lastIndexOf("}");
+  let o; try { o = JSON.parse(out.slice(a, b + 1)); } catch (e) { throw new Error("Nie udało się odczytać odpowiedzi Gemini. Spróbuj jeszcze raz."); }
+  const base = (o.baza || []).map(mapRow);
+  const vs = (o.wersje || []).filter(v => (v.skladniki || []).length);
+  return { dish: o.danie || "", versions: vs.length ? vs.map(v => ({ name: v.nazwa || "", rows: [...base.map(r => ({ ...r })), ...v.skladniki.map(mapRow)] })) : [{ name: "", rows: base }] };
+}
+async function geminiText(prompt) {
+  const { key, model } = S.settings;
+  if (!key) throw new Error("Brak klucza Gemini. Wpisz go w Ustawieniach.");
+  /* najpierw z wyszukiwaniem Google, przy wyczerpanym limicie bez wyszukiwania, potem lżejszy model */
+  const tries = [[model, true], [model, false], ["gemini-3.5-flash-lite", false]];
+  let j = null, lastErr = "";
+  for (const [mdl, search] of tries) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(key)}`;
+    const body = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1 } };
+    if (search) body.tools = [{ google_search: {} }];
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) { j = data; break; }
+    lastErr = data.error?.message || String(res.status);
+    if (!(res.status === 429 || res.status === 404 || /quota|not found|no longer available/i.test(lastErr))) break;
+  }
+  if (!j) {
+    if (/quota/i.test(lastErr)) throw new Error("Gemini: wyczerpany darmowy limit na tym kluczu. Limit odnawia się co minutę i codziennie około 9:00 naszego czasu. Stan limitu: aistudio.google.com, zakładka Usage. Do tego czasu możesz wpisać wartości ręcznie albo wkleić sumy z czatu.");
+    throw new Error("Gemini: " + lastErr);
+  }
+  return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+}
+
+/* ---------- GOTUJĘ ---------- */
+let draft = { id: null, rows: [], fromRecipe: null, editing: null };
+const blankDraft = () => ({ id: null, rows: [], fromRecipe: null, editing: null });
+/* biblioteka składników z wcześniejszych przepisów i przypraw */
+function ingredientLib() {
+  const lib = new Map();
+  [...S.meals].reverse().concat(S.spices, S.recipes).forEach(x => x.rows.forEach(r => { if (r.name && (r.k100 || r.p100)) lib.set(r.name.trim().toLowerCase(), r); }));
+  S.spices.forEach(s => lib.set(s.name.trim().toLowerCase(), { name: s.name, k100: s.k100, p100: s.p100, f100: s.f100, src: "moja przyprawa", spiceId: s.id }));
+  return lib;
+}
+function refreshSpices(rows) { return rows.map(r => { const s = r.spiceId && S.spices.find(x => x.id === r.spiceId); return s ? { ...r, name: s.name, k100: s.k100, p100: s.p100, f100: s.f100 } : { ...r }; }); }
+function loadIntoEditor(src, opts) {
+  draft = { id: null, rows: refreshSpices(src.rows), fromRecipe: opts.fromRecipe || null, editing: opts.editing || null };
+  $("#ck-name").value = src.name; $("#ck-portions").value = src.portions ?? 1; $("#ck-share").value = src.share ?? 100; $("#ck-text").value = src.text || "";
+  msg($("#ck-msg"), ""); msg($("#ck-msg2"), "");
+  const from = opts.editing ? `Edytujesz ${opts.editing.type === "spice" ? "przyprawę" : "przepis bazowy"} „${src.name}”. Zapisz przyciskiem na dole.` : `Wczytano „${src.name}”. Popraw gramy, usuń albo dodaj składniki, potem zapisz do zamrażarki.`;
+  msg($("#ck-from"), from);
+  renderCook(); showTab("gotuje");
+}
+const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l");
+function matches(item, q) {
+  if (!q) return true;
+  const hay = norm(item.name + " " + (item.rows || []).map(r => r.name).join(" "));
+  return norm(q).split(/\s+/).filter(Boolean).every(w => hay.includes(w));
+}
+function hl(name, q) {
+  let out = esc(name); if (!q) return out;
+  norm(q).split(/\s+/).filter(Boolean).forEach(w => { const i = norm(name).indexOf(w); if (i >= 0) { const part = name.slice(i, i + w.length); out = out.replace(esc(part), `<mark>${esc(part)}</mark>`); } });
+  return out;
+}
+const dishesFor = s => S.recipes.filter(r => r.rows.some(x => x.spiceId === s.id));
+const spicesOf = r => r.rows.filter(x => x.spiceId).map(x => (S.spices.find(s => s.id === x.spiceId) || {}).name || x.name);
+/* nowe danie z przyprawy: przyprawa staje się przepisem */
+function dishFromSpice(s) {
+  const lastG = (() => { for (const m of S.meals) { const r = m.rows.find(x => x.spiceId === s.id); if (r) return r.g; } return 0; })();
+  draft = { id: null, rows: [{ name: s.name, qty: "", g: lastG, k100: s.k100, p100: s.p100, f100: s.f100, src: "moja przyprawa", spiceId: s.id }], fromRecipe: null, editing: null };
+  $("#ck-name").value = s.name.replace(/,?\s*(moja )?mieszanka/i, "").trim(); $("#ck-portions").value = 2; $("#ck-share").value = 40; $("#ck-text").value = "";
+  msg($("#ck-from"), `Nowe danie z przyprawą „${s.name}”. ${lastG ? "" : "Wpisz gramy przyprawy, "}dodaj resztę składników i zapisz jako przepis bazowy, żeby następnym razem był gotowy.`);
+  $("#ck-search").value = ""; $("#ck-results").innerHTML = ""; renderCook(); showTab("gotuje");
+  const g = $('#ck-table input[data-k="g"]'); if (g && !lastG) g.focus();
+}
+function renderSearch() {
+  const q = $("#ck-search").value.trim(), box = $("#ck-results");
+  if (!q) { box.innerHTML = ""; return; }
+  const rc = S.recipes.filter(r => matches(r, q)).map(r => ({ kind: "Przepis", r }));
+  const sp = S.spices.filter(s => matches(s, q)).map(s => ({ kind: "Przyprawa", s }));
+  const all = [...rc, ...sp].slice(0, 10);
+  box.innerHTML = all.length ? all.map(x => x.r
+    ? `<div class="res"><div class="t"><span class="kind">Przepis</span>${hl(x.r.name, q)}<small>${spicesOf(x.r).length ? "Przyprawa: " + esc(spicesOf(x.r).join(", ")) : "Bez przyprawy"} · moja część ${r0(myPart({ ...x.r, rows: refreshSpices(x.r.rows) }).k)} kcal</small></div><button class="btn small" data-s-rc="${x.r.id}">Gotuję</button></div>`
+    : `<div class="res"><div class="t"><span class="kind">Przyprawa</span>${hl(x.s.name, q)}<small>${dishesFor(x.s).length ? "Dania: " + esc(dishesFor(x.s).map(d => d.name).join(", ")) : "Jeszcze bez dania"}</small></div>
+       <span class="row" style="gap:4px">${dishesFor(x.s).map(d => `<button class="btn small" data-s-rc="${d.id}">${esc(d.name)}</button>`).join("")}<button class="btn ghost small" data-s-new="${x.s.id}">Nowe danie</button></span></div>`).join("")
+    : `<p class="muted" style="margin:6px 0 0">Nic nie pasuje. Wpisz składniki poniżej i zapisz jako przepis bazowy.</p>`;
+  box.querySelectorAll("[data-s-rc]").forEach(b => b.onclick = () => { const r = S.recipes.find(x => x.id === b.dataset.sRc); $("#ck-search").value = ""; renderSearch(); loadIntoEditor(r, { fromRecipe: r.id }); });
+  box.querySelectorAll("[data-s-new]").forEach(b => b.onclick = () => dishFromSpice(S.spices.find(x => x.id === b.dataset.sNew)));
+}
+$("#ck-search").oninput = renderSearch;
+$("#ck-search").onkeydown = e => { if (e.key === "Enter") { const b = $("#ck-results button"); if (b) b.click(); } };
+$("#rc-search").oninput = () => { renderRecipes(); renderFoods(); };
+$("#fz-search").oninput = () => renderFreezer();
+$("#ck-spice-add").onclick = () => {
+  const s = S.spices.find(x => x.id === $("#ck-spice").value), g = num($("#ck-spice-g").value);
+  if (!s) return msg($("#ck-msg"), "Najpierw zapisz jakąś przyprawę.", true);
+  if (!g) return msg($("#ck-msg"), "Wpisz gramy przyprawy.", true);
+  draft.rows.push({ name: s.name, qty: g + " g", g, k100: s.k100, p100: s.p100, f100: s.f100, src: "moja przyprawa", spiceId: s.id });
+  $("#ck-spice-g").value = ""; renderCook();
+};
+$("#ck-scale-go").onclick = () => { const f = num($("#ck-scale").value); if (!f) return; draft.rows.forEach(r => r.g = r.g * f); $("#ck-scale").value = 1; renderCook(); };
+function renderCookSelects() {
+  const keepS = $("#ck-spice").value;
+  $("#ck-spice").innerHTML = S.spices.length ? S.spices.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("") : `<option value="">Brak przypraw</option>`;
+  if (keepS) $("#ck-spice").value = keepS;
+  $("#ing-list").innerHTML = [...ingredientLib().values()].map(r => `<option value="${esc(r.name)}"></option>`).join("");
+  $("#ck-upd-wrap").hidden = !draft.fromRecipe;
+}
+$("#ck-ai").onclick = async () => {
+  const txt = $("#ck-text").value.trim(); if (!txt) return msg($("#ck-msg"), "Wpisz składniki.", true);
+  const pt = parseFree(txt);
+  if (pt.k !== undefined && !/[a-ząćęłńóśźż]{3,}/i.test(pt.name)) {
+    draft.rows.push({ abs: true, name: "Cały garnek (sumy z czatu)", qty: "podane sumy", g: 0, k: pt.k, p: pt.p || 0, f: pt.f || 0, src: "wklejone sumy" });
+    $("#ck-text").value = ""; msg($("#ck-msg"), `Wpisano sumy całego garnka: ${r0(pt.k)} kcal, białko ${f1(pt.p || 0)} g, błonnik ${f1(pt.f || 0)} g. Podział na pudełka i Twoją część jest w wyliczeniu.`); renderCook(); return;
+  }
+  const b = $("#ck-ai"); b.disabled = true; msg($("#ck-msg"), "Gemini szuka wartości…");
+  try { const rows = await geminiRows(txt); draft.rows.push(...rows); msg($("#ck-msg"), `Dodano ${rows.length} składników. Sprawdź gramy przy miarach typu łyżka.`); renderCook(); }
+  catch (e) { msg($("#ck-msg"), e.message, true); }
+  b.disabled = false;
+};
+$("#ck-row").onclick = () => { draft.rows.push({ name: "", qty: "", g: 0, k100: 0, p100: 0, f100: 0, src: "ręcznie" }); renderCook(); };
+$("#ck-clear").onclick = () => { draft = blankDraft(); msg($("#ck-from"), ""); msg($("#ck-msg2"), ""); $("#ck-name").value = ""; $("#ck-portions").value = 2; $("#ck-share").value = 40; $("#ck-text").value = ""; msg($("#ck-msg"), ""); renderCook(); };
+$("#ck-portions").oninput = () => renderCook(true);
+$("#ck-share").oninput = () => renderCook(true);
+document.querySelectorAll("[data-share]").forEach(b => b.onclick = () => { $("#ck-share").value = b.dataset.share; renderCook(true); });
+
+function renderCook(onlyFoot) {
+  if (!onlyFoot) renderCookSelects();
+  const m = { rows: draft.rows, portions: Math.max(1, num($("#ck-portions").value)), share: Math.min(100, Math.max(1, num($("#ck-share").value) || 100)) };
+  const mp = myPart(m);
+  const t = mealTotals(m), pp = perPortion(m);
+  const foot = `<tr><td colspan="2">Razem${t.g ? ` (${r0(t.g)} g)` : ""}</td><td></td><td class="n">${r0(t.k)}</td><td></td><td class="n">${f1(t.p)}</td><td></td><td class="n">${f1(t.f)}</td><td></td></tr>
+    <tr><td colspan="2">Pudełko (1 z ${m.portions}${t.g ? `, ok. ${r0(t.g / m.portions)} g` : ""})</td><td></td><td class="n">${r0(pp.k)}</td><td></td><td class="n">${f1(pp.p)}</td><td></td><td class="n">${f1(pp.f)}</td><td></td></tr>` +
+    (m.share < 100 ? `<tr><td colspan="2">Moja część pudełka (${m.share}%)</td><td></td><td class="n">${r0(mp.k)}</td><td></td><td class="n">${f1(mp.p)}</td><td></td><td class="n">${f1(mp.f)}</td><td></td></tr>` : "");
+  if (onlyFoot && $("#ck-table tfoot")) { $("#ck-table tfoot").innerHTML = foot; return; }
+  if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Wpisz składniki i kliknij „Policz z Gemini”, albo dodaj wiersze ręcznie.</td></tr></tbody>`; return; }
+  $("#ck-table").innerHTML = `<thead><tr><th>Składnik</th><th>Ilość</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">kcal/100</th><th class="n">Białko</th><th class="n">B/100</th><th class="n">Błonnik</th><th class="n">Bł/100</th><th></th></tr></thead><tbody>` +
+    draft.rows.map((r, i) => r.abs ? `<tr title="${esc(r.src)}">
+      <td><input data-i="${i}" data-k="name" value="${esc(r.name)}"></td><td class="muted">${esc(r.qty)}</td>
+      <td class="n"><input class="num" data-i="${i}" data-k="g" value="${r.g ? f1(r.g) : ""}" placeholder="g"></td>
+      <td colspan="2"><input class="num" data-i="${i}" data-k="k" value="${f1(r.k)}" aria-label="kcal"></td>
+      <td colspan="2"><input class="num" data-i="${i}" data-k="p" value="${f1(r.p)}" aria-label="Białko"></td>
+      <td colspan="2"><input class="num" data-i="${i}" data-k="f" value="${f1(r.f)}" aria-label="Błonnik"></td>
+      <td class="n"><button class="x" data-rm="${i}" title="Usuń">×</button></td></tr>` : `<tr title="${esc(r.src)}">
+      <td><input data-i="${i}" data-k="name" list="ing-list" value="${esc(r.name)}"></td><td class="muted">${esc(r.qty)}</td>
+      <td class="n"><input class="num" data-i="${i}" data-k="g" value="${f1(r.g)}"></td><td class="n" data-out="k${i}">${r0(r.g * r.k100 / 100)}</td>
+      <td class="n"><input class="num" data-i="${i}" data-k="k100" value="${f1(r.k100)}"></td><td class="n" data-out="p${i}">${f1(r.g * r.p100 / 100)}</td>
+      <td class="n"><input class="num" data-i="${i}" data-k="p100" value="${f1(r.p100)}"></td><td class="n" data-out="f${i}">${f1(r.g * r.f100 / 100)}</td>
+      <td class="n"><input class="num" data-i="${i}" data-k="f100" value="${f1(r.f100)}"></td>
+      <td class="n"><button class="x" data-rm="${i}" title="Usuń">×</button></td></tr>`).join("") + `</tbody><tfoot>${foot}</tfoot>`;
+  $("#ck-table").querySelectorAll("input").forEach(inp => inp.oninput = () => {
+    const r = draft.rows[inp.dataset.i]; const k = inp.dataset.k;
+    r[k] = k === "name" ? inp.value : num(inp.value);
+    const i = inp.dataset.i;
+    if (r.abs) { renderCook(true); return; }
+    if (k === "name" && !r.k100 && !r.p100) { const hit = ingredientLib().get(inp.value.trim().toLowerCase()); if (hit) { Object.assign(r, { k100: hit.k100, p100: hit.p100, f100: hit.f100, src: hit.src || "z poprzednich przepisów", spiceId: hit.spiceId }); renderCook(); const el = $(`#ck-table input[data-i="${i}"][data-k="g"]`); if (el) el.focus(); return; } }
+    $(`[data-out="k${i}"]`).textContent = r0(r.g * r.k100 / 100); $(`[data-out="p${i}"]`).textContent = f1(r.g * r.p100 / 100); $(`[data-out="f${i}"]`).textContent = f1(r.g * r.f100 / 100);
+    renderCook(true);
+  });
+  $("#ck-table").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { draft.rows.splice(+b.dataset.rm, 1); renderCook(); });
+}
+function saveDraft() {
+  const name = $("#ck-name").value.trim(), portions = Math.max(1, num($("#ck-portions").value)), share = Math.min(100, Math.max(1, num($("#ck-share").value) || 100));
+  if (!name) { msg($("#ck-msg"), "Wpisz nazwę posiłku.", true); return null; }
+  if (!draft.rows.length) { msg($("#ck-msg"), "Dodaj składniki.", true); return null; }
+  const meal = { id: uid(), name, portions, share, stock: portions, date: todayIso(), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
+  S.meals.unshift(meal);
+  let extra = "";
+  if (draft.fromRecipe && $("#ck-upd").checked) { const rc = S.recipes.find(x => x.id === draft.fromRecipe); if (rc) { Object.assign(rc, { rows: meal.rows.map(r => ({ ...r })), portions, share, text: meal.text }); extra = " Przepis bazowy zaktualizowany."; } }
+  $("#ck-upd").checked = false; msg($("#ck-from"), "");
+  save();
+  msg($("#ck-msg"), `Zapisano: ${name}, ${portions} szt. po ${r0(perPortion(meal).k)} kcal` + (share < 100 ? `, Twoja część ${share}%: ${r0(myPart(meal).k)} kcal.` : ".") + extra);
+  draft = blankDraft(); renderCook(); return meal;
+}
+$("#ck-save").onclick = () => saveDraft();
+$("#ck-as-recipe").onclick = () => {
+  const name = $("#ck-name").value.trim(); if (!name) return msg($("#ck-msg2"), "Wpisz nazwę przepisu.", true);
+  if (!draft.rows.length) return msg($("#ck-msg2"), "Dodaj składniki.", true);
+  const data = { name, portions: Math.max(1, num($("#ck-portions").value)), share: Math.min(100, Math.max(1, num($("#ck-share").value) || 100)), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
+  const ex = (draft.editing?.type === "recipe" && S.recipes.find(x => x.id === draft.editing.id)) || S.recipes.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (ex) Object.assign(ex, data); else S.recipes.push({ id: uid(), ...data });
+  if (!draft.fromRecipe) draft.fromRecipe = (ex || S.recipes[S.recipes.length - 1]).id;
+  draft.editing = null; save(); renderCook(); msg($("#ck-msg2"), ex ? `Zaktualizowano przepis „${name}”.` : `Zapisano przepis „${name}”. Znajdziesz go w „Zacznij od przepisu”.`);
+};
+$("#ck-as-spice").onclick = () => {
+  const name = $("#ck-name").value.trim(); if (!name) return msg($("#ck-msg2"), "Wpisz nazwę przyprawy.", true);
+  const t = mealTotals({ rows: draft.rows }); if (!t.g) return msg($("#ck-msg2"), "Dodaj składniki mieszanki z gramami.", true);
+  const data = { name, k100: t.k / t.g * 100, p100: t.p / t.g * 100, f100: t.f / t.g * 100, rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value, g: t.g };
+  const ex = (draft.editing?.type === "spice" && S.spices.find(x => x.id === draft.editing.id)) || S.spices.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (ex) Object.assign(ex, data); else S.spices.push({ id: uid(), ...data });
+  save(); draft = blankDraft(); $("#ck-name").value = ""; $("#ck-text").value = ""; msg($("#ck-from"), ""); renderCook();
+  msg($("#ck-msg2"), `Zapisano przyprawę „${name}”: ${r0(data.k100)} kcal na 100 g. Dodasz ją do potraw z listy „Dodaj przyprawę”.`);
+};
+function renderRecipes() {
+  const q = $("#rc-search").value.trim();
+  $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th>Przyprawa</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
+    ([...S.recipes].filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(r => { const x = { ...r, rows: refreshSpices(r.rows) }, mp = myPart(x), sp = spicesOf(r); return `<tr><td>${hl(r.name, q)} <span class="muted">${r.rows.length} skł.</span></td><td class="${sp.length ? "" : "muted"}">${sp.length ? esc(sp.join(", ")) : "bez przyprawy"}</td><td class="n">${r.portions}</td><td class="n">${r.share ?? 100}%</td><td class="n">${r0(mp.k)}</td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td>
+      <td class="n" style="white-space:nowrap"><button class="btn small" data-rc-cook="${r.id}">Gotuję</button> <button class="btn ghost small" data-rc-edit="${r.id}">Edytuj</button> <button class="x" data-rc-del="${r.id}" title="Usuń przepis">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="8">Brak wyników.</td></tr>`) + `</tbody>`
+    : `<tbody><tr><td class="muted">Brak przepisów. Wpisz składniki w zakładce Gotuję i kliknij „Zapisz jako przepis bazowy”.</td></tr></tbody>`;
+  $("#sp-table").innerHTML = S.spices.length ? `<thead><tr><th>Przyprawa</th><th>Dania</th><th class="n">kcal/100 g</th><th class="n">Białko/100</th><th class="n">Błonnik/100</th><th></th></tr></thead><tbody>` +
+    (S.spices.filter(s => matches(s, q)).map(s => { const d = dishesFor(s); return `<tr><td>${hl(s.name, q)} <span class="muted">${s.rows.map(r => esc(r.name)).join(", ")}</span></td><td class="${d.length ? "" : "muted"}">${d.length ? esc(d.map(x => x.name).join(", ")) : "jeszcze bez dania"}</td><td class="n">${r0(s.k100)}</td><td class="n">${f1(s.p100)}</td><td class="n">${f1(s.f100)}</td>
+      <td class="n" style="white-space:nowrap"><button class="btn small" data-sp-new="${s.id}">Nowe danie</button> <button class="btn ghost small" data-sp-edit="${s.id}">Edytuj</button> <button class="x" data-sp-del="${s.id}" title="Usuń przyprawę">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="6">Brak wyników.</td></tr>`) + `</tbody>`
+    : `<tbody><tr><td class="muted">Brak przypraw. Wpisz skład mieszanki w zakładce Gotuję i kliknij „Zapisz jako moją przyprawę”.</td></tr></tbody>`;
+  const on = (attr, list, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(list.find(x => x.id === b.getAttribute(attr)), b));
+  on("data-rc-cook", S.recipes, r => loadIntoEditor(r, { fromRecipe: r.id }));
+  on("data-rc-edit", S.recipes, r => loadIntoEditor(r, { editing: { type: "recipe", id: r.id } }));
+  on("data-sp-new", S.spices, s => dishFromSpice(s));
+  on("data-sp-edit", S.spices, s => loadIntoEditor({ ...s, portions: 1, share: 100 }, { editing: { type: "spice", id: s.id } }));
+  const del = (list, key) => (x, b) => { if (b.dataset.sure) { S[key] = S[key].filter(y => y !== x); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } };
+  on("data-rc-del", S.recipes, del(S.recipes, "recipes"));
+  on("data-sp-del", S.spices, del(S.spices, "spices"));
+}
+$("#ck-save-print").onclick = () => { const m = saveDraft(); if (m) printLabels(m, m.portions); };
+
+/* ---------- etykiety ---------- */
+function qrImg(text) {
+  if (!window.qrcode) return "";
+  const q = qrcode(0, "M"); q.addData(text); q.make(); return q.createDataURL(6, 2);
+}
+function printMany(meals) {
+  $("#print").innerHTML = meals.map(m => labelHtml(m).repeat(Math.max(1, Math.round(m.portions)))).join("");
+  setTimeout(() => window.print(), 100);
+}
+function labelHtml(m) {
+  const pp = perPortion(m);
+  return `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${shareOf(m) < 1 ? `Moja część ${m.share}%: ${r0(myPart(m).k)} kcal · B ${f1(myPart(m).p)} · Bł ${f1(myPart(m).f)}<br>Całe: ${r0(pp.k)} kcal` : `${r0(pp.k)} kcal · B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`}<br>${dm(m.date)}</div></div>`;
+}
+function printLabels(m, n) {
+  const pp = perPortion(m);
+  const one = `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${shareOf(m) < 1 ? `Moja część ${m.share}%: ${r0(myPart(m).k)} kcal · B ${f1(myPart(m).p)} · Bł ${f1(myPart(m).f)}<br>Całe: ${r0(pp.k)} kcal` : `${r0(pp.k)} kcal · B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`}<br>${dm(m.date)}</div></div>`;
+  $("#print").innerHTML = Array(Math.max(1, Math.round(n))).fill(one).join("");
+  setTimeout(() => window.print(), 100);
+}
+
+/* ---------- ZAMRAŻARKA ---------- */
+/* ręczne dodanie do zamrażarki, bez Gemini */
+let faDraft = null;
+function faParams() { return { n: Math.max(1, Math.round(num($("#fa-n").value) || 1)), share: Math.min(100, Math.max(1, num($("#fa-share").value) || 100)) }; }
+function renderFaPreview() {
+  const box = $("#fa-preview"); if (!faDraft) { box.innerHTML = ""; return; }
+  const { n, share } = faParams();
+  box.innerHTML = `<div class="tablebox" style="margin-top:12px"><table><thead><tr><th></th><th>Nazwa w zamrażarce</th><th class="n">kcal całość</th><th class="n">Pudełko</th><th class="n">Moja część</th><th class="n">Białko (moje)</th><th class="n">Błonnik (moje)</th></tr></thead><tbody>` +
+    faDraft.versions.map((v, i) => { const m = { rows: v.rows, portions: n, share }, t = mealTotals(m), pp = perPortion(m), mp = myPart(m);
+      return `<tr><td><input type="checkbox" data-fa-on="${i}" ${v.on ? "checked" : ""} aria-label="Dodaj tę wersję"></td><td><input data-fa-nm="${i}" value="${esc(v.title)}"></td><td class="n">${r0(t.k)}</td><td class="n">${r0(pp.k)}</td><td class="n"><b>${r0(mp.k)}</b></td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td></tr>
+      <tr><td></td><td colspan="6" class="muted" style="font-size:12px">${v.rows.map(r => `${esc(r.name)} ${f1(r.g)} g (${r0(r.g * r.k100 / 100)} kcal)`).join(" · ")}</td></tr>`; }).join("") +
+    `</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn" id="fa-commit">Dodaj zaznaczone do zamrażarki</button><button class="btn ghost" id="fa-commit-print">Dodaj i drukuj etykiety</button><button class="btn ghost" id="fa-drop">Odrzuć</button></div>
+    <p class="muted" style="margin:6px 0 0">Gramy poprawisz później przez „Ugotuj ponownie” albo wartości przez „Edytuj”.</p>`;
+  box.querySelectorAll("[data-fa-on]").forEach(c => c.onchange = () => faDraft.versions[c.dataset.faOn].on = c.checked);
+  box.querySelectorAll("[data-fa-nm]").forEach(c => c.oninput = () => faDraft.versions[c.dataset.faNm].title = c.value);
+  $("#fa-commit").onclick = () => faCommit(false);
+  $("#fa-commit-print").onclick = () => faCommit(true);
+  $("#fa-drop").onclick = () => { faDraft = null; renderFaPreview(); msg($("#fa-msg"), ""); };
+}
+function faCommit(print) {
+  const { n, share } = faParams(), added = [];
+  faDraft.versions.filter(v => v.on).forEach(v => {
+    const meal = { id: uid(), name: v.title.trim() || faDraft.dish, portions: n, share, stock: n, date: todayIso(), text: faDraft.text, rows: v.rows.map(r => ({ ...r })) };
+    S.meals.unshift(meal); added.push(meal);
+  });
+  if (!added.length) return msg($("#fa-msg"), "Zaznacz co najmniej jedną wersję.", true);
+  save(); faDraft = null; $("#fa-name").value = ""; renderFaPreview(); render();
+  msg($("#fa-msg"), "Dodano: " + added.map(m => `${m.name} (moja część ${r0(myPart(m).k)} kcal)`).join(", ") + ".");
+  if (print) printMany(added);
+}
+async function freezerAddAI(raw) {
+  const b1 = $("#fa-ai"), b2 = $("#fa-add"); b1.disabled = b2.disabled = true; msg($("#fa-msg"), "Gemini liczy składniki…");
+  try {
+    const r = await geminiVersions(raw);
+    const dish = r.dish || raw.replace(/^policz\s+/i, "").split(/[:\n]/)[0].trim();
+    faDraft = { dish, text: raw, versions: r.versions.map((v, i) => ({ ...v, on: true, title: r.versions.length > 1 ? `${dish}, ${(v.name || "wersja " + (i + 1)).toLowerCase()}` : dish })) };
+    msg($("#fa-msg"), r.versions.length > 1 ? `Policzone ${r.versions.length} wersje. Sprawdź i dodaj.` : "Policzone. Sprawdź i dodaj.");
+    renderFaPreview();
+  } catch (e) { msg($("#fa-msg"), e.message, true); }
+  b1.disabled = b2.disabled = false;
+}
+$("#fa-n").addEventListener("input", renderFaPreview);
+$("#fa-share").addEventListener("input", renderFaPreview);
+document.querySelectorAll("[data-fa-share]").forEach(b => b.onclick = () => { $("#fa-share").value = b.dataset.faShare; renderFaPreview(); });
+/* przelicznik z wybranego zakresu na cały garnek */
+const scopeMult = (scope, n, share) => scope === "box" ? n : scope === "mine" ? n * 100 / Math.max(1, share) : 1;
+function freezerAdd() {
+  const raw = $("#fa-name").value.trim(); if (!raw) { msg($("#fa-msg"), "Wpisz nazwę.", true); return null; }
+  /* kilka wierszy z sumami, np. skopiowana tabela: każdy wiersz to osobna pozycja */
+  const lines = raw.split(/\n+/).map(l => l.trim()).filter(Boolean).map(l => ({ l, x: parseFree(l) }));
+  const withK = lines.filter(o => o.x.k && o.x.name && /[a-ząćęłńóśźż]/i.test(o.x.name));
+  if (withK.length > 1) {
+    const n = Math.max(1, Math.round(num($("#fa-n").value) || 1)), share = Math.min(100, Math.max(1, num($("#fa-share").value) || 100));
+    const mult = scopeMult($("#fa-scope").value, n, share);
+    const added = withK.map(o => { const meal = { id: uid(), name: o.x.name, portions: n, share, stock: n, date: todayIso(), text: "",
+      rows: [{ abs: true, name: "Cały garnek (wpisane ręcznie)", qty: "podane sumy", g: 0, k: o.x.k * mult, p: (o.x.p || 0) * mult, f: (o.x.f || 0) * mult, src: "wpisane ręcznie" }] }; S.meals.unshift(meal); return meal; });
+    save(); $("#fa-name").value = ""; render();
+    msg($("#fa-msg"), `Dodano ${added.length} pozycje: ` + added.map(m => `${m.name} (${r0(myPart(m).k)} kcal)`).join(", ") + ".");
+    return added[0];
+  }
+  const pt = parseFree(raw), name = pt.name || raw;
+  if (!num($("#fa-k").value) && !pt.k) { msg($("#fa-msg"), "Wpisz kcal w polu albo w opisie. Żeby policzyć składniki, kliknij „Policz z Gemini”.", true); return null; }
+  const k = num($("#fa-k").value) || pt.k || 0;
+  const p = $("#fa-p").value !== "" ? num($("#fa-p").value) : (pt.p || 0);
+  const f = $("#fa-f").value !== "" ? num($("#fa-f").value) : (pt.f || 0);
+  if (!k) { msg($("#fa-msg"), "Wpisz kalorie w polu kcal albo w opisie.", true); return null; }
+  const n = Math.max(1, Math.round(num($("#fa-n").value) || 1)), share = Math.min(100, Math.max(1, num($("#fa-share").value) || 100));
+  const mult = scopeMult($("#fa-scope").value, n, share);
+  const meal = { id: uid(), name, portions: n, share, stock: n, date: todayIso(), text: "",
+    rows: [{ abs: true, name: "Cały garnek (wpisane ręcznie)", qty: "podane sumy", g: 0, k: k * mult, p: p * mult, f: f * mult, src: "wpisane ręcznie" }] };
+  S.meals.unshift(meal); save();
+  ["#fa-name", "#fa-k", "#fa-p", "#fa-f"].forEach(s => $(s).value = "");
+  msg($("#fa-msg"), `Dodano: ${name}, ${n} szt. po ${r0(perPortion(meal).k)} kcal` + (share < 100 ? `, Twoja część ${share}%: ${r0(myPart(meal).k)} kcal.` : "."));
+  render(); return meal;
+}
+$("#fa-add").onclick = () => freezerAdd();
+$("#fa-ai").onclick = () => { const raw = $("#fa-name").value.trim(); if (!raw) return msg($("#fa-msg"), "Wpisz składniki.", true); freezerAddAI(raw); };
+$("#fa-add-print").onclick = () => { const m = freezerAdd(); if (m) printLabels(m, m.portions); };
+$("#fa-name").onkeydown = e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) freezerAdd(); };
+/* edycja posiłku z palca */
+let edMeal = null, edOrig = null;
+function edFill() {
+  const t = mealTotals(edMeal), n = Math.max(1, num($("#ed-portions").value) || edMeal.portions), d = scopeMult($("#ed-scope").value, n, num($("#ed-share").value) || edMeal.share || 100);
+  $("#ed-k").value = r0(t.k / d); $("#ed-p").value = r1(t.p / d); $("#ed-f").value = r1(t.f / d);
+  edOrig = { k: $("#ed-k").value, p: $("#ed-p").value, f: $("#ed-f").value, scope: $("#ed-scope").value, n };
+}
+function openEdit(m) {
+  edMeal = m;
+  $("#ed-name").value = m.name; $("#ed-date").value = m.date; $("#ed-portions").value = m.portions; $("#ed-stock").value = m.stock; $("#ed-share").value = m.share ?? 100; $("#ed-scope").value = "pot";
+  edFill();
+  const ing = m.rows.filter(r => !r.abs).length;
+  $("#ed-note").textContent = ing ? `Posiłek ma ${ing} składników z gramami. Zmiana kcal, białka albo błonnika zastąpi je jedną sumą. Gramy poprawisz przez „Ugotuj ponownie”.` : "";
+  msg($("#ed-msg"), ""); $("#ed-modal").hidden = false; $("#ed-name").focus();
+}
+$("#ed-scope").onchange = () => edFill();
+$("#ed-cancel").onclick = () => { $("#ed-modal").hidden = true; edMeal = null; };
+$("#ed-save").onclick = () => {
+  const m = edMeal; if (!m) return;
+  const name = $("#ed-name").value.trim(); if (!name) return msg($("#ed-msg"), "Wpisz nazwę.", true);
+  const n = Math.max(1, Math.round(num($("#ed-portions").value) || 1));
+  const changed = ["k", "p", "f"].some(k => $("#ed-" + k).value !== edOrig[k]);
+  const portionsChanged = n !== m.portions;
+  const shareNew = Math.min(100, Math.max(1, num($("#ed-share").value) || 100));
+  const shareChanged = shareNew !== (m.share ?? 100);
+  if (changed || ($("#ed-scope").value !== "pot" && portionsChanged) || ($("#ed-scope").value === "mine" && shareChanged)) {
+    const mult = scopeMult($("#ed-scope").value, n, shareNew);
+    m.rows = [{ abs: true, name: "Cały garnek (poprawione ręcznie)", qty: "podane sumy", g: 0, k: num($("#ed-k").value) * mult, p: num($("#ed-p").value) * mult, f: num($("#ed-f").value) * mult, src: "edycja ręczna" }];
+  }
+  Object.assign(m, { name, date: $("#ed-date").value || m.date, portions: n, stock: Math.max(0, num($("#ed-stock").value)), share: Math.min(100, Math.max(1, num($("#ed-share").value) || 100)) });
+  save(); $("#ed-modal").hidden = true; edMeal = null; render();
+};
+function renderFreezer() {
+  const fq = $("#fz-search").value.trim();
+  const inStock = S.meals.filter(m => m.stock > 0 && matches(m, fq));
+  $("#stock").innerHTML = inStock.length ? inStock.map(m => { const pp = perPortion(m); return `<div class="item">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><span class="name">${esc(m.name)}</span><span class="count">${f1(m.stock)}</span></div>
+      <div class="macro">${shareOf(m) < 1 ? `Moja część (${m.share}%): <b>${r0(myPart(m).k)} kcal</b> · białko ${f1(myPart(m).p)} g · błonnik ${f1(myPart(m).f)} g<br>Całe pudełko: ${r0(pp.k)} kcal` : `Porcja: ${r0(pp.k)} kcal · białko ${f1(pp.p)} g · błonnik ${f1(pp.f)} g`}</div>
+      <div class="macro">Ugotowane ${dm(m.date)}, ${m.portions} szt.</div>
+      <div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-lbl="${m.id}">Etykiety</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button></div></div>`; }).join("")
+    : `<p class="muted">${fq ? "Nic nie pasuje w zamrażarce." : "Pusto. Nowy posiłek dodasz w zakładce Gotuję."}</p>`;
+  $("#meals-table").innerHTML = S.meals.length ? `<thead><tr><th>Posiłek</th><th>Data</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
+    S.meals.filter(m => matches(m, fq)).map(m => { return `<tr><td>${hl(m.name, fq)}</td><td>${dm(m.date)}</td><td class="n">${m.portions}</td><td class="n">${m.share ?? 100}%</td><td class="n">${r0(myPart(m).k)}</td><td class="n">${f1(myPart(m).p)}</td><td class="n">${f1(myPart(m).f)}</td>
+      <td class="n" style="white-space:nowrap"><button class="btn ghost small" data-edit="${m.id}">Edytuj</button> <button class="btn ghost small" data-again="${m.id}">Ugotuj ponownie</button> <button class="x" data-delmeal="${m.id}" title="Usuń z bazy">×</button></td></tr>`; }).join("") + `</tbody>`
+    : `<tbody><tr><td class="muted">Brak zapisanych posiłków.</td></tr></tbody>`;
+  const on = (attr, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(S.meals.find(m => m.id === b.getAttribute(attr))));
+  on("data-eat", m => { day = todayIso(); $("#day-date").value = day; eat(m.id, 1); });
+  on("data-minus", m => { m.stock = Math.max(0, r1(m.stock - 1)); save(); render(); });
+  on("data-plus", m => { m.stock = r1(m.stock + 1); save(); render(); });
+  on("data-lbl", m => printLabels(m, m.stock));
+  on("data-edit", m => openEdit(m));
+  on("data-again", m => { const rc = S.recipes.find(x => x.name.toLowerCase() === m.name.toLowerCase()); loadIntoEditor(m, { fromRecipe: rc ? rc.id : null }); });
+  on("data-delmeal", m => { const b = document.querySelector(`[data-delmeal="${m.id}"]`); if (b.dataset.sure) { S.meals = S.meals.filter(x => x !== m); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } });
+}
+
+/* ---------- WAGA ---------- */
+$("#w-date").value = todayIso();
+$("#w-add").onclick = () => { const d = $("#w-date").value, kg = num($("#w-kg").value); if (!d || !kg) return; S.weights[d] = kg; $("#w-kg").value = ""; save(); render(); };
+function avg(a) { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; }
+function weightAvg7(d) { const v = []; for (let i = 0; i < 7; i++) { const w = S.weights[addDays(d, -i)]; if (w) v.push(w); } return v.length >= 3 ? avg(v) : null; }
+function renderWeight() {
+  const dates = Object.keys(S.weights).sort();
+  const last = dates[dates.length - 1] || todayIso();
+  const goal = S.settings.weightGoal, g = S.settings.goals;
+  // średnie
+  const a7 = weightAvg7(last), a7prev = weightAvg7(addDays(last, -7));
+  const days7 = []; for (let i = 1; i <= 7; i++) { const t = dayTotals(addDays(last, -i)); if (t.n) days7.push(t); }
+  const kc = avg(days7.map(t => t.k)), pr = avg(days7.map(t => t.p)), fb = avg(days7.map(t => t.f));
+  // szacowany wydatek energii z ostatnich 21 dni: regresja wagi + średnie kcal
+  const span = []; for (let i = 0; i < 21; i++) { const d = addDays(last, -i), w = S.weights[d]; if (w) span.push([-i, w]); }
+  const kcSpan = []; for (let i = 1; i <= 21; i++) { const t = dayTotals(addDays(last, -i)); if (t.n) kcSpan.push(t.k); }
+  let tdee = null, slope = null;
+  if (span.length >= 10 && kcSpan.length >= 10) {
+    const mx = avg(span.map(p => p[0])), my = avg(span.map(p => p[1]));
+    slope = span.reduce((s, p) => s + (p[0] - mx) * (p[1] - my), 0) / span.reduce((s, p) => s + (p[0] - mx) ** 2, 0);
+    tdee = avg(kcSpan) - slope * 7700;
+  }
+  const line = (l, v) => `<tr><td>${l}</td><td class="n">${v}</td></tr>`;
+  $("#w-analysis").innerHTML = `<h3>Podsumowanie</h3><div class="tablebox"><table><tbody>
+    ${line("Ostatni pomiar", dates.length ? `${dm(last)}: ${S.weights[last].toFixed(2).replace(".", ",")} kg` : "brak")}
+    ${line("Średnia 7 dni", a7 ? a7.toFixed(2).replace(".", ",") + " kg" + (goal ? ` (cel ${goal} kg, ${a7 - goal >= 0 ? "+" : ""}${(a7 - goal).toFixed(2).replace(".", ",")})` : "") : "za mało pomiarów")}
+    ${line("Zmiana średniej tydzień do tygodnia", a7 && a7prev ? `${a7 - a7prev >= 0 ? "+" : ""}${(a7 - a7prev).toFixed(2).replace(".", ",")} kg` : "za mało danych")}
+    ${line("Średnio dziennie, 7 dni przed pomiarem", kc ? `${r0(kc)} kcal (cel ${g.k}) · białko ${f1(pr)} g (cel ${g.p}) · błonnik ${f1(fb)} g (cel ${g.f})` : "brak danych")}
+    ${line("Szacowany dzienny wydatek energii", tdee ? `${r0(tdee)} kcal (trend wagi ${slope * 7 >= 0 ? "+" : ""}${(slope * 7).toFixed(2).replace(".", ",")} kg/tydz.)` : "potrzeba min. 10 dni wagi i kalorii w ostatnich 3 tygodniach")}
+  </tbody></table></div>
+  <p class="muted" style="margin:8px 0 0">Wydatek energii liczony z Twoich danych: średnie kalorie minus zmiana wagi przeliczona na kalorie (7700 kcal na kg). Gdy zgadza się z kaloriami, przy których waga stoi, liczenie działa.</p>`;
+  // wykres
+  const pts = dates.slice(-60);
+  if (pts.length < 2) { $("#w-chart").innerHTML = `<p class="muted">Wykres pojawi się po dwóch pomiarach.</p>`; }
+  else {
+    const W = 760, H = 220, L = 44, R = 10, T = 10, B = 26;
+    const vals = pts.map(d => S.weights[d]).concat(goal ? [goal] : []);
+    let lo = Math.min(...vals) - 0.3, hi = Math.max(...vals) + 0.3;
+    const t0 = new Date(pts[0]).getTime(), t1 = new Date(pts[pts.length - 1]).getTime() || t0 + 1;
+    const x = d => L + (W - L - R) * ((new Date(d).getTime() - t0) / Math.max(1, t1 - t0));
+    const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+    const ticks = []; const step = (hi - lo) > 3 ? 1 : 0.5; for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(v);
+    const avgPts = pts.map(d => [d, weightAvg7(d)]).filter(p => p[1]);
+    $("#w-chart").innerHTML = `<div class="tablebox"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:480px;height:auto" role="img" aria-label="Wykres wagi">
+      ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v.toFixed(1).replace(".", ",")}</text>`).join("")}
+      ${goal ? `<line x1="${L}" x2="${W - R}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--warn)" stroke-dasharray="4 4"/><text x="${W - R}" y="${y(goal) - 4}" text-anchor="end">cel ${goal}</text>` : ""}
+      <polyline fill="none" stroke="var(--muted)" stroke-width="1.5" points="${pts.map(d => x(d) + "," + y(S.weights[d])).join(" ")}"/>
+      ${pts.map(d => `<circle cx="${x(d)}" cy="${y(S.weights[d])}" r="3" fill="var(--muted)"/>`).join("")}
+      ${avgPts.length > 1 ? `<polyline fill="none" stroke="var(--accent)" stroke-width="3" points="${avgPts.map(p => x(p[0]) + "," + y(p[1])).join(" ")}"/>` : ""}
+      <text x="${L}" y="${H - 6}">${dm(pts[0])}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${dm(pts[pts.length - 1])}</text>
+    </svg></div><p class="muted" style="margin:6px 0 0">Szara linia: pomiary. Zielona: średnia 7 dni (od 3 pomiarów w oknie).</p>`;
+  }
+  // tabela dni
+  const all = new Set(dates); S.log.forEach(e => all.add(e.date));
+  const list = [...all].sort().reverse().slice(0, 45);
+  $("#w-table").innerHTML = list.length ? `<thead><tr><th>Data</th><th class="n">Waga</th><th class="n">Śr. 7 dni</th><th class="n">kcal dzień wcześniej</th><th class="n">kcal</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
+    list.map(d => { const t = dayTotals(d), prev = dayTotals(addDays(d, -1)), w = S.weights[d], a = weightAvg7(d);
+      return `<tr><td>${dm(d)}</td><td class="n">${w ? w.toFixed(2).replace(".", ",") : ""}</td><td class="n">${a ? a.toFixed(2).replace(".", ",") : ""}</td><td class="n">${prev.n ? r0(prev.k) : ""}</td>
+        <td class="n">${t.n ? r0(t.k) : ""}</td><td class="n" style="color:${t.n && t.p < g.p ? "var(--warn)" : "inherit"}">${t.n ? f1(t.p) : ""}</td><td class="n" style="color:${t.n && t.f < g.f ? "var(--warn)" : "inherit"}">${t.n ? f1(t.f) : ""}</td>
+        <td class="n">${w ? `<button class="x" data-delw="${d}" title="Usuń pomiar">×</button>` : ""}</td></tr>`; }).join("") + `</tbody>` : "";
+  $("#w-table").querySelectorAll("[data-delw]").forEach(b => b.onclick = () => { delete S.weights[b.dataset.delw]; save(); render(); });
+}
+$("#w-copy").onclick = async () => {
+  const g = S.settings.goals; const all = new Set(Object.keys(S.weights)); S.log.forEach(e => all.add(e.date));
+  const list = [...all].sort().slice(-30);
+  const txt = `Moje dane z ostatnich dni (cel: ${g.k} kcal, białko ${g.p} g, błonnik ${g.f} g, waga ${S.settings.weightGoal} kg).\nData | waga rano kg | kcal | białko g | błonnik g\n` +
+    list.map(d => { const t = dayTotals(d); return `${dm(d)} | ${S.weights[d] ?? "-"} | ${t.n ? r0(t.k) : "-"} | ${t.n ? r1(t.p) : "-"} | ${t.n ? r1(t.f) : "-"}`; }).join("\n") +
+    `\n\nPrzeanalizuj trend wagi względem kalorii i powiedz, czy liczenie zgadza się z rzeczywistością i czy korygować spożycie.`;
+  try { await navigator.clipboard.writeText(txt); $("#w-copy").textContent = "Skopiowano"; } catch (e) { $("#w-copy").textContent = "Nie udało się skopiować"; }
+  setTimeout(() => $("#w-copy").textContent = "Kopiuj dane dla Claude", 2000);
+};
+
+/* ---------- USTAWIENIA ---------- */
+function fillSettings() {
+  const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal;
+  $("#s-key").value = s.key; $("#s-model").value = s.model;
+}
+$("#g-save").onclick = () => { S.settings.goals = { k: num($("#g-k").value), p: num($("#g-p").value), f: num($("#g-f").value) }; S.settings.weightGoal = num($("#g-w").value); save(); render(); };
+$("#s-save").onclick = () => { S.settings.key = $("#s-key").value.trim(); S.settings.model = $("#s-model").value.trim() || "gemini-3.8-flash"; save(); msg($("#s-msg"), "Zapisano."); };
+$("#s-test").onclick = async () => {
+  $("#s-save").click(); msg($("#s-msg"), "Pytam Gemini o łyżkę oliwy…");
+  try { const r = (await geminiRows("1 łyżka oliwy z oliwek"))[0]; msg($("#s-msg"), `Działa: ${r.name}, ${r.qty} = ${f1(r.g)} g, ${r0(r.g * r.k100 / 100)} kcal.`); }
+  catch (e) { msg($("#s-msg"), e.message, true); }
+};
+$("#exp").onclick = () => {
+  const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `frzr-kopia-${todayIso()}.json`; a.click();
+};
+$("#imp").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const d = JSON.parse(await f.text()); if (!d.meals || !d.log || !d.weights) throw 0; S = d; save(); fillSettings(); render(); alert("Wczytano kopię."); }
+  catch (err) { alert("To nie jest plik kopii FRZR."); }
+};
+$("#chat-imp-btn").onclick = () => {
+  const year = new Date().getFullYear(); let w = 0, k = 0;
+  /* format „data w jednej linii, waga w następnej” sklejamy w jedną linię */
+  const raw = $("#chat-imp").value.split("\n").map(l => l.trim()).filter(Boolean), lines = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (/^\d{1,2}\.\d{1,2}(?:\.\d{2,4})?$/.test(raw[i]) && raw[i + 1] && !/^\d{1,2}\.\d{1,2}(?:\.\d{2,4})?\s/.test(raw[i + 1]) && /^\d/.test(raw[i + 1])) { lines.push(raw[i] + " " + raw[i + 1]); i++; }
+    else lines.push(raw[i]);
+  }
+  lines.forEach(line => {
+    const m = line.trim().match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\s+(.*)$/); if (!m) return;
+    const yy = m[3] ? (m[3].length === 2 ? "20" + m[3] : m[3]) : year;
+    const d = `${yy}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    const nums = (m[4].match(/\d+(?:[.,]\d+)?/g) || []).map(num);
+    if (nums.length === 1) { S.weights[d] = nums[0]; w++; }
+    else if (nums.length >= 3) { S.log = S.log.filter(e => !(e.date === d && e.name === "Suma dnia (z czatu)")); S.log.push({ id: uid(), date: d, name: "Suma dnia (z czatu)", k: nums[0], p: nums[1], f: nums[2] }); k++; }
+  });
+  save(); render(); msg($("#chat-imp-msg"), `Zaimportowano: ${w} pomiarów wagi, ${k} sum dziennych.`);
+};
+
+function renderFoods() {
+  const foods = S.foods || [], q = $("#fav-search").value.trim();
+  const list = foods.filter(x => matches(x, q)).sort((a, b) => (b.count - a.count) || (b.last || "").localeCompare(a.last || "")).slice(0, q ? 30 : 14);
+  $("#favs").innerHTML = list.length ? list.map(x => `<button class="chip" data-fav="${x.id}" title="Dodaj do dnia">${hl(x.name, q)} <small>${r0(x.k)} kcal</small></button>`).join("")
+    : `<p class="muted" style="margin:0">${q ? "Nic nie pasuje." : "Tu pojawią się rzeczy, które dodajesz poniżej. Jedno kliknięcie dopisze je do dnia."}</p>`;
+  $("#favs").querySelectorAll("[data-fav]").forEach(b => b.onclick = () => {
+    const x = foods.find(z => z.id === b.dataset.fav); S.log.push({ id: uid(), date: day, name: x.name, k: x.k, p: x.p, f: x.f });
+    x.count++; x.last = day; save(); render(); msg($("#free-msg"), `Dodano: ${x.name}, ${r0(x.k)} kcal.`);
+  });
+  $("#food-list").innerHTML = foods.map(x => `<option value="${esc(x.name)}"></option>`).join("");
+  const rq = $("#rc-search").value.trim();
+  const rows = foods.filter(x => matches(x, rq)).sort((a, b) => a.name.localeCompare(b.name, "pl"));
+  $("#fd-table").innerHTML = foods.length ? `<thead><tr><th>Produkt</th><th class="n">kcal</th><th class="n">Białko g</th><th class="n">Błonnik g</th><th class="n">Razy</th><th></th></tr></thead><tbody>` +
+    (rows.map(x => `<tr><td><input data-fd="${x.id}" data-k="name" value="${esc(x.name)}"></td><td class="n"><input class="num" data-fd="${x.id}" data-k="k" value="${r0(x.k)}"></td><td class="n"><input class="num" data-fd="${x.id}" data-k="p" value="${f1(x.p)}"></td><td class="n"><input class="num" data-fd="${x.id}" data-k="f" value="${f1(x.f)}"></td><td class="n">${x.count}</td><td class="n"><button class="x" data-fd-del="${x.id}" title="Usuń z bazy">×</button></td></tr>`).join("") || `<tr><td class="muted" colspan="6">Brak wyników.</td></tr>`) + `</tbody>`
+    : `<tbody><tr><td class="muted">Baza jest pusta.</td></tr></tbody>`;
+  $("#fd-table").querySelectorAll("input[data-fd]").forEach(inp => inp.onchange = () => { const x = foods.find(z => z.id === inp.dataset.fd); x[inp.dataset.k] = inp.dataset.k === "name" ? inp.value.trim() : num(inp.value); save(); render(); });
+  $("#fd-table").querySelectorAll("[data-fd-del]").forEach(b => b.onclick = () => { if (b.dataset.sure) { S.foods = foods.filter(z => z.id !== b.dataset.fdDel); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } });
+}
+$("#fav-search").oninput = () => renderFoods();
+function render() { renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }
+fillSettings(); renderCook(); render();
+</script>
+</body>
+</html>
