@@ -1171,6 +1171,14 @@ function wgStats() {
   if (trF) badges.push(B("f7", "F", "Błonnikowy tydzień", fib.best >= 7, `7 dni ≥ ${g.f} g błonnika`, `${fib.best}/7`));
   return { dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, fib, week, inKcal, inProt, inFib, trP, trF, badges };
 }
+/* wyjaśnienie wydatku energii na liczbach użytkownika */
+function wgTdeeText(eat, perWeek, tdee) {
+  const diff = Math.abs(tdee - eat), kg = Math.abs(perWeek).toFixed(2).replace(".", ",");
+  const why = Math.abs(perWeek) < 0.05 ? `waga stała w miejscu, czyli spalasz mniej więcej tyle, ile jesz`
+    : perWeek < 0 ? `waga spadała o ${kg} kg na tydzień, czyli spalasz o ok. ${r0(diff)} kcal dziennie więcej, niż jesz`
+    : `waga rosła o ${kg} kg na tydzień, czyli jesz o ok. ${r0(diff)} kcal dziennie więcej, niż spalasz`;
+  return `Twój dzienny wydatek energii to ok. ${r0(tdee)} kcal: przy tylu kaloriach waga stałaby w miejscu. Skąd to wiadomo: przez ostatnie 3 tygodnie średnio ${r0(eat)} kcal dziennie, a ${why} (1 kg to ok. 7700 kcal). To szacunek, woda w organizmie potrafi go przesunąć.`;
+}
 function wgRange(st) { /* oś od min do max z zaznaczonym zakresem utrzymania i aktualną średnią */
   const lo = Math.min(st.cur, st.lowEdge) - 0.6, hi = Math.max(st.cur, st.highEdge) + 0.6, x = v => (v - lo) / (hi - lo) * 100;
   return `<div class="wg-track wg-range" role="img" aria-label="Średnia ${kg2(st.cur)} kg, zakres ${kg1(st.lowEdge)}–${kg1(st.highEdge)} kg">
@@ -1270,7 +1278,7 @@ function renderWeight() {
     ${line("Średnio dziennie, 7 dni przed pomiarem", kc ? `${r0(kc)} kcal (cel ${g.k}) · białko ${f1(pr)} g (cel ${g.p}) · błonnik ${f1(fb)} g (cel ${g.f})` : "brak danych")}
     ${line("Szacowany dzienny wydatek energii", tdee ? `${r0(tdee)} kcal (trend wagi ${slope * 7 >= 0 ? "+" : ""}${(slope * 7).toFixed(2).replace(".", ",")} kg/tydz.)` : "potrzeba min. 10 dni wagi i kalorii w ostatnich 3 tygodniach")}
   </tbody></table></div>
-  <p class="muted" style="margin:8px 0 0">Wydatek energii liczony z Twoich danych: średnie kalorie minus zmiana wagi przeliczona na kalorie (7700 kcal na kg). Gdy zgadza się z kaloriami, przy których waga stoi, liczenie działa.</p>`;
+  <p class="muted" style="margin:8px 0 0">${tdee ? wgTdeeText(avg(kcSpan), slope * 7, tdee) : "Wydatek energii to szacunek, ile kalorii dziennie spalasz. Pojawi się, gdy przez 3 tygodnie zapiszesz co najmniej 10 wag i 10 dni jedzenia."}</p>`;
   $("#w-analysis").innerHTML = `<h3>Podsumowanie</h3>${wgSummary()}<details class="wg-more"><summary>Szczegóły i wydatek energii</summary>${details}</details>`;
   // wykres
   const pts = dates.slice(-60);
