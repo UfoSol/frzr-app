@@ -130,6 +130,10 @@ svg text{fill:var(--muted);font:11px var(--body)}
 .wg-tile .v span{font:500 13px var(--body);color:var(--muted)}
 .wg-tile .s{font-size:12px;color:var(--muted)}
 .wg-tile .good{color:var(--ok)} .wg-tile .meh{color:var(--warn)}
+.who{display:inline-flex;border:1px solid var(--line);border-radius:99px;padding:2px;background:var(--surface);margin-left:auto;margin-right:12px}
+.who button{border:0;background:none;border-radius:99px;padding:5px 12px;font:600 13px var(--body);color:var(--muted);cursor:pointer;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.waiting{font-size:13px;color:var(--ink);background:var(--frost);border-radius:6px;padding:4px 8px}
 .dots{display:flex;gap:4px;margin:6px 0 2px}
 .dots i{width:14px;height:14px;border-radius:50%;background:var(--line)}
 .dots i.ok{background:var(--accent)} .dots i.over{background:var(--warn)}
@@ -161,6 +165,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
 <div class="wrap">
   <header>
     <h1>FRZR <small id="today-lbl"></small></h1>
+    <div class="who" id="who" role="group" aria-label="Kto je"></div>
     <span class="muted" id="save-state"></span>
   </header>
   <nav role="tablist">
@@ -351,7 +356,13 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   <!-- USTAWIENIA -->
   <section class="panel" id="tab-ustawienia" hidden>
     <div class="card">
-      <h3>Cele</h3>
+      <h3>Osoby</h3>
+      <p class="muted" style="margin:0 0 8px">Zamrażarka i przepisy są wspólne. Dziennik, waga, „Często jem” i cele każda osoba ma swoje. Gdy pudełko jest dzielone, np. 40% i 60%, druga osoba dostaje resztę tego samego pudełka.</p>
+      <div class="row" style="margin-bottom:14px">
+        <label>Osoba 1<input id="u-name-0" style="width:160px"></label>
+        <label>Osoba 2<input id="u-name-1" style="width:160px"></label>
+      </div>
+      <h3>Cele: <span id="goals-who"></span></h3>
       <div class="row">
         <label>kcal<input type="number" id="g-k" style="width:90px"></label>
         <label>Białko g<input type="number" id="g-p" style="width:90px"></label>
@@ -525,6 +536,40 @@ if (!S.settings.model || S.settings.model === "gemini-2.5-flash") S.settings.mod
 /* naprawa wpisów, w których białko i błonnik zostały w nazwie */
 S.log.forEach(e => { if (!e.p && !e.f && (PROT_RE.test(e.name) || FIB_RE.test(e.name))) { const x = parseFree(e.name); if (x.p !== undefined) e.p = x.p; if (x.f !== undefined) e.f = x.f; if (x.k && !e.k) e.k = x.k; e.name = x.name || e.name; } });
 if (!S.foods) { S.foods = []; [...S.log].sort((a, b) => a.date.localeCompare(b.date)).forEach(e => { if (!e.mealId && !/^Suma dnia/.test(e.name)) upsertFood(e.name, e.k, e.p, e.f, e.date); }); }
+/* ---------- dwie osoby ----------
+   Wspólne: zamrażarka, przepisy, przyprawy, klucz. Osobne: dziennik, waga, „Często jem”, odznaki, cele.
+   Dane aktywnej osoby leżą tam, gdzie zawsze (S.log, S.weights…), drugiej w S.profiles.list[i].
+   m.share to część osoby 1; osoba 2 ma resztę (100 − share), a przy 100% też całe pudełko. */
+const PER = ["log", "weights", "foods", "badgeDates"], PERSET = ["goals", "weightGoal", "track"];
+function ensureProfiles() {
+  if (S.profiles) return;
+  S.profiles = { active: 0, list: [{ name: "Użytkownik 1" }, { name: "Użytkownik 2", log: [], weights: {}, foods: [], goals: { ...S.settings.goals }, weightGoal: null, track: S.settings.track || "kp" }] };
+}
+ensureProfiles();
+const ACT = () => S.profiles.active;
+const userName = i => (S.profiles.list[i].name || "").trim() || `Użytkownik ${i + 1}`;
+const flipShare = v => (v ?? 100) >= 100 ? 100 : 100 - (v ?? 100);
+/* część zapisana w posiłku ↔ część aktywnej osoby; działa w obie strony */
+const myShareOf = v => ACT() === 0 ? (v ?? 100) : flipShare(v);
+function switchUser(i) {
+  if (i === ACT()) return;
+  const P = S.profiles.list, cur = P[ACT()], nx = P[i];
+  PER.forEach(k => { cur[k] = S[k]; S[k] = nx[k]; delete nx[k]; }); PERSET.forEach(k => { cur[k] = S.settings[k]; S.settings[k] = nx[k]; delete nx[k]; });
+  S.log = S.log || []; S.weights = S.weights || {}; S.foods = S.foods || [];
+  S.settings.goals = S.settings.goals || { ...cur.goals }; S.settings.track = S.settings.track || "kp";
+  S.profiles.active = i;
+  /* pola „moja część” w formularzach odwracają się na część drugiej osoby */
+  ["#ck-share", "#fa-share", "#quick-meal-share", "#ed-share"].forEach(sel => { const el = $(sel); if (el && el.value !== "") el.value = flipShare(num(el.value)); });
+  document.querySelectorAll("[data-share],[data-fa-share]").forEach(b => { const k = b.dataset.share !== undefined ? "share" : "faShare", v = flipShare(num(b.dataset[k])); b.dataset[k] = v; b.textContent = v + "%"; });
+  save(); fillSettings(); render();
+}
+function renderWho() {
+  $("#who").innerHTML = [0, 1].map(i => `<button type="button" data-who="${i}" aria-pressed="${i === ACT()}">${esc(userName(i))}</button>`).join("");
+  $("#who").querySelectorAll("[data-who]").forEach(b => b.onclick = () => switchUser(+b.dataset.who));
+}
+/* resztka dzielonego pudełka, która czeka na drugą osobę */
+const waitingFor = m => m.open && m.open.u !== ACT() && m.open.f > 0.01 ? m.open.f : 0;
+const r2 = x => Math.round(x * 100) / 100;
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); $("#save-state").textContent = "Zapisano " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }); }
   catch (e) { $("#save-state").textContent = "Nie udało się zapisać. Pobierz kopię w Ustawieniach."; }
@@ -533,7 +578,8 @@ save();
 
 const rowVal = r => r.abs ? { k: r.k || 0, p: r.p || 0, f: r.f || 0, g: r.g || 0 } : { k: r.g * r.k100 / 100, p: r.g * r.p100 / 100, f: r.g * r.f100 / 100, g: r.g };
 const mealTotals = m => m.rows.reduce((a, r) => { const v = rowVal(r); return { k: a.k + v.k, p: a.p + v.p, f: a.f + v.f, g: a.g + v.g }; }, { k: 0, p: 0, f: 0, g: 0 });
-const shareOf = m => (m.share ?? 100) / 100;
+const myShare = m => myShareOf(m.share);
+const shareOf = m => myShare(m) / 100;
 const myPart = m => { const pp = perPortion(m), s = shareOf(m); return { k: pp.k * s, p: pp.p * s, f: pp.f * s }; };
 const perPortion = m => { const t = mealTotals(m), n = m.portions || 1; return { k: t.k / n, p: t.p / n, f: t.f / n }; };
 const dayTotals = d => S.log.filter(e => e.date === d).reduce((a, e) => ({ k: a.k + e.k, p: a.p + e.p, f: a.f + e.f, n: a.n + 1 }), { k: 0, p: 0, f: 0, n: 0 });
@@ -579,24 +625,39 @@ function renderToday() {
     : `<tbody><tr><td class="muted">Nic jeszcze nie zapisano tego dnia. Zeskanuj etykietę albo dodaj posiłek poniżej.</td></tr></tbody>`;
   $("#log-table").querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
     const e = S.log.find(x => x.id === b.dataset.del);
-    if (e && e.mealId) { const meal = S.meals.find(m => m.id === e.mealId); if (meal) meal.stock = r1((meal.stock || 0) + (e.portions || 1)); }
+    if (e && e.mealId) uneat(e);
     S.log = S.log.filter(x => x.id !== b.dataset.del); save(); render();
   });
-  const inStock = S.meals.filter(m => m.stock > 0), prevSel = $("#quick-meal").value;
+  const inStock = S.meals.filter(m => m.stock > 0 || waitingFor(m)), prevSel = $("#quick-meal").value;
   $("#quick-meal").innerHTML = inStock.length
-    ? inStock.map(m => `<option value="${m.id}">${esc(m.name)} (${f1(m.stock)} szt., moja część ${m.share ?? 100}%: ${r0(myPart(m).k)} kcal)</option>`).join("")
+    ? inStock.map(m => `<option value="${m.id}">${esc(m.name)} (${waitingFor(m) ? `czeka ${r0(waitingFor(m) * 100)}% pudełka, ` : ""}${f1(m.stock)} szt., moja część ${myShare(m)}%: ${r0(myPart(m).k)} kcal)</option>`).join("")
     : `<option value="">Zamrażarka jest pusta</option>`;
   if (prevSel && inStock.some(m => m.id === prevSel)) $("#quick-meal").value = prevSel;
-  const sel = S.meals.find(x => x.id === $("#quick-meal").value); $("#quick-meal-share").value = sel ? (sel.share ?? 100) : 100;
+  const sel = S.meals.find(x => x.id === $("#quick-meal").value); $("#quick-meal-share").value = sel ? myShare(sel) : 100;
 }
 function eat(mealId, n, sharePct) {
   const m = S.meals.find(x => x.id === mealId); if (!m) return false;
-  const pp = perPortion(m), s = (sharePct ?? m.share ?? 100) / 100;
+  const pp = perPortion(m), s = (sharePct ?? myShare(m)) / 100, id = uid();
   const label = m.name + (n !== 1 ? `, ${f1(n)} pudełka` : "") + (s < 1 ? `, moja część ${r0(s * 100)}%` : "");
-  S.log.push({ id: uid(), date: day, name: label, k: pp.k * n * s, p: pp.p * n * s, f: pp.f * n * s, mealId, portions: n });
-  m.stock = Math.max(0, r1((m.stock || 0) - n)); save(); render(); return true;
+  /* dzielone pudełko: najpierw resztka zostawiona przez drugą osobę, dopiero potem nowe pudełko ze stanu */
+  const took = { b: n, o: 0, ou: null, l: 0, u: ACT() };
+  if (s < 1) {
+    let need = n * s;
+    if (waitingFor(m)) { took.o = Math.min(m.open.f, need); took.ou = m.open.u; m.open.f = r2(m.open.f - took.o); need -= took.o; if (m.open.f <= 0.01) delete m.open; }
+    took.b = r2(need / s); took.l = r2(took.b - need);
+    if (took.l > 0.01) m.open = m.open && m.open.u === ACT() ? { u: ACT(), f: r2(m.open.f + took.l) } : { u: ACT(), f: took.l };
+  }
+  S.log.push({ id, date: day, name: label, k: pp.k * n * s, p: pp.p * n * s, f: pp.f * n * s, mealId, portions: n, took });
+  m.stock = Math.max(0, r2((m.stock || 0) - took.b)); save(); render(); return true;
 }
-$("#quick-meal").onchange = () => { const m = S.meals.find(x => x.id === $("#quick-meal").value); if (m) $("#quick-meal-share").value = m.share ?? 100; };
+function uneat(e) { /* cofnięcie wpisu z zamrażarki */
+  const meal = S.meals.find(m => m.id === e.mealId); if (!meal) return;
+  const t = e.took; if (!t) { meal.stock = r1((meal.stock || 0) + (e.portions || 1)); return; }
+  meal.stock = r2((meal.stock || 0) + t.b);
+  if (t.l && meal.open && meal.open.u === t.u) { meal.open.f = r2(meal.open.f - t.l); if (meal.open.f <= 0.01) delete meal.open; }
+  if (t.o) meal.open = meal.open && meal.open.u === t.ou ? { u: t.ou, f: r2(meal.open.f + t.o) } : meal.open || { u: t.ou, f: t.o };
+}
+$("#quick-meal").onchange = () => { const m = S.meals.find(x => x.id === $("#quick-meal").value); if (m) $("#quick-meal-share").value = myShare(m); };
 $("#quick-meal-add").onclick = () => { const id = $("#quick-meal").value; if (id) eat(id, num($("#quick-meal-n").value) || 1, num($("#quick-meal-share").value) || 100); };
 /* „kawa z mlekiem 30 kalorii” → kcal z opisu, białko i błonnik dolicza Gemini w proporcji do podanych kalorii */
 
@@ -681,7 +742,7 @@ $("#scan-btn").onclick = async () => {
       const id = text.startsWith("MROZNIK:") ? text.slice(8) : null;
       const m = id && S.meals.find(x => x.id === id);
       if (!m) return msg($("#scan-msg"), "Tego kodu nie ma w bazie.", true);
-      eat(m.id, 1); msg($("#scan-msg"), `Dodano: ${m.name}, moja część ${m.share ?? 100}%: ${r0(myPart(m).k)} kcal. Zostało ${f1(m.stock)} szt.`);
+      eat(m.id, 1); msg($("#scan-msg"), `Dodano: ${m.name}, moja część ${myShare(m)}%: ${r0(myPart(m).k)} kcal. Zostało ${f1(m.stock)} szt.`);
     });
   } catch (e) { msg($("#scan-msg"), "Brak dostępu do kamery: " + e, true); }
 };
@@ -787,7 +848,7 @@ function ingredientLib() {
 function refreshSpices(rows) { return rows.map(r => { const s = r.spiceId && S.spices.find(x => x.id === r.spiceId); return s ? { ...r, name: s.name, k100: s.k100, p100: s.p100, f100: s.f100 } : { ...r }; }); }
 function loadIntoEditor(src, opts) {
   draft = { id: null, rows: refreshSpices(src.rows), fromRecipe: opts.fromRecipe || null, editing: opts.editing || null };
-  $("#ck-name").value = src.name; $("#ck-portions").value = src.portions ?? 1; $("#ck-share").value = src.share ?? 100; $("#ck-text").value = src.text || "";
+  $("#ck-name").value = src.name; $("#ck-portions").value = src.portions ?? 1; $("#ck-share").value = myShareOf(src.share); $("#ck-text").value = src.text || "";
   msg($("#ck-msg"), ""); msg($("#ck-msg2"), "");
   const from = opts.editing ? `Edytujesz ${opts.editing.type === "spice" ? "przyprawę" : "przepis bazowy"} „${src.name}”. Zapisz przyciskiem na dole.` : `Wczytano „${src.name}”. Popraw gramy, usuń albo dodaj składniki, potem zapisz do zamrażarki.`;
   msg($("#ck-from"), from);
@@ -810,7 +871,7 @@ const spicesOf = r => r.rows.filter(x => x.spiceId).map(x => (S.spices.find(s =>
 function dishFromSpice(s) {
   const lastG = (() => { for (const m of S.meals) { const r = m.rows.find(x => x.spiceId === s.id); if (r) return r.g; } return 0; })();
   draft = { id: null, rows: [{ name: s.name, qty: "", g: lastG, k100: s.k100, p100: s.p100, f100: s.f100, src: "moja przyprawa", spiceId: s.id }], fromRecipe: null, editing: null };
-  $("#ck-name").value = s.name.replace(/,?\s*(moja )?mieszanka/i, "").trim(); $("#ck-portions").value = 2; $("#ck-share").value = 40; $("#ck-text").value = "";
+  $("#ck-name").value = s.name.replace(/,?\s*(moja )?mieszanka/i, "").trim(); $("#ck-portions").value = 2; $("#ck-share").value = myShareOf(40); $("#ck-text").value = "";
   msg($("#ck-from"), `Nowe danie z przyprawą „${s.name}”. ${lastG ? "" : "Wpisz gramy przyprawy, "}dodaj resztę składników i zapisz jako przepis bazowy, żeby następnym razem był gotowy.`);
   $("#ck-search").value = ""; $("#ck-results").innerHTML = ""; renderCook(); showTab("gotuje");
   const g = $('#ck-table input[data-k="g"]'); if (g && !lastG) g.focus();
@@ -861,19 +922,19 @@ $("#ck-ai").onclick = async () => {
   b.disabled = false;
 };
 $("#ck-row").onclick = () => { draft.rows.push({ name: "", qty: "", g: 0, k100: 0, p100: 0, f100: 0, src: "ręcznie" }); renderCook(); };
-$("#ck-clear").onclick = () => { draft = blankDraft(); msg($("#ck-from"), ""); msg($("#ck-msg2"), ""); $("#ck-name").value = ""; $("#ck-portions").value = 2; $("#ck-share").value = 40; $("#ck-text").value = ""; msg($("#ck-msg"), ""); renderCook(); };
+$("#ck-clear").onclick = () => { draft = blankDraft(); msg($("#ck-from"), ""); msg($("#ck-msg2"), ""); $("#ck-name").value = ""; $("#ck-portions").value = 2; $("#ck-share").value = myShareOf(40); $("#ck-text").value = ""; msg($("#ck-msg"), ""); renderCook(); };
 $("#ck-portions").oninput = () => renderCook(true);
 $("#ck-share").oninput = () => renderCook(true);
 document.querySelectorAll("[data-share]").forEach(b => b.onclick = () => { $("#ck-share").value = b.dataset.share; renderCook(true); });
 
 function renderCook(onlyFoot) {
   if (!onlyFoot) renderCookSelects();
-  const m = { rows: draft.rows, portions: Math.max(1, num($("#ck-portions").value)), share: Math.min(100, Math.max(1, num($("#ck-share").value) || 100)) };
+  const m = { rows: draft.rows, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))) };
   const mp = myPart(m);
   const t = mealTotals(m), pp = perPortion(m);
   const foot = `<tr><td colspan="2">Razem${t.g ? ` (${r0(t.g)} g)` : ""}</td><td></td><td class="n">${r0(t.k)}</td><td></td><td class="n">${f1(t.p)}</td><td></td><td class="n">${f1(t.f)}</td><td></td></tr>
     <tr><td colspan="2">Pudełko (1 z ${m.portions}${t.g ? `, ok. ${r0(t.g / m.portions)} g` : ""})</td><td></td><td class="n">${r0(pp.k)}</td><td></td><td class="n">${f1(pp.p)}</td><td></td><td class="n">${f1(pp.f)}</td><td></td></tr>` +
-    (m.share < 100 ? `<tr><td colspan="2">Moja część pudełka (${m.share}%)</td><td></td><td class="n">${r0(mp.k)}</td><td></td><td class="n">${f1(mp.p)}</td><td></td><td class="n">${f1(mp.f)}</td><td></td></tr>` : "");
+    (shareOf(m) < 1 ? `<tr><td colspan="2">Moja część pudełka (${myShare(m)}%)</td><td></td><td class="n">${r0(mp.k)}</td><td></td><td class="n">${f1(mp.p)}</td><td></td><td class="n">${f1(mp.f)}</td><td></td></tr>` : "");
   if (onlyFoot && $("#ck-table tfoot")) { $("#ck-table tfoot").innerHTML = foot; return; }
   if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Wpisz składniki i kliknij „Policz z Gemini”, albo dodaj wiersze ręcznie.</td></tr></tbody>`; return; }
   $("#ck-table").innerHTML = `<thead><tr><th>Składnik</th><th>Ilość</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">kcal/100</th><th class="n">Białko</th><th class="n">B/100</th><th class="n">Błonnik</th><th class="n">Bł/100</th><th></th></tr></thead><tbody>` +
@@ -905,7 +966,7 @@ function saveDraft() {
   const name = $("#ck-name").value.trim(), portions = Math.max(1, num($("#ck-portions").value)), share = Math.min(100, Math.max(1, num($("#ck-share").value) || 100));
   if (!name) { msg($("#ck-msg"), "Wpisz nazwę posiłku.", true); return null; }
   if (!draft.rows.length) { msg($("#ck-msg"), "Dodaj składniki.", true); return null; }
-  const meal = { id: uid(), name, portions, share, stock: portions, date: todayIso(), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
+  const meal = { id: uid(), name, portions, share: myShareOf(share), stock: portions, date: todayIso(), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
   S.meals.unshift(meal);
   let extra = "";
   if (draft.fromRecipe && $("#ck-upd").checked) { const rc = S.recipes.find(x => x.id === draft.fromRecipe); if (rc) { Object.assign(rc, { rows: meal.rows.map(r => ({ ...r })), portions, share, text: meal.text }); extra = " Przepis bazowy zaktualizowany."; } }
@@ -918,7 +979,7 @@ $("#ck-save").onclick = () => saveDraft();
 $("#ck-as-recipe").onclick = () => {
   const name = $("#ck-name").value.trim(); if (!name) return msg($("#ck-msg2"), "Wpisz nazwę przepisu.", true);
   if (!draft.rows.length) return msg($("#ck-msg2"), "Dodaj składniki.", true);
-  const data = { name, portions: Math.max(1, num($("#ck-portions").value)), share: Math.min(100, Math.max(1, num($("#ck-share").value) || 100)), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
+  const data = { name, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
   const ex = (draft.editing?.type === "recipe" && S.recipes.find(x => x.id === draft.editing.id)) || S.recipes.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (ex) Object.assign(ex, data); else S.recipes.push({ id: uid(), ...data });
   if (!draft.fromRecipe) draft.fromRecipe = (ex || S.recipes[S.recipes.length - 1]).id;
@@ -963,13 +1024,17 @@ function printMany(meals) {
   $("#print").innerHTML = meals.map(m => labelHtml(m).repeat(Math.max(1, Math.round(m.portions)))).join("");
   setTimeout(() => window.print(), 100);
 }
+function labelParts(m, pp) {
+  const s1 = m.share ?? 100; if (s1 >= 100) return `${r0(pp.k)} kcal · B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`;
+  return `${esc(userName(0))} ${s1}%: ${r0(pp.k * s1 / 100)} kcal · ${esc(userName(1))} ${100 - s1}%: ${r0(pp.k * (100 - s1) / 100)} kcal<br>Całe: ${r0(pp.k)} kcal`;
+}
 function labelHtml(m) {
   const pp = perPortion(m);
-  return `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${shareOf(m) < 1 ? `Moja część ${m.share}%: ${r0(myPart(m).k)} kcal · B ${f1(myPart(m).p)} · Bł ${f1(myPart(m).f)}<br>Całe: ${r0(pp.k)} kcal` : `${r0(pp.k)} kcal · B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`}<br>${dm(m.date)}</div></div>`;
+  return `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${labelParts(m, pp)}<br>${dm(m.date)}</div></div>`;
 }
 function printLabels(m, n) {
   const pp = perPortion(m);
-  const one = `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${shareOf(m) < 1 ? `Moja część ${m.share}%: ${r0(myPart(m).k)} kcal · B ${f1(myPart(m).p)} · Bł ${f1(myPart(m).f)}<br>Całe: ${r0(pp.k)} kcal` : `${r0(pp.k)} kcal · B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`}<br>${dm(m.date)}</div></div>`;
+  const one = `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${labelParts(m, pp)}<br>${dm(m.date)}</div></div>`;
   $("#print").innerHTML = Array(Math.max(1, Math.round(n))).fill(one).join("");
   setTimeout(() => window.print(), 100);
 }
@@ -982,7 +1047,7 @@ function renderFaPreview() {
   const box = $("#fa-preview"); if (!faDraft) { box.innerHTML = ""; return; }
   const { n, share } = faParams();
   box.innerHTML = `<div class="tablebox" style="margin-top:12px"><table><thead><tr><th></th><th>Nazwa w zamrażarce</th><th class="n">kcal całość</th><th class="n">Pudełko</th><th class="n">Moja część</th><th class="n">Białko (moje)</th><th class="n">Błonnik (moje)</th></tr></thead><tbody>` +
-    faDraft.versions.map((v, i) => { const m = { rows: v.rows, portions: n, share }, t = mealTotals(m), pp = perPortion(m), mp = myPart(m);
+    faDraft.versions.map((v, i) => { const m = { rows: v.rows, portions: n, share: myShareOf(share) }, t = mealTotals(m), pp = perPortion(m), mp = myPart(m);
       return `<tr><td><input type="checkbox" data-fa-on="${i}" ${v.on ? "checked" : ""} aria-label="Dodaj tę wersję"></td><td><input data-fa-nm="${i}" value="${esc(v.title)}"></td><td class="n">${r0(t.k)}</td><td class="n">${r0(pp.k)}</td><td class="n"><b>${r0(mp.k)}</b></td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td></tr>
       <tr><td></td><td colspan="6" class="muted" style="font-size:12px">${v.rows.map(r => `${esc(r.name)} ${f1(r.g)} g (${r0(r.g * r.k100 / 100)} kcal)`).join(" · ")}</td></tr>`; }).join("") +
     `</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn" id="fa-commit">Dodaj zaznaczone do zamrażarki</button><button class="btn ghost" id="fa-commit-print">Dodaj i drukuj etykiety</button><button class="btn ghost" id="fa-drop">Odrzuć</button></div>
@@ -996,7 +1061,7 @@ function renderFaPreview() {
 function faCommit(print) {
   const { n, share } = faParams(), added = [];
   faDraft.versions.filter(v => v.on).forEach(v => {
-    const meal = { id: uid(), name: v.title.trim() || faDraft.dish, portions: n, share, stock: n, date: todayIso(), text: faDraft.text, rows: v.rows.map(r => ({ ...r })) };
+    const meal = { id: uid(), name: v.title.trim() || faDraft.dish, portions: n, share: myShareOf(share), stock: n, date: todayIso(), text: faDraft.text, rows: v.rows.map(r => ({ ...r })) };
     S.meals.unshift(meal); added.push(meal);
   });
   if (!added.length) return msg($("#fa-msg"), "Zaznacz co najmniej jedną wersję.", true);
@@ -1028,7 +1093,7 @@ function freezerAdd() {
   if (withK.length > 1) {
     const n = Math.max(1, Math.round(num($("#fa-n").value) || 1)), share = Math.min(100, Math.max(1, num($("#fa-share").value) || 100));
     const mult = scopeMult($("#fa-scope").value, n, share);
-    const added = withK.map(o => { const meal = { id: uid(), name: o.x.name, portions: n, share, stock: n, date: todayIso(), text: "",
+    const added = withK.map(o => { const meal = { id: uid(), name: o.x.name, portions: n, share: myShareOf(share), stock: n, date: todayIso(), text: "",
       rows: [{ abs: true, name: "Cały garnek (wpisane ręcznie)", qty: "podane sumy", g: 0, k: o.x.k * mult, p: (o.x.p || 0) * mult, f: (o.x.f || 0) * mult, src: "wpisane ręcznie" }] }; S.meals.unshift(meal); return meal; });
     save(); $("#fa-name").value = ""; render();
     msg($("#fa-msg"), `Dodano ${added.length} pozycje: ` + added.map(m => `${m.name} (${r0(myPart(m).k)} kcal)`).join(", ") + ".");
@@ -1042,7 +1107,7 @@ function freezerAdd() {
   if (!k) { msg($("#fa-msg"), "Wpisz kalorie w polu kcal albo w opisie.", true); return null; }
   const n = Math.max(1, Math.round(num($("#fa-n").value) || 1)), share = Math.min(100, Math.max(1, num($("#fa-share").value) || 100));
   const mult = scopeMult($("#fa-scope").value, n, share);
-  const meal = { id: uid(), name, portions: n, share, stock: n, date: todayIso(), text: "",
+  const meal = { id: uid(), name, portions: n, share: myShareOf(share), stock: n, date: todayIso(), text: "",
     rows: [{ abs: true, name: "Cały garnek (wpisane ręcznie)", qty: "podane sumy", g: 0, k: k * mult, p: p * mult, f: f * mult, src: "wpisane ręcznie" }] };
   S.meals.unshift(meal); save();
   ["#fa-name", "#fa-k", "#fa-p", "#fa-f"].forEach(s => $(s).value = "");
@@ -1056,13 +1121,13 @@ $("#fa-name").onkeydown = e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKe
 /* edycja posiłku z palca */
 let edMeal = null, edOrig = null;
 function edFill() {
-  const t = mealTotals(edMeal), n = Math.max(1, num($("#ed-portions").value) || edMeal.portions), d = scopeMult($("#ed-scope").value, n, num($("#ed-share").value) || edMeal.share || 100);
+  const t = mealTotals(edMeal), n = Math.max(1, num($("#ed-portions").value) || edMeal.portions), d = scopeMult($("#ed-scope").value, n, num($("#ed-share").value) || myShare(edMeal));
   $("#ed-k").value = r0(t.k / d); $("#ed-p").value = r1(t.p / d); $("#ed-f").value = r1(t.f / d);
   edOrig = { k: $("#ed-k").value, p: $("#ed-p").value, f: $("#ed-f").value, scope: $("#ed-scope").value, n };
 }
 function openEdit(m) {
   edMeal = m;
-  $("#ed-name").value = m.name; $("#ed-date").value = m.date; $("#ed-portions").value = m.portions; $("#ed-stock").value = m.stock; $("#ed-share").value = m.share ?? 100; $("#ed-scope").value = "pot";
+  $("#ed-name").value = m.name; $("#ed-date").value = m.date; $("#ed-portions").value = m.portions; $("#ed-stock").value = m.stock; $("#ed-share").value = myShare(m); $("#ed-scope").value = "pot";
   edFill();
   const ing = m.rows.filter(r => !r.abs).length;
   $("#ed-note").textContent = ing ? `Posiłek ma ${ing} składników z gramami. Zmiana kcal, białka albo błonnika zastąpi je jedną sumą. Gramy poprawisz przez „Ugotuj ponownie”.` : "";
@@ -1077,25 +1142,26 @@ $("#ed-save").onclick = () => {
   const changed = ["k", "p", "f"].some(k => $("#ed-" + k).value !== edOrig[k]);
   const portionsChanged = n !== m.portions;
   const shareNew = Math.min(100, Math.max(1, num($("#ed-share").value) || 100));
-  const shareChanged = shareNew !== (m.share ?? 100);
+  const shareChanged = shareNew !== myShare(m);
   if (changed || ($("#ed-scope").value !== "pot" && portionsChanged) || ($("#ed-scope").value === "mine" && shareChanged)) {
     const mult = scopeMult($("#ed-scope").value, n, shareNew);
     m.rows = [{ abs: true, name: "Cały garnek (poprawione ręcznie)", qty: "podane sumy", g: 0, k: num($("#ed-k").value) * mult, p: num($("#ed-p").value) * mult, f: num($("#ed-f").value) * mult, src: "edycja ręczna" }];
   }
-  Object.assign(m, { name, date: $("#ed-date").value || m.date, portions: n, stock: Math.max(0, num($("#ed-stock").value)), share: Math.min(100, Math.max(1, num($("#ed-share").value) || 100)) });
+  Object.assign(m, { name, date: $("#ed-date").value || m.date, portions: n, stock: Math.max(0, num($("#ed-stock").value)), share: myShareOf(shareNew) });
   save(); $("#ed-modal").hidden = true; edMeal = null; render();
 };
 function renderFreezer() {
   const fq = $("#fz-search").value.trim();
-  const inStock = S.meals.filter(m => m.stock > 0 && matches(m, fq));
+  const inStock = S.meals.filter(m => (m.stock > 0 || waitingFor(m)) && matches(m, fq));
   $("#stock").innerHTML = inStock.length ? inStock.map(m => { const pp = perPortion(m); return `<div class="item">
       <div class="row" style="justify-content:space-between;align-items:baseline"><span class="name">${esc(m.name)}</span><span class="count">${f1(m.stock)}</span></div>
-      <div class="macro">${shareOf(m) < 1 ? `Moja część (${m.share}%): <b>${r0(myPart(m).k)} kcal</b> · białko ${f1(myPart(m).p)} g · błonnik ${f1(myPart(m).f)} g<br>Całe pudełko: ${r0(pp.k)} kcal` : `Porcja: ${r0(pp.k)} kcal · białko ${f1(pp.p)} g · błonnik ${f1(pp.f)} g`}</div>
+      ${waitingFor(m) ? `<div class="waiting">Czeka na Ciebie: ${r0(waitingFor(m) * 100)}% otwartego pudełka od ${esc(userName(m.open.u))}</div>` : ""}
+      <div class="macro">${shareOf(m) < 1 ? `Moja część (${myShare(m)}%): <b>${r0(myPart(m).k)} kcal</b> · białko ${f1(myPart(m).p)} g · błonnik ${f1(myPart(m).f)} g<br>Całe pudełko: ${r0(pp.k)} kcal` : `Porcja: ${r0(pp.k)} kcal · białko ${f1(pp.p)} g · błonnik ${f1(pp.f)} g`}</div>
       <div class="macro">Ugotowane ${dm(m.date)}, ${m.portions} szt.</div>
       <div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-lbl="${m.id}">Etykiety</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button></div></div>`; }).join("")
     : `<p class="muted">${fq ? "Nic nie pasuje w zamrażarce." : "Pusto. Nowy posiłek dodasz w zakładce Gotuję."}</p>`;
   $("#meals-table").innerHTML = S.meals.length ? `<thead><tr><th>Posiłek</th><th>Data</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
-    S.meals.filter(m => matches(m, fq)).map(m => { return `<tr><td>${hl(m.name, fq)}</td><td>${dm(m.date)}</td><td class="n">${m.portions}</td><td class="n">${m.share ?? 100}%</td><td class="n">${r0(myPart(m).k)}</td><td class="n">${f1(myPart(m).p)}</td><td class="n">${f1(myPart(m).f)}</td>
+    S.meals.filter(m => matches(m, fq)).map(m => { return `<tr><td>${hl(m.name, fq)}</td><td>${dm(m.date)}</td><td class="n">${m.portions}</td><td class="n">${myShare(m)}%</td><td class="n">${r0(myPart(m).k)}</td><td class="n">${f1(myPart(m).p)}</td><td class="n">${f1(myPart(m).f)}</td>
       <td class="n" style="white-space:nowrap"><button class="btn ghost small" data-edit="${m.id}">Edytuj</button> <button class="btn ghost small" data-again="${m.id}">Ugotuj ponownie</button> <button class="x" data-delmeal="${m.id}" title="Usuń z bazy">×</button></td></tr>`; }).join("") + `</tbody>`
     : `<tbody><tr><td class="muted">Brak zapisanych posiłków.</td></tr></tbody>`;
   const on = (attr, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(S.meals.find(m => m.id === b.getAttribute(attr))));
@@ -1346,7 +1412,9 @@ $("#w-copy").onclick = async () => {
 function fillSettings() {
   const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal; $("#g-track").value = s.track || "kp";
   $("#s-key").value = s.key; $("#s-model").value = s.model;
+  $("#u-name-0").value = userName(0); $("#u-name-1").value = userName(1); $("#goals-who").textContent = userName(ACT());
 }
+[0, 1].forEach(i => $("#u-name-" + i).onchange = () => { S.profiles.list[i].name = $("#u-name-" + i).value.trim(); save(); fillSettings(); render(); });
 $("#g-track").onchange = () => { S.settings.track = $("#g-track").value; save(); render(); };
 $("#g-save").onclick = () => { S.settings.track = $("#g-track").value; S.settings.goals = { k: num($("#g-k").value), p: num($("#g-p").value), f: num($("#g-f").value) }; S.settings.weightGoal = num($("#g-w").value); save(); render(); };
 $("#s-save").onclick = () => { S.settings.key = $("#s-key").value.trim(); S.settings.model = $("#s-model").value.trim() || "gemini-3.8-flash"; save(); msg($("#s-msg"), "Zapisano."); };
@@ -1361,7 +1429,7 @@ $("#exp").onclick = () => {
 };
 $("#imp").onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
-  try { const d = JSON.parse(await f.text()); if (!d.meals || !d.log || !d.weights) throw 0; S = d; save(); fillSettings(); render(); alert("Wczytano kopię."); }
+  try { const d = JSON.parse(await f.text()); if (!d.meals || !d.log || !d.weights) throw 0; S = d; ensureProfiles(); save(); fillSettings(); render(); alert("Wczytano kopię."); }
   catch (err) { alert("To nie jest plik kopii FRZR."); }
 };
 $("#chat-imp-btn").onclick = () => {
@@ -1401,7 +1469,7 @@ function renderFoods() {
   $("#fd-table").querySelectorAll("[data-fd-del]").forEach(b => b.onclick = () => { if (b.dataset.sure) { S.foods = foods.filter(z => z.id !== b.dataset.fdDel); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } });
 }
 $("#fav-search").oninput = () => renderFoods();
-function render() { renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }
+function render() { renderWho(); renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }
 fillSettings(); renderCook(); render();
 </script>
 </body>
