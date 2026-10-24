@@ -68,6 +68,13 @@ table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
 th{font-size:12px;color:var(--muted);font-weight:600}
 td.n,th.n{text-align:right}
+#w-table .gs{border-left:1px solid var(--line)}
+#w-table tr.grp th{border-bottom:0;padding-bottom:0;text-transform:uppercase;letter-spacing:.06em;font-size:11px;text-align:center}
+#w-table tr.wk td{background:var(--frost);font-size:12px;font-weight:700;padding:5px 8px;border-bottom:0}
+#w-table tr.wk span{font-weight:500;color:var(--muted);margin-left:6px}
+#w-table td small{font-size:11px}
+#w-table td:first-child{white-space:nowrap}
+@media (max-width:560px){#w-table{font-size:13px}#w-table th,#w-table td{padding:5px 4px}#w-table td small{display:none}#w-table tr.wk span{display:block;margin:0}}
 tfoot td{font-weight:600;border-bottom:0}
 td input{width:100%;padding:4px 6px}
 td input.num{width:72px;text-align:right}
@@ -1115,6 +1122,7 @@ $("#w-add").onclick = () => {
   msg($("#w-msg"), bits.join(" "));
 };
 function avg(a) { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; }
+function kcalAvg7(d) { const v = []; for (let i = 0; i < 7; i++) { const t = dayTotals(addDays(d, -i)); if (t.n) v.push(t.k); } return v.length >= 3 ? avg(v) : null; }
 function weightAvg7(d) { const v = []; for (let i = 0; i < 7; i++) { const w = S.weights[addDays(d, -i)]; if (w) v.push(w); } return v.length >= 3 ? avg(v) : null; }
 /* ---------- grywalizacja wagi ---------- */
 const kg2 = x => x.toFixed(2).replace(".", ","), kg1 = x => x.toFixed(1).replace(".", ",");
@@ -1144,10 +1152,11 @@ function wgStats() {
   const yest = addDays(today, -1);
   const kcal = runs(inKcal, yest, span), prot = runs(inProt, yest, span), fib = runs(inFib, yest, span);
   const week = [...Array(7)].map((_, i) => addDays(yest, i - 6));
-  const atGoal = goal && (cur - goal) * dir >= -0.05;
+  /* cel to zakres ±0,5 kg: średnia w zakresie oznacza cel osiągnięty, a nie „prawie” */
+  const atGoal = !!goal && Math.abs(cur - goal) <= 0.5;
   /* zakres utrzymania: cel ±0,5 kg. Poniżej zakresu chudnięcie przestaje być sukcesem */
   const lowEdge = goal ? goal - 0.5 : null, highEdge = goal ? goal + 0.5 : null;
-  const below = !!goal && cur < lowEdge, reached = !!goal && bestDone >= need - 0.05;
+  const below = !!goal && cur < lowEdge, reached = !!goal && bestDone >= need - 0.5;
   const above = reached && cur > highEdge;
   const eatsEnough = d => { const t = dayTotals(d); return t.n > 0 && t.k >= g.k * 0.95; };
   const keep = goal ? runs(d => { const a = weightAvg7(d); return a != null && Math.abs(a - goal) <= 0.5; }, last, span) : { cur: 0, best: 0 };
@@ -1158,7 +1167,7 @@ function wgStats() {
   for (let k = 1; k <= Math.floor(need + 1e-9); k++) badges.push(B("kg" + k, (dir < 0 ? "−" : "+") + k, `${k} kg ${dir < 0 ? "mniej" : "więcej"}`, bestDone >= k - 1e-9, "średnia 7 dni", `${kg1(Math.max(0, bestDone))}/${k} kg`));
   if (need) {
     badges.push(B("half", "½", "Połowa drogi", bestDone >= need / 2, `do ${kg1(start + dir * need / 2)} kg`, `${r0(Math.max(0, bestDone) / need * 100)}%`));
-    badges.push(B("goal", "★", "Cel osiągnięty", bestDone >= need - 0.05, `średnia ${goal} kg`, `${r0(Math.min(1, Math.max(0, bestDone) / need) * 100)}%`));
+    badges.push(B("goal", "★", "Cel osiągnięty", bestDone >= need - 0.5, `średnia ${goal} kg`, `${r0(Math.min(1, Math.max(0, bestDone) / need) * 100)}%`));
     badges.push(B("keep14", "=", "Utrzymanie 14 dni", keep.best >= 14, `±0,5 kg od celu`, `${keep.best}/14 dni`));
   }
   badges.push(B("w7", "7", "Tydzień ważenia", weigh.best >= 7, "7 dni z rzędu", `${weigh.best}/7`));
@@ -1199,7 +1208,7 @@ function wgSummary() {
   if (!goal || !need) {
     hero = `<div class="wg-big">${kg2(cur)} kg<span>średnia 7 dni</span></div><p class="muted" style="margin:0">Ustaw cel wagi w Ustawieniach, żeby zobaczyć postęp.</p>`;
   } else {
-    const pct = Math.max(0, Math.min(1, done / need)), left = (goal - cur) * dir;
+    const pct = st.atGoal ? 1 : Math.max(0, Math.min(1, done / need)), left = (goal - cur) * dir;
     const ms = []; for (let k = 1; k < need - 0.15; k++) ms.push(`<span class="ms${done >= k ? " done" : ""}" style="left:${k / need * 100}%"><small>${dir < 0 ? "−" : "+"}${k}</small></span>`);
     const head = st.below ? `<span class="wg-warn">${kg1(st.lowEdge - cur + 0.5)} kg poniżej celu</span><span>${kg2(cur)} kg, średnia 7 dni</span>`
       : st.above ? `${kg1(cur - st.highEdge)} kg ponad zakres<span>${kg2(cur)} kg, średnia 7 dni</span>`
@@ -1301,14 +1310,26 @@ function renderWeight() {
       <text x="${L}" y="${H - 6}">${dm(pts[0])}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${dm(pts[pts.length - 1])}</text>
     </svg></div><p class="muted" style="margin:6px 0 0">Szara linia: pomiary. Zielona: średnia 7 dni (od 3 pomiarów w oknie).</p>`;
   }
-  // tabela dni
+  // tabela dni: pogrupowana tygodniami, kolumny w dwóch grupach (waga i jedzenie)
   const all = new Set(dates); S.log.forEach(e => all.add(e.date));
   const list = [...all].sort().reverse().slice(0, 45);
-  $("#w-table").innerHTML = list.length ? `<thead><tr><th>Data</th><th class="n">Waga</th><th class="n">Śr. 7 dni</th><th class="n">kcal dzień wcześniej</th><th class="n">kcal</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
-    list.map(d => { const t = dayTotals(d), prev = dayTotals(addDays(d, -1)), w = S.weights[d], a = weightAvg7(d);
-      return `<tr><td>${dm(d)}</td><td class="n">${w ? w.toFixed(2).replace(".", ",") : ""}</td><td class="n">${a ? a.toFixed(2).replace(".", ",") : ""}</td><td class="n">${prev.n ? r0(prev.k) : ""}</td>
-        <td class="n">${t.n ? r0(t.k) : ""}</td><td class="n" style="color:${t.n && t.p < g.p ? "var(--warn)" : "inherit"}">${t.n ? f1(t.p) : ""}</td><td class="n" style="color:${t.n && t.f < g.f ? "var(--warn)" : "inherit"}">${t.n ? f1(t.f) : ""}</td>
-        <td class="n">${w ? `<button class="x" data-delw="${d}" title="Usuń pomiar">×</button>` : ""}</td></tr>`; }).join("") + `</tbody>` : "";
+  const kg = v => v ? v.toFixed(2).replace(".", ",") : "";
+  const weekStart = d => { const wd = (new Date(d + "T12:00:00").getDay() + 6) % 7; return addDays(d, -wd); };
+  const weeks = []; list.forEach(d => { const ws = weekStart(d); if (!weeks.length || weeks[weeks.length - 1].ws !== ws) weeks.push({ ws, days: [] }); weeks[weeks.length - 1].days.push(d); });
+  const head = `<thead><tr class="grp"><th></th><th class="n gs" colspan="2">Waga kg</th><th class="n gs" colspan="4">Jedzenie</th><th></th></tr>
+    <tr><th>Data</th><th class="n gs">rano</th><th class="n">śr. 7 dni</th><th class="n gs">kcal</th><th class="n">śr. 7 dni</th><th class="n">białko</th><th class="n">błonnik</th><th></th></tr></thead>`;
+  const wd = ["nd", "pn", "wt", "śr", "cz", "pt", "sb"];
+  const row = d => { const t = dayTotals(d), w = S.weights[d], a = weightAvg7(d), ak = kcalAvg7(d);
+    const mac = t.n && (t.p || t.f); /* dni z samą sumą kalorii nie mają białka ani błonnika */
+    return `<tr><td>${dm(d)} <small class="muted">${wd[new Date(d + "T12:00:00").getDay()]}</small></td>
+      <td class="n gs">${kg(w)}</td><td class="n muted">${kg(a)}</td>
+      <td class="n gs">${t.n ? r0(t.k) : ""}</td><td class="n muted">${ak ? r0(ak) : ""}</td>
+      <td class="n" style="color:${mac && t.p < g.p ? "var(--warn)" : "inherit"}">${mac ? f1(t.p) : ""}</td><td class="n" style="color:${mac && t.f < g.f ? "var(--warn)" : "inherit"}">${mac ? f1(t.f) : ""}</td>
+      <td class="n">${w ? `<button class="x" data-delw="${d}" title="Usuń pomiar">×</button>` : ""}</td></tr>`; };
+  const weekRow = wk => { const ws = wk.days.map(d => S.weights[d]).filter(Boolean), ks = wk.days.map(dayTotals).filter(t => t.n).map(t => t.k);
+    const bits = [ws.length ? `śr. ${kg(avg(ws))} kg` : "", ks.length ? `śr. ${r0(avg(ks))} kcal` : ""].filter(Boolean).join(" · ");
+    return `<tr class="wk"><td colspan="8">Tydzień ${dm(wk.ws)}–${dm(addDays(wk.ws, 6))}${bits ? ` <span>${bits}</span>` : ""}</td></tr>`; };
+  $("#w-table").innerHTML = list.length ? head + `<tbody>` + weeks.map(wk => weekRow(wk) + wk.days.map(row).join("")).join("") + `</tbody>` : "";
   $("#w-table").querySelectorAll("[data-delw]").forEach(b => b.onclick = () => { delete S.weights[b.dataset.delw]; save(); render(); });
 }
 $("#w-copy").onclick = async () => {
