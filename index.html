@@ -558,6 +558,10 @@ function switchUser(i) {
   S.log = S.log || []; S.weights = S.weights || {}; S.foods = S.foods || [];
   S.settings.goals = S.settings.goals || { ...cur.goals }; S.settings.track = S.settings.track || "kp";
   S.profiles.active = i;
+  /* komunikaty i niedokończone wpisy należą do poprzedniej osoby */
+  document.querySelectorAll(".msg").forEach(el => msg(el, ""));
+  ["#w-kg", "#free-name", "#free-k", "#free-p", "#free-f", "#fav-search"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
+  freePicked = null; hideFreeSugg();
   /* pola „moja część” w formularzach odwracają się na część drugiej osoby */
   ["#ck-share", "#fa-share", "#quick-meal-share", "#ed-share"].forEach(sel => { const el = $(sel); if (el && el.value !== "") el.value = flipShare(num(el.value)); });
   document.querySelectorAll("[data-share],[data-fa-share]").forEach(b => { const k = b.dataset.share !== undefined ? "share" : "faShare", v = flipShare(num(b.dataset[k])); b.dataset[k] = v; b.textContent = v + "%"; });
