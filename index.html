@@ -580,7 +580,9 @@ function renderWho() {
   $("#who").querySelectorAll("[data-who]").forEach(b => b.onclick = () => switchUser(+b.dataset.who));
 }
 /* resztka dzielonego pudełka, która czeka na drugą osobę */
-const waitingFor = m => m.open && m.open.u !== ACT() && m.open.f > 0.01 ? m.open.f : 0;
+const waitingFor = m => m.wait && m.wait[ACT()] > 0.01 ? m.wait[ACT()] : 0;
+/* poprzednia wersja: m.open = {u: kto zostawił, f: ile} → m.wait[druga osoba] */
+S.meals.forEach(m => { if (m.open) { m.wait = { [1 - m.open.u]: m.open.f }; delete m.open; } });
 const r2 = x => Math.round(x * 100) / 100;
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); $("#save-state").textContent = "Zapisano " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }); }
@@ -621,12 +623,14 @@ function renderToday() {
   const m = (lbl, v, goal, unit) => {
     const fmt = x => unit === "kcal" ? r0(x) : f1(x);
     /* przekroczone kalorie: pomarańczowa nadwyżka; białko i błonnik ponad cel: pełny zielony pasek */
+    /* porównanie na wyświetlanych liczbach: 1700,4 kcal to „1700”, a nie przekroczenie */
+    v = unit === "kcal" ? r0(v) : r1(v);
     const over = unit === "kcal" && v > goal, scale = (over ? v : goal) || 1;
     const okW = Math.min(v, goal) / scale * 100, overW = over ? (v - goal) / scale * 100 : 0, goalX = goal / scale * 100;
     const rest = goal - v;
     return `<div class="meter${over ? " is-over" : ""}"><div class="lbl">${lbl}</div><div class="val">${fmt(v)} <span>/ ${goal} ${unit}</span></div>
       <div class="bar"><i style="width:${okW}%"></i>${over ? `<i class="over" style="width:${overW}%"></i><b style="left:${goalX}%"></b>` : ""}</div>
-      <div class="rest">${rest > 0 ? "Zostało " + fmt(rest) + " " + unit : over ? "Ponad cel o " + fmt(-rest) + " " + unit + ` (+${r0(-rest / goal * 100)}%)` : "Cel osiągnięty" + (rest < 0 ? ", +" + fmt(-rest) + " " + unit : "")}</div></div>`;
+      <div class="rest">${rest > 0 ? "Zostało " + fmt(rest) + " " + unit : over ? "Ponad cel o " + fmt(-rest) + " " + unit + (r0(-rest / goal * 100) >= 1 ? ` (+${r0(-rest / goal * 100)}%)` : "") : "Cel osiągnięty" + (rest < 0 ? ", +" + fmt(-rest) + " " + unit : "")}</div></div>`;
   };
   $("#meters").innerHTML = m("Kalorie", t.k, g.k, "kcal") + m("Białko", t.p, g.p, "g") + m("Błonnik", t.f, g.f, "g");
   const rows = S.log.filter(e => e.date === day);
@@ -647,27 +651,46 @@ function renderToday() {
   if (prevSel && inStock.some(m => m.id === prevSel)) $("#quick-meal").value = prevSel;
   const sel = S.meals.find(x => x.id === $("#quick-meal").value); $("#quick-meal-share").value = sel ? myShare(sel) : 100;
 }
+/* Dzielone pudełka: m.wait[u] to część otwartego pudełka, która czeka na osobę u.
+   Jedzenie najpierw zabiera z m.wait[u], potem bierze nowe pudełko ze stanu i resztę odkłada drugiej osobie.
+   Cofnięcie oddaje zjedzoną część do m.wait[u], a części obu osób, które razem tworzą pudełko, wracają na stan.
+   Dzięki temu kolejność dodawania i usuwania wpisów nie ma znaczenia. */
+function settleWait(m) {
+  const s0 = (m.share ?? 100) / 100; if (!m.wait) return;
+  if (s0 < 1) {
+    const w0 = m.wait[0] || 0, w1 = m.wait[1] || 0, k = Math.min(w0 / s0, w1 / (1 - s0));
+    if (k > 0.005) { m.stock = r2((m.stock || 0) + k); m.wait[0] = r2(w0 - k * s0); m.wait[1] = r2(w1 - k * (1 - s0)); }
+  }
+  [0, 1].forEach(u => { if (!(m.wait[u] > 0.01)) delete m.wait[u]; });
+  if (!Object.keys(m.wait).length) delete m.wait;
+}
 function eat(mealId, n, sharePct) {
   const m = S.meals.find(x => x.id === mealId); if (!m) return false;
-  const pp = perPortion(m), s = (sharePct ?? myShare(m)) / 100, id = uid();
+  const pp = perPortion(m), s = (sharePct ?? myShare(m)) / 100, u = ACT();
   const label = m.name + (n !== 1 ? `, ${f1(n)} pudełka` : "") + (s < 1 ? `, moja część ${r0(s * 100)}%` : "");
-  /* dzielone pudełko: najpierw resztka zostawiona przez drugą osobę, dopiero potem nowe pudełko ze stanu */
-  const took = { b: n, o: 0, ou: null, l: 0, u: ACT() };
-  if (s < 1) {
-    let need = n * s;
-    if (waitingFor(m)) { took.o = Math.min(m.open.f, need); took.ou = m.open.u; m.open.f = r2(m.open.f - took.o); need -= took.o; if (m.open.f <= 0.01) delete m.open; }
-    took.b = r2(need / s); took.l = r2(took.b - need);
-    if (took.l > 0.01) m.open = m.open && m.open.u === ACT() ? { u: ACT(), f: r2(m.open.f + took.l) } : { u: ACT(), f: took.l };
+  const took = { v: 2, u, full: 0, part: 0 };
+  if (s >= 1) { took.full = n; m.stock = Math.max(0, r2((m.stock || 0) - n)); }
+  else {
+    let need = n * s; took.part = r2(need);
+    const fromWait = Math.min(waitingFor(m), need);
+    if (fromWait) { m.wait[u] = r2(m.wait[u] - fromWait); need -= fromWait; }
+    if (need > 0.005) {
+      const boxes = need / s; m.stock = Math.max(0, r2((m.stock || 0) - boxes));
+      m.wait = m.wait || {}; m.wait[1 - u] = r2((m.wait[1 - u] || 0) + boxes * (1 - s));
+    }
+    settleWait(m);
   }
-  S.log.push({ id, date: day, name: label, k: pp.k * n * s, p: pp.p * n * s, f: pp.f * n * s, mealId, portions: n, took });
-  m.stock = Math.max(0, r2((m.stock || 0) - took.b)); save(); render(); return true;
+  S.log.push({ id: uid(), date: day, name: label, k: pp.k * n * s, p: pp.p * n * s, f: pp.f * n * s, mealId, portions: n, took });
+  save(); render(); return true;
 }
 function uneat(e) { /* cofnięcie wpisu z zamrażarki */
   const meal = S.meals.find(m => m.id === e.mealId); if (!meal) return;
-  const t = e.took; if (!t) { meal.stock = r1((meal.stock || 0) + (e.portions || 1)); return; }
-  meal.stock = r2((meal.stock || 0) + t.b);
-  if (t.l && meal.open && meal.open.u === t.u) { meal.open.f = r2(meal.open.f - t.l); if (meal.open.f <= 0.01) delete meal.open; }
-  if (t.o) meal.open = meal.open && meal.open.u === t.ou ? { u: t.ou, f: r2(meal.open.f + t.o) } : meal.open || { u: t.ou, f: t.o };
+  const t = e.took;
+  if (!t) { meal.stock = r1((meal.stock || 0) + (e.portions || 1)); return; }
+  /* wpisy z poprzedniej wersji: zjedzona część = pudełka − odłożona reszta + wzięte z czekającej */
+  const u = t.u ?? ACT(), full = t.v === 2 ? t.full : (!t.l && !t.o ? t.b : 0), part = t.v === 2 ? t.part : (t.b - t.l + t.o);
+  if (full) meal.stock = r2((meal.stock || 0) + full);
+  if (part > 0.005) { meal.wait = meal.wait || {}; meal.wait[u] = r2((meal.wait[u] || 0) + part); settleWait(meal); }
 }
 $("#quick-meal").onchange = () => { const m = S.meals.find(x => x.id === $("#quick-meal").value); if (m) $("#quick-meal-share").value = myShare(m); };
 $("#quick-meal-add").onclick = () => { const id = $("#quick-meal").value; if (id) eat(id, num($("#quick-meal-n").value) || 1, num($("#quick-meal-share").value) || 100); };
@@ -1167,7 +1190,7 @@ function renderFreezer() {
   const inStock = S.meals.filter(m => (m.stock > 0 || waitingFor(m)) && matches(m, fq));
   $("#stock").innerHTML = inStock.length ? inStock.map(m => { const pp = perPortion(m); return `<div class="item">
       <div class="row" style="justify-content:space-between;align-items:baseline"><span class="name">${esc(m.name)}</span><span class="count">${f1(m.stock)}</span></div>
-      ${waitingFor(m) ? `<div class="waiting">Czeka na Ciebie: ${r0(waitingFor(m) * 100)}% otwartego pudełka od ${esc(userName(m.open.u))}</div>` : ""}
+      ${waitingFor(m) ? `<div class="waiting">Czeka na Ciebie: ${r0(waitingFor(m) * 100)}% otwartego pudełka od ${esc(userName(1 - ACT()))}</div>` : ""}
       <div class="macro">${shareOf(m) < 1 ? `Moja część (${myShare(m)}%): <b>${r0(myPart(m).k)} kcal</b> · białko ${f1(myPart(m).p)} g · błonnik ${f1(myPart(m).f)} g<br>Całe pudełko: ${r0(pp.k)} kcal` : `Porcja: ${r0(pp.k)} kcal · białko ${f1(pp.p)} g · błonnik ${f1(pp.f)} g`}</div>
       <div class="macro">Ugotowane ${dm(m.date)}, ${m.portions} szt.</div>
       <div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-lbl="${m.id}">Etykiety</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button></div></div>`; }).join("")
