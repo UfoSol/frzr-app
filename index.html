@@ -368,8 +368,10 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Białko g<input type="number" id="g-p" style="width:90px"></label>
         <label>Błonnik g<input type="number" id="g-f" style="width:90px"></label>
         <label>Cel wagi kg<input type="number" id="g-w" step="0.1" style="width:90px"></label>
+        <label>Tryb<select id="g-mode"><option value="cut">redukcja</option><option value="keep">utrzymanie</option><option value="bulk">masa</option></select></label>
         <button class="btn" id="g-save">Zapisz</button>
       </div>
+      <p class="muted" id="mode-hint" style="margin:8px 0 0"></p>
       <div class="row" style="margin-top:10px">
         <label>Serie i kropki w zakładce Waga<select id="g-track">
           <option value="k">tylko kalorie</option>
@@ -540,7 +542,7 @@ if (!S.foods) { S.foods = []; [...S.log].sort((a, b) => a.date.localeCompare(b.d
    Wspólne: zamrażarka, przepisy, przyprawy, klucz. Osobne: dziennik, waga, „Często jem”, odznaki, cele.
    Dane aktywnej osoby leżą tam, gdzie zawsze (S.log, S.weights…), drugiej w S.profiles.list[i].
    m.share to część osoby 1; osoba 2 ma resztę (100 − share), a przy 100% też całe pudełko. */
-const PER = ["log", "weights", "foods", "badgeDates"], PERSET = ["goals", "weightGoal", "track"];
+const PER = ["log", "weights", "foods", "badgeDates"], PERSET = ["goals", "weightGoal", "track", "mode", "modeSince"];
 function ensureProfiles() {
   if (S.profiles) return;
   S.profiles = { active: 0, list: [{ name: "Użytkownik 1" }, { name: "Użytkownik 2", log: [], weights: {}, foods: [], goals: { ...S.settings.goals }, weightGoal: null, track: S.settings.track || "kp" }] };
@@ -625,7 +627,7 @@ function renderToday() {
     /* przekroczone kalorie: pomarańczowa nadwyżka; białko i błonnik ponad cel: pełny zielony pasek */
     /* porównanie na wyświetlanych liczbach: 1700,4 kcal to „1700”, a nie przekroczenie */
     v = unit === "kcal" ? r0(v) : r1(v);
-    const over = unit === "kcal" && v > goal, scale = (over ? v : goal) || 1;
+    const over = unit === "kcal" && v > goal && dietMode() !== "bulk", scale = (over ? v : goal) || 1;
     const okW = Math.min(v, goal) / scale * 100, overW = over ? (v - goal) / scale * 100 : 0, goalX = goal / scale * 100;
     const rest = goal - v;
     return `<div class="meter${over ? " is-over" : ""}"><div class="lbl">${lbl}</div><div class="val">${fmt(v)} <span>/ ${goal} ${unit}</span></div>
@@ -1216,17 +1218,24 @@ $("#w-add").onclick = () => {
   const before = wgStats(); S.weights[d] = kg; $("#w-kg").value = ""; save(); render();
   const after = wgStats(), bits = [`Zapisane: ${kg.toFixed(2).replace(".", ",")} kg.`];
   if (after.weigh.cur > 1) bits.push(`Seria ważenia: ${after.weigh.cur} dni z rzędu.`);
-  if (after.bestAvg != null && (before.bestAvg == null || after.bestAvg < before.bestAvg - 0.001) && after.dir < 0 && !before.reached && !after.below) bits.push("Najniższa średnia 7 dni do tej pory!");
-  if (after.below) bits.push(`Średnia jest poniżej Twojego zakresu (${kg1(after.lowEdge)}–${kg1(after.highEdge)} kg), jedz więcej.`);
+  if (after.bestAvg != null && (before.bestAvg == null || after.bestAvg < before.bestAvg - 0.001) && after.mode === "cut" && !before.reached && !after.below) bits.push("Najniższa średnia 7 dni do tej pory!");
+  if (after.bestAvg != null && before.bestAvg != null && after.bestAvg > before.bestAvg + 0.001 && after.mode === "bulk" && !before.reached) bits.push("Najwyższa średnia 7 dni do tej pory!");
+  if (after.warnLow) bits.push(`Średnia jest poniżej Twojego zakresu (${kg1(after.lowEdge)}–${kg1(after.highEdge)} kg), jedz więcej.`);
   const fresh = after.badges.filter(b => b.got && !before.badges.find(x => x.id === b.id).got);
   if (fresh.length) bits.push("Nowa odznaka: " + fresh.map(b => b.name).join(", ") + "!");
   msg($("#w-msg"), bits.join(" "));
 };
 function avg(a) { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; }
-function kcalAvg7(d) { const v = []; for (let i = 0; i < 7; i++) { const t = dayTotals(addDays(d, -i)); if (t.n) v.push(t.k); } return v.length >= 3 ? avg(v) : null; }
+/* dzisiejszy dzień jeszcze trwa, więc jego kalorie nie wchodzą do średnich */
+function kcalAvg7(d) { const v = [], today = todayIso(); for (let i = 0; i < 7; i++) { const x = addDays(d, -i); if (x >= today) continue; const t = dayTotals(x); if (t.n) v.push(t.k); } return v.length >= 3 ? avg(v) : null; }
 function weightAvg7(d) { const v = []; for (let i = 0; i < 7; i++) { const w = S.weights[addDays(d, -i)]; if (w) v.push(w); } return v.length >= 3 ? avg(v) : null; }
 /* ---------- grywalizacja wagi ---------- */
 const kg2 = x => x.toFixed(2).replace(".", ","), kg1 = x => x.toFixed(1).replace(".", ",");
+function dietMode() { /* bez wyboru: masa, gdy cel jest wyżej niż pierwsze ważenie, inaczej redukcja */
+  if (S.settings.mode) return S.settings.mode;
+  const ds = Object.keys(S.weights).sort(), g = S.settings.weightGoal;
+  return g && ds.length && g > S.weights[ds[0]] + 0.5 ? "bulk" : "cut";
+}
 function runs(ok, from, maxBack) { /* najdłuższa i bieżąca seria dni spełniających ok(d), liczona wstecz od from */
   let cur = 0, best = 0, run = 0, counting = true;
   for (let i = 0; i < maxBack; i++) { const d = addDays(from, -i); if (ok(d)) { run++; if (counting) cur++; best = Math.max(best, run); } else { run = 0; counting = false; } }
@@ -1235,18 +1244,25 @@ function runs(ok, from, maxBack) { /* najdłuższa i bieżąca seria dni spełni
 function wgStats() {
   const dates = Object.keys(S.weights).sort(), goal = S.settings.weightGoal, g = S.settings.goals, today = todayIso();
   if (!dates.length) return { empty: true, badges: [] };
-  const first = dates[0], last = dates[dates.length - 1], start = S.weights[first];
-  const span = Math.round((new Date(today) - new Date(first)) / 864e5) + 1;
+  const mode = dietMode(), since = S.settings.modeSince;
+  const last = dates[dates.length - 1], first = since ? (dates.find(d => d >= since) || last) : dates[0], start = S.weights[first];
+  /* serie liczą się z całej historii; od zmiany trybu liczy się tylko postęp do celu */
+  const span = Math.round((new Date(today) - new Date(dates[0])) / 864e5) + 1;
   const cur = weightAvg7(last) ?? S.weights[last], prev = weightAvg7(addDays(last, -7));
-  const dir = goal && goal > start ? 1 : -1; /* -1: chudnięcie, 1: przybieranie */
-  const need = goal ? Math.abs(start - goal) : 0, done = (cur - start) * dir;
-  const avgs = dates.map(weightAvg7).filter(v => v != null);
+  const dir = mode === "bulk" ? 1 : -1; /* -1: chudnięcie, 1: przybieranie */
+  /* cel po złej stronie startu (np. redukcja do wyższej wagi): bez paska postępu, z podpowiedzią */
+  const mismatch = !!goal && mode !== "keep" && (goal - start) * dir < -0.5;
+  const need = goal && mode !== "keep" && !mismatch ? Math.abs(start - goal) : 0, done = (cur - start) * dir;
+  const avgs = dates.filter(d => d >= first).map(weightAvg7).filter(v => v != null);
   const bestAvg = avgs.length ? (dir < 0 ? Math.min(...avgs) : Math.max(...avgs)) : null;
   const bestDone = bestAvg != null ? (bestAvg - start) * dir : 0;
   /* ważenie: seria liczy się też, gdy dziś jeszcze nie było pomiaru */
   const wFrom = S.weights[today] ? today : addDays(today, -1);
   const weigh = runs(d => !!S.weights[d], wFrom, span);
-  const inKcal = d => { const t = dayTotals(d); return t.n > 0 && t.k <= g.k; };
+  const eatsEnough = d => { const t = dayTotals(d); return t.n > 0 && t.k >= g.k * 0.95; };
+  const inKcal = mode === "bulk" ? eatsEnough : mode === "keep" ? d => { const t = dayTotals(d); return t.n > 0 && Math.abs(t.k - g.k) <= g.k * 0.1; }
+    : d => { const t = dayTotals(d); return t.n > 0 && t.k <= g.k; };
+  const kcalDesc = mode === "bulk" ? `≥ ${r0(g.k * 0.95)} kcal` : mode === "keep" ? `${g.k} kcal ±10%` : `≤ ${g.k} kcal`;
   const inProt = d => { const t = dayTotals(d); return t.n > 0 && t.p >= g.p; };
   const inFib = d => { const t = dayTotals(d); return t.n > 0 && t.f >= g.f; };
   const track = S.settings.track || "kp", trP = track.includes("p"), trF = track.includes("f");
@@ -1257,29 +1273,33 @@ function wgStats() {
   const atGoal = !!goal && Math.abs(cur - goal) <= 0.5;
   /* zakres utrzymania: cel ±0,5 kg. Poniżej zakresu chudnięcie przestaje być sukcesem */
   const lowEdge = goal ? goal - 0.5 : null, highEdge = goal ? goal + 0.5 : null;
-  const below = !!goal && cur < lowEdge, reached = !!goal && bestDone >= need - 0.5;
-  const above = reached && cur > highEdge;
-  const eatsEnough = d => { const t = dayTotals(d); return t.n > 0 && t.k >= g.k * 0.95; };
+  const reached = !!goal && !mismatch && bestDone >= need - 0.5;
+  /* poniżej zakresu przy redukcji i utrzymaniu to sygnał ostrzegawczy; przy masie przed celem to zwykła droga */
+  const below = !!goal && !mismatch && cur < lowEdge && (mode !== "bulk" || reached), warnLow = below && mode !== "bulk";
+  const above = !!goal && !mismatch && cur > highEdge && (mode !== "cut" || reached);
   const keep = goal ? runs(d => { const a = weightAvg7(d); return a != null && Math.abs(a - goal) <= 0.5; }, last, span) : { cur: 0, best: 0 };
   let pace = prev != null ? (cur - prev) : null; /* kg na tydzień */
   const weeksLeft = goal && !atGoal && pace != null && pace * dir > 0.02 ? Math.ceil((goal - cur) / pace) : null;
   const B = (id, ic, name, got, desc, prog) => ({ id, ic, name, got: !!got, desc, prog });
   const badges = [];
-  for (let k = 1; k <= Math.floor(need + 1e-9); k++) badges.push(B("kg" + k, (dir < 0 ? "−" : "+") + k, `${k} kg ${dir < 0 ? "mniej" : "więcej"}`, bestDone >= k - 1e-9, "średnia 7 dni", `${kg1(Math.max(0, bestDone))}/${k} kg`));
+  for (let k = 1; k <= Math.floor(need + 1e-9); k++) badges.push(B((dir < 0 ? "kg" : "kgp") + k, (dir < 0 ? "−" : "+") + k, `${k} kg ${dir < 0 ? "mniej" : "więcej"}`, bestDone >= k - 1e-9, "średnia 7 dni", `${kg1(Math.max(0, bestDone))}/${k} kg`));
   if (need) {
     badges.push(B("half", "½", "Połowa drogi", bestDone >= need / 2, `do ${kg1(start + dir * need / 2)} kg`, `${r0(Math.max(0, bestDone) / need * 100)}%`));
     badges.push(B("goal", "★", "Cel osiągnięty", bestDone >= need - 0.5, `średnia ${goal} kg`, `${r0(Math.min(1, Math.max(0, bestDone) / need) * 100)}%`));
+  }
+  if (goal) {
     badges.push(B("keep14", "=", "Utrzymanie 14 dni", keep.best >= 14, `±0,5 kg od celu`, `${keep.best}/14 dni`));
+    if (mode === "keep") badges.push(B("keep30", "=", "Utrzymanie 30 dni", keep.best >= 30, `±0,5 kg od celu`, `${keep.best}/30 dni`));
   }
   badges.push(B("w7", "7", "Tydzień ważenia", weigh.best >= 7, "7 dni z rzędu", `${weigh.best}/7`));
   badges.push(B("w30", "30", "Miesiąc ważenia", weigh.best >= 30, "30 dni z rzędu", `${weigh.best}/30`));
   badges.push(B("n50", "50", "50 pomiarów", dates.length >= 50, "łącznie", `${dates.length}/50`));
   badges.push(B("n100", "100", "100 pomiarów", dates.length >= 100, "łącznie", `${dates.length}/100`));
-  badges.push(B("k7", "kcal", "Tydzień w kaloriach", kcal.best >= 7, `7 dni ≤ ${g.k} kcal`, `${kcal.best}/7`));
-  badges.push(B("k30", "kcal", "Miesiąc w kaloriach", kcal.best >= 30, `30 dni ≤ ${g.k} kcal`, `${kcal.best}/30`));
+  badges.push(B("k7", "kcal", "Tydzień w kaloriach", kcal.best >= 7, `7 dni ${kcalDesc}`, `${kcal.best}/7`));
+  badges.push(B("k30", "kcal", "Miesiąc w kaloriach", kcal.best >= 30, `30 dni ${kcalDesc}`, `${kcal.best}/30`));
   if (trP) badges.push(B("p7", "B", "Białkowy tydzień", prot.best >= 7, `7 dni ≥ ${g.p} g białka`, `${prot.best}/7`));
   if (trF) badges.push(B("f7", "F", "Błonnikowy tydzień", fib.best >= 7, `7 dni ≥ ${g.f} g błonnika`, `${fib.best}/7`));
-  return { dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, fib, week, inKcal, inProt, inFib, trP, trF, badges };
+  return { mode, mismatch, warnLow, kcalDesc, dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, fib, week, inKcal, inProt, inFib, trP, trF, badges };
 }
 /* wyjaśnienie wydatku energii na liczbach użytkownika */
 function wgTdeeText(eat, perWeek, tdee) {
@@ -1294,7 +1314,7 @@ function wgRange(st) { /* oś od min do max z zaznaczonym zakresem utrzymania i 
   return `<div class="wg-track wg-range" role="img" aria-label="Średnia ${kg2(st.cur)} kg, zakres ${kg1(st.lowEdge)}–${kg1(st.highEdge)} kg">
     <i style="left:${x(st.lowEdge)}%;width:${x(st.highEdge) - x(st.lowEdge)}%"></i>
     <span class="ms" style="left:${x(st.lowEdge)}%"><small>${kg1(st.lowEdge)}</small></span><span class="ms" style="left:${x(st.highEdge)}%"><small>${kg1(st.highEdge)}</small></span>
-    <span class="me off" style="left:${x(st.cur)}%"><small>${kg2(st.cur)}</small></span></div>`;
+    <span class="me${st.atGoal ? "" : " off"}" style="left:${x(st.cur)}%"><small>${kg2(st.cur)}</small></span></div>`;
 }
 function wgSummary() {
   const st = wgStats(); if (st.empty) return `<p class="muted">Zapisz pierwszy pomiar, a tu pojawi się Twoja droga do celu.</p>`;
@@ -1306,24 +1326,32 @@ function wgSummary() {
   if (changed) save();
   const isNew = b => b.got && S.badgeDates[b.id] && S.badgeDates[b.id] >= addDays(todayIso(), -3);
   let hero;
-  if (!goal || !need) {
+  const range = goal ? `${kg1(st.lowEdge)}–${kg1(st.highEdge)} kg` : "";
+  if (!goal) {
     hero = `<div class="wg-big">${kg2(cur)} kg<span>średnia 7 dni</span></div><p class="muted" style="margin:0">Ustaw cel wagi w Ustawieniach, żeby zobaczyć postęp.</p>`;
+  } else if (st.mismatch) {
+    hero = `<div class="wg-big">${kg2(cur)} kg<span>średnia 7 dni</span></div><p class="muted" style="margin:0">Cel ${goal} kg jest ${st.mode === "cut" ? "wyżej" : "niżej"} niż waga na starcie (${kg1(start)} kg). W Ustawieniach wybierz ${st.mode === "cut" ? "masę albo utrzymanie" : "redukcję albo utrzymanie"} albo zmień cel wagi.</p>`;
+  } else if (st.mode === "keep" || st.below || st.above) {
+    const head = st.warnLow ? `<span class="wg-warn">${kg1(goal - cur)} kg poniżej celu</span><span>${kg2(cur)} kg, średnia 7 dni</span>`
+      : st.below ? `${kg1(st.lowEdge - cur)} kg poniżej zakresu<span>${kg2(cur)} kg, średnia 7 dni</span>`
+      : st.above ? `${kg1(cur - st.highEdge)} kg ponad zakres<span>${kg2(cur)} kg, średnia 7 dni</span>`
+      : `W zakresie<span>${kg2(cur)} kg, średnia 7 dni</span>`;
+    const sub = st.warnLow
+      ? `Twój zakres to ${range}. Dalsze chudnięcie nie jest już celem: jedz więcej, np. o 200–300 kcal dziennie, aż średnia wróci do zakresu. Jeśli waga spada mimo jedzenia albo jedzenie staje się trudne, porozmawiaj z lekarzem lub dietetykiem.`
+      : st.below ? `Twój zakres to ${range}. Średnia zeszła poniżej: wróć do swoich kalorii, np. dodaj 200–300 kcal dziennie.`
+      : st.above ? (st.mode === "bulk" ? `Twój zakres to ${range}. Średnia jest ponad celem: jeśli nie chcesz dalej przybierać, wybierz w Ustawieniach utrzymanie albo podnieś cel.`
+        : `Twój zakres to ${range}. Spokojnie, to się zdarza: wróć do swoich kalorii, a średnia sama zejdzie.`)
+      : `Utrzymanie: ${st.keep.cur} ${st.keep.cur === 1 ? "dzień" : "dni"} z rzędu w zakresie ${range}.`;
+    hero = `<div class="wg-big">${head}</div>${wgRange(st)}<p class="muted" style="margin:0">${sub}</p>`;
   } else {
     const pct = st.atGoal ? 1 : Math.max(0, Math.min(1, done / need)), left = (goal - cur) * dir;
     const ms = []; for (let k = 1; k < need - 0.15; k++) ms.push(`<span class="ms${done >= k ? " done" : ""}" style="left:${k / need * 100}%"><small>${dir < 0 ? "−" : "+"}${k}</small></span>`);
-    const head = st.below ? `<span class="wg-warn">${kg1(st.lowEdge - cur + 0.5)} kg poniżej celu</span><span>${kg2(cur)} kg, średnia 7 dni</span>`
-      : st.above ? `${kg1(cur - st.highEdge)} kg ponad zakres<span>${kg2(cur)} kg, średnia 7 dni</span>`
-      : st.atGoal ? `Cel osiągnięty<span>${kg2(cur)} kg, średnia 7 dni</span>`
+    const head = st.atGoal ? `Cel osiągnięty<span>${kg2(cur)} kg, średnia 7 dni</span>`
       : `${kg1(Math.max(0, done))} kg<span>${dir < 0 ? "zrzucone" : "przybrane"} z ${kg1(need)} kg</span>`;
-    const range = `${kg1(st.lowEdge)}–${kg1(st.highEdge)} kg`;
-    const sub = st.below
-      ? `Twój zakres to ${range}. Dalsze chudnięcie nie jest już celem: jedz więcej, np. o 200–300 kcal dziennie, aż średnia wróci do zakresu. Jeśli waga spada mimo jedzenia albo jedzenie staje się trudne, porozmawiaj z lekarzem lub dietetykiem.`
-      : st.above
-      ? `Twój zakres to ${range}. Spokojnie, to się zdarza: wróć do swoich kalorii, a średnia sama zejdzie.`
-      : st.atGoal
+    const sub = st.atGoal
       ? `Teraz utrzymanie: ${st.keep.cur} ${st.keep.cur === 1 ? "dzień" : "dni"} z rzędu w zakresie ${kg1(goal - 0.5)}–${kg1(goal + 0.5)} kg.`
       : `Zostało ${kg2(Math.max(0, left))} kg do ${goal} kg. ` + (st.weeksLeft ? `W tym tempie to ok. ${st.weeksLeft} ${st.weeksLeft === 1 ? "tydzień" : st.weeksLeft < 5 ? "tygodnie" : "tygodni"}.` : "Liczy się trend, nie pojedynczy dzień.");
-    hero = st.below || st.above ? `<div class="wg-big">${head}</div>${wgRange(st)}<p class="muted" style="margin:0">${sub}</p>` : `<div class="wg-big">${head}</div>
+    hero = `<div class="wg-big">${head}</div>
       <div class="wg-track" role="img" aria-label="Postęp do celu: ${r0(pct * 100)}%"><i style="width:${pct * 100}%"></i>${ms.join("")}
         <span class="ms start" style="left:0"><small>${kg1(start)}</small></span><span class="ms end" style="left:100%"><small>cel ${kg1(goal)}</small></span>
         <span class="me" style="left:${pct * 100}%"><small style="${pct > 0.93 ? "left:auto;right:-4px;transform:none" : pct < 0.07 ? "left:-4px;transform:none" : ""}">${r0(pct * 100)}%</small></span></div>
@@ -1331,7 +1359,7 @@ function wgSummary() {
   }
   const wk = st.pace;
   /* dobry kierunek: przed celem w stronę celu, poniżej zakresu w górę, ponad zakresem w dół, w zakresie stabilnie */
-  const want = st.below ? 1 : st.above ? -1 : st.reached || st.atGoal ? 0 : st.dir;
+  const want = st.below ? 1 : st.above ? -1 : st.mode === "keep" || st.reached || st.atGoal || st.mismatch ? 0 : st.dir;
   const wkGood = wk != null && (want === 0 ? Math.abs(wk) <= 0.3 : wk * want > 0.02);
   const wkBad = wk != null && (want === 0 ? Math.abs(wk) > 0.5 : wk * want < (st.below ? -0.02 : -0.2));
   const wkText = wk == null ? "za mało pomiarów"
@@ -1348,10 +1376,10 @@ function wgSummary() {
       <div class="s">${wkText}</div></div>
     <div class="wg-tile"><div class="lbl">Seria ważenia</div><div class="v">${st.weigh.cur}<span> ${dni(st.weigh.cur)}</span></div>
       <div class="s">rekord: ${st.weigh.best} ${dni(st.weigh.best)}</div></div>
-    ${st.below ? `<div class="wg-tile"><div class="lbl">Dojedzone kalorie</div>${dots(st.eatsEnough, false)}
+    ${st.warnLow ? `<div class="wg-tile"><div class="lbl">Dojedzone kalorie</div>${dots(st.eatsEnough, false)}
       <div class="s">${cnt(st.eatsEnough)}/7 dni z co najmniej ${r0(g.k * 0.95)} kcal</div></div>`
-    : `<div class="wg-tile"><div class="lbl">Kalorie w celu</div>${dots(st.inKcal, true)}
-      <div class="s">${cnt(st.inKcal)}/7 dni · seria ${st.kcal.cur}, rekord ${st.kcal.best}</div></div>`}
+    : `<div class="wg-tile"><div class="lbl">${st.mode === "bulk" ? "Dojedzone kalorie" : "Kalorie w celu"}</div>${dots(st.inKcal, st.mode !== "bulk")}
+      <div class="s">${cnt(st.inKcal)}/7 dni ${st.kcalDesc} · seria ${st.kcal.cur}, rekord ${st.kcal.best}</div></div>`}
     ${st.trP ? `<div class="wg-tile"><div class="lbl">Białko ${g.p} g+</div>${dots(st.inProt, false)}
       <div class="s">${cnt(st.inProt)}/7 dni · seria ${st.prot.cur}, rekord ${st.prot.best}</div></div>` : ""}
     ${st.trF ? `<div class="wg-tile"><div class="lbl">Błonnik ${g.f} g+</div>${dots(st.inFib, false)}
@@ -1427,9 +1455,11 @@ function renderWeight() {
       <td class="n gs">${t.n ? r0(t.k) : ""}</td><td class="n muted">${ak ? r0(ak) : ""}</td>
       <td class="n" style="color:${mac && t.p < g.p ? "var(--warn)" : "inherit"}">${mac ? f1(t.p) : ""}</td><td class="n" style="color:${mac && t.f < g.f ? "var(--warn)" : "inherit"}">${mac ? f1(t.f) : ""}</td>
       <td class="n">${w ? `<button class="x" data-delw="${d}" title="Usuń pomiar">×</button>` : ""}</td></tr>`; };
-  const weekRow = wk => { const ws = wk.days.map(d => S.weights[d]).filter(Boolean), ks = wk.days.map(dayTotals).filter(t => t.n).map(t => t.k);
-    const bits = [ws.length ? `śr. ${kg(avg(ws))} kg` : "", ks.length ? `śr. ${r0(avg(ks))} kcal` : ""].filter(Boolean).join(" · ");
-    return `<tr class="wk"><td colspan="8">Tydzień ${dm(wk.ws)}–${dm(addDays(wk.ws, 6))}${bits ? ` <span>${bits}</span>` : ""}</td></tr>`; };
+  const weekRow = wk => { const today = todayIso(), ws = wk.days.map(d => S.weights[d]).filter(Boolean), ks = wk.days.filter(d => d < today).map(dayTotals).filter(t => t.n).map(t => t.k);
+    /* tydzień w trakcie: średnia z dni tygodnia, a nie z ostatnich 7 dni, więc to podpisujemy */
+    const now = addDays(wk.ws, 6) >= today, n = x => x === 1 ? "dnia" : "dni";
+    const bits = [ws.length ? `śr. ${kg(avg(ws))} kg${now ? ` z ${ws.length} ${n(ws.length)}` : ""}` : "", ks.length ? `śr. ${r0(avg(ks))} kcal${now ? ` z ${ks.length} ${n(ks.length)}` : ""}` : ""].filter(Boolean).join(" · ");
+    return `<tr class="wk"><td colspan="8">Tydzień ${dm(wk.ws)}–${dm(addDays(wk.ws, 6))}${now ? " (w trakcie)" : ""}${bits ? ` <span>${bits}</span>` : ""}</td></tr>`; };
   $("#w-table").innerHTML = list.length ? head + `<tbody>` + weeks.map(wk => weekRow(wk) + wk.days.map(row).join("")).join("") + `</tbody>` : "";
   $("#w-table").querySelectorAll("[data-delw]").forEach(b => b.onclick = () => { delete S.weights[b.dataset.delw]; save(); render(); });
 }
@@ -1445,13 +1475,21 @@ $("#w-copy").onclick = async () => {
 
 /* ---------- USTAWIENIA ---------- */
 function fillSettings() {
-  const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal; $("#g-track").value = s.track || "kp";
+  const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal; $("#g-track").value = s.track || "kp"; $("#g-mode").value = dietMode(); $("#mode-hint").textContent = MODE_HINT[dietMode()];
   $("#s-key").value = s.key; $("#s-model").value = s.model;
   $("#u-name-0").value = userName(0); $("#u-name-1").value = userName(1); $("#goals-who").textContent = userName(ACT());
 }
 [0, 1].forEach(i => $("#u-name-" + i).onchange = () => { S.profiles.list[i].name = $("#u-name-" + i).value.trim(); save(); fillSettings(); render(); });
+/* tryb: redukcja, utrzymanie albo masa; postęp liczy się od pierwszego ważenia po zmianie trybu */
+const MODE_HINT = {
+  cut: "Redukcja: postęp w dół do celu wagi. Kalorie w celu to dni do limitu kcal, nadwyżka jest na pomarańczowo.",
+  keep: "Utrzymanie: liczy się trzymanie zakresu cel ±0,5 kg. Kalorie w celu to dni w granicach ±10% celu kcal.",
+  bulk: "Masa: postęp w górę do celu wagi. Kalorie w celu to dni z co najmniej 95% celu kcal, a nadwyżka nie jest na pomarańczowo."
+};
+function setMode(v) { if (v !== dietMode()) { S.settings.mode = v; S.settings.modeSince = todayIso(); } else S.settings.mode = v; }
+$("#g-mode").onchange = () => { setMode($("#g-mode").value); $("#mode-hint").textContent = MODE_HINT[dietMode()]; save(); render(); };
 $("#g-track").onchange = () => { S.settings.track = $("#g-track").value; save(); render(); };
-$("#g-save").onclick = () => { S.settings.track = $("#g-track").value; S.settings.goals = { k: num($("#g-k").value), p: num($("#g-p").value), f: num($("#g-f").value) }; S.settings.weightGoal = num($("#g-w").value); save(); render(); };
+$("#g-save").onclick = () => { setMode($("#g-mode").value); S.settings.track = $("#g-track").value; S.settings.goals = { k: num($("#g-k").value), p: num($("#g-p").value), f: num($("#g-f").value) }; S.settings.weightGoal = num($("#g-w").value); save(); render(); };
 $("#s-save").onclick = () => { S.settings.key = $("#s-key").value.trim(); S.settings.model = $("#s-model").value.trim() || "gemini-3.8-flash"; save(); msg($("#s-msg"), "Zapisano."); };
 $("#s-test").onclick = async () => {
   $("#s-save").click(); msg($("#s-msg"), "Pytam Gemini o łyżkę oliwy…");
