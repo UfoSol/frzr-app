@@ -369,7 +369,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Białko g<input type="number" id="g-p" style="width:90px"></label>
         <label>Błonnik g<input type="number" id="g-f" style="width:90px"></label>
         <label>Cel wagi kg<input type="number" id="g-w" step="0.1" style="width:90px"></label>
-        <label>Tryb<select id="g-mode"><option value="cut">redukcja</option><option value="keep">utrzymanie</option><option value="bulk">masa</option></select></label>
+        <label>Tryb<select id="g-mode"><option value="cut">redukcja</option><option value="keep">utrzymanie</option><option value="recomp">rekompozycja</option><option value="bulk">masa</option></select></label>
         <button class="btn" id="g-save">Zapisz</button>
       </div>
       <p class="muted" id="mode-hint" style="margin:8px 0 0"></p>
@@ -1252,8 +1252,9 @@ function wgStats() {
   const cur = weightAvg7(last) ?? S.weights[last], prev = weightAvg7(addDays(last, -7));
   const dir = mode === "bulk" ? 1 : -1; /* -1: chudnięcie, 1: przybieranie */
   /* cel po złej stronie startu (np. redukcja do wyższej wagi): bez paska postępu, z podpowiedzią */
-  const mismatch = !!goal && mode !== "keep" && (goal - start) * dir < -0.5;
-  const need = goal && mode !== "keep" && !mismatch ? Math.abs(start - goal) : 0, done = (cur - start) * dir;
+  const isRange = mode === "keep" || mode === "recomp"; /* waga jako zakres, bez drogi do celu */
+  const mismatch = !!goal && !isRange && (goal - start) * dir < -0.5;
+  const need = goal && !isRange && !mismatch ? Math.abs(start - goal) : 0, done = (cur - start) * dir;
   const avgs = dates.filter(d => d >= first).map(weightAvg7).filter(v => v != null);
   const bestAvg = avgs.length ? (dir < 0 ? Math.min(...avgs) : Math.max(...avgs)) : null;
   const bestDone = bestAvg != null ? (bestAvg - start) * dir : 0;
@@ -1262,8 +1263,9 @@ function wgStats() {
   const weigh = runs(d => !!S.weights[d], wFrom, span);
   const eatsEnough = d => { const t = dayTotals(d); return t.n > 0 && t.k >= g.k * 0.95; };
   const inKcal = mode === "bulk" ? eatsEnough : mode === "keep" ? d => { const t = dayTotals(d); return t.n > 0 && Math.abs(t.k - g.k) <= g.k * 0.1; }
+    : mode === "recomp" ? d => { const t = dayTotals(d); return t.n > 0 && t.k >= g.k * 0.85 && t.k <= g.k; }
     : d => { const t = dayTotals(d); return t.n > 0 && t.k <= g.k; };
-  const kcalDesc = mode === "bulk" ? `≥ ${r0(g.k * 0.95)} kcal` : mode === "keep" ? `${g.k} kcal ±10%` : `≤ ${g.k} kcal`;
+  const kcalDesc = mode === "bulk" ? `≥ ${r0(g.k * 0.95)} kcal` : mode === "keep" ? `${g.k} kcal ±10%` : mode === "recomp" ? `${r0(g.k * 0.85)}–${g.k} kcal` : `≤ ${g.k} kcal`;
   const inProt = d => { const t = dayTotals(d); return t.n > 0 && t.p >= g.p; };
   const inFib = d => { const t = dayTotals(d); return t.n > 0 && t.f >= g.f; };
   const track = S.settings.track || "kp", trP = track.includes("p"), trF = track.includes("f");
@@ -1294,7 +1296,7 @@ function wgStats() {
   }
   if (goal) {
     badges.push(B("keep14", "=", "Utrzymanie 14 dni", keep.best >= 14, `±0,5 kg od celu`, `${keep.best}/14 dni`));
-    if (mode === "keep") badges.push(B("keep30", "=", "Utrzymanie 30 dni", keep.best >= 30, `±0,5 kg od celu`, `${keep.best}/30 dni`));
+    if (isRange) badges.push(B("keep30", "=", "Utrzymanie 30 dni", keep.best >= 30, `±0,5 kg od celu`, `${keep.best}/30 dni`));
   }
   badges.push(B("w7", "7", "Tydzień ważenia", weigh.best >= 7, "7 dni z rzędu", `${weigh.best}/7`));
   badges.push(B("w30", "30", "Miesiąc ważenia", weigh.best >= 30, "30 dni z rzędu", `${weigh.best}/30`));
@@ -1304,7 +1306,7 @@ function wgStats() {
   badges.push(B("k30", "kcal", "Miesiąc w kaloriach", kcal.best >= 30, `30 dni ${kcalDesc}`, `${kcal.best}/30`));
   if (trP) badges.push(B("p7", "B", "Białkowy tydzień", prot.best >= 7, `7 dni ≥ ${g.p} g białka`, `${prot.best}/7`));
   if (trF) badges.push(B("f7", "F", "Błonnikowy tydzień", fib.best >= 7, `7 dni ≥ ${g.f} g błonnika`, `${fib.best}/7`));
-  return { mode, mismatch, warnLow, kcalDesc, dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, fib, week, inKcal, inProt, inFib, trP, trF, badges };
+  return { mode, isRange, mismatch, warnLow, kcalDesc, dates, first, last, start, cur, prev, dir, need, done, bestAvg, goal, atGoal, below, above, reached, lowEdge, highEdge, eatsEnough, keep, pace, weeksLeft, weigh, kcal, prot, fib, week, inKcal, inProt, inFib, trP, trF, badges };
 }
 /* wyjaśnienie wydatku energii na liczbach użytkownika */
 function wgTdeeText(eat, perWeek, tdee) {
@@ -1336,7 +1338,7 @@ function wgSummary() {
     hero = `<div class="wg-big">${kg2(cur)} kg<span>średnia 7 dni</span></div><p class="muted" style="margin:0">Ustaw cel wagi w Ustawieniach, żeby zobaczyć postęp.</p>`;
   } else if (st.mismatch) {
     hero = `<div class="wg-big">${kg2(cur)} kg<span>średnia 7 dni</span></div><p class="muted" style="margin:0">Cel ${goal} kg jest ${st.mode === "cut" ? "wyżej" : "niżej"} niż waga na starcie (${kg1(start)} kg). W Ustawieniach wybierz ${st.mode === "cut" ? "masę albo utrzymanie" : "redukcję albo utrzymanie"} albo zmień cel wagi.</p>`;
-  } else if (st.mode === "keep" || st.below || st.above) {
+  } else if (st.isRange || st.below || st.above) {
     const head = st.warnLow ? `<span class="wg-warn">${kg1(goal - cur)} kg poniżej celu</span><span>${kg2(cur)} kg, średnia 7 dni</span>`
       : st.below ? `${kg1(st.lowEdge - cur)} kg poniżej zakresu<span>${kg2(cur)} kg, średnia 7 dni</span>`
       : st.above ? `${kg1(cur - st.highEdge)} kg ponad zakres<span>${kg2(cur)} kg, średnia 7 dni</span>`
@@ -1346,7 +1348,7 @@ function wgSummary() {
       : st.below ? `Twój zakres to ${range}. Średnia zeszła poniżej: wróć do swoich kalorii, np. dodaj 200–300 kcal dziennie.`
       : st.above ? (st.mode === "bulk" ? `Twój zakres to ${range}. Średnia jest ponad celem: jeśli nie chcesz dalej przybierać, wybierz w Ustawieniach utrzymanie albo podnieś cel.`
         : `Twój zakres to ${range}. Spokojnie, to się zdarza: wróć do swoich kalorii, a średnia sama zejdzie.`)
-      : `Utrzymanie: ${st.keep.cur} ${st.keep.cur === 1 ? "dzień" : "dni"} z rzędu w zakresie ${range}.`;
+      : `${st.mode === "recomp" ? "Rekompozycja: waga trzyma zakres" : "Utrzymanie"}: ${st.keep.cur} ${st.keep.cur === 1 ? "dzień" : "dni"} z rzędu w zakresie ${range}.`;
     hero = `<div class="wg-big">${head}</div>${wgRange(st)}<p class="muted" style="margin:0">${sub}</p>`;
   } else {
     const pct = st.atGoal ? 1 : Math.max(0, Math.min(1, done / need)), left = (goal - cur) * dir;
@@ -1364,7 +1366,7 @@ function wgSummary() {
   }
   const wk = st.pace;
   /* dobry kierunek: przed celem w stronę celu, poniżej zakresu w górę, ponad zakresem w dół, w zakresie stabilnie */
-  const want = st.below ? 1 : st.above ? -1 : st.mode === "keep" || st.reached || st.atGoal || st.mismatch ? 0 : st.dir;
+  const want = st.below ? 1 : st.above ? -1 : st.isRange || st.reached || st.atGoal || st.mismatch ? 0 : st.dir;
   const wkGood = wk != null && (want === 0 ? Math.abs(wk) <= 0.3 : wk * want > 0.02);
   const wkBad = wk != null && (want === 0 ? Math.abs(wk) > 0.5 : wk * want < (st.below ? -0.02 : -0.2));
   const wkText = wk == null ? "potrzeba 7 ważeń w 2 tygodnie"
@@ -1495,6 +1497,7 @@ function fillSettings() {
 const MODE_HINT = {
   cut: "Redukcja: postęp w dół do celu wagi. Kalorie w celu to dni do limitu kcal, nadwyżka jest na pomarańczowo.",
   keep: "Utrzymanie: liczy się trzymanie zakresu cel ±0,5 kg. Kalorie w celu to dni w granicach ±10% celu kcal.",
+  recomp: "Rekompozycja: waga trzyma się zakresu cel ±0,5 kg, a kalorie są lekko poniżej celu. Kalorie w celu to dni z 85–100% celu kcal. Najważniejsze jest białko.",
   bulk: "Masa: postęp w górę do celu wagi. Kalorie w celu to dni z co najmniej 95% celu kcal, a nadwyżka nie jest na pomarańczowo."
 };
 function setMode(v) { if (v !== dietMode()) { S.settings.mode = v; S.settings.modeSince = todayIso(); } else S.settings.mode = v; }
