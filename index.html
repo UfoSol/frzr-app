@@ -1278,7 +1278,11 @@ function wgStats() {
   const below = !!goal && !mismatch && cur < lowEdge && (mode !== "bulk" || reached), warnLow = below && mode !== "bulk";
   const above = !!goal && !mismatch && cur > highEdge && (mode !== "cut" || reached);
   const keep = goal ? runs(d => { const a = weightAvg7(d); return a != null && Math.abs(a - goal) <= 0.5; }, last, span) : { cur: 0, best: 0 };
-  let pace = prev != null ? (cur - prev) : null; /* kg na tydzień */
+  /* trend: linia dopasowana do wszystkich ważeń z ostatnich 14 dni, w kg na tydzień.
+     Porównanie dwóch średnich tygodniowych za mocno zależało od pojedynczych odstających dni. */
+  const tr = []; for (let i = 0; i < 14; i++) { const x = S.weights[addDays(last, -i)]; if (x) tr.push([-i, x]); }
+  let pace = null;
+  if (tr.length >= 7) { const mx = avg(tr.map(q => q[0])), my = avg(tr.map(q => q[1])); pace = 7 * tr.reduce((a, q) => a + (q[0] - mx) * (q[1] - my), 0) / tr.reduce((a, q) => a + (q[0] - mx) ** 2, 0); }
   const weeksLeft = goal && !atGoal && pace != null && pace * dir > 0.02 ? Math.ceil((goal - cur) / pace) : null;
   const B = (id, ic, name, got, desc, prog) => ({ id, ic, name, got: !!got, desc, prog });
   const badges = [];
@@ -1362,7 +1366,7 @@ function wgSummary() {
   const want = st.below ? 1 : st.above ? -1 : st.mode === "keep" || st.reached || st.atGoal || st.mismatch ? 0 : st.dir;
   const wkGood = wk != null && (want === 0 ? Math.abs(wk) <= 0.3 : wk * want > 0.02);
   const wkBad = wk != null && (want === 0 ? Math.abs(wk) > 0.5 : wk * want < (st.below ? -0.02 : -0.2));
-  const wkText = wk == null ? "za mało pomiarów"
+  const wkText = wk == null ? "potrzeba 7 ważeń w 2 tygodnie"
     : st.below ? (wk > 0.02 ? "średnia wraca do zakresu" : "średnia dalej spada, jedz więcej")
     : st.above ? (wk < -0.02 ? "średnia wraca do zakresu" : "wahania się zdarzają, trzymaj kurs")
     : want === 0 ? (wkGood ? "stabilnie, tak trzymaj" : wk < 0 ? "uwaga, średnia spada" : "wahania się zdarzają")
@@ -1371,8 +1375,8 @@ function wgSummary() {
   const cnt = ok => st.week.filter(ok).length;
   const dni = n => n === 1 ? "dzień" : "dni";
   const tiles = `<div class="wg-tiles" style="--n:${3 + st.trP + st.trF}">
-    <div class="wg-tile"><div class="lbl">Ten tydzień</div>
-      <div class="v ${wkGood ? "good" : wkBad ? "meh" : ""}">${wk == null ? "–" : (wk >= 0 ? "+" : "−") + kg2(Math.abs(wk))}<span> kg</span></div>
+    <div class="wg-tile" title="Linia trendu ze wszystkich ważeń z ostatnich 14 dni"><div class="lbl">Trend 2 tygodni</div>
+      <div class="v ${wkGood ? "good" : wkBad ? "meh" : ""}">${wk == null ? "–" : (Math.abs(wk) < 0.005 ? "" : wk > 0 ? "+" : "−") + kg2(Math.abs(wk))}<span> kg/tydz.</span></div>
       <div class="s">${wkText}</div></div>
     <div class="wg-tile"><div class="lbl">Seria ważenia</div><div class="v">${st.weigh.cur}<span> ${dni(st.weigh.cur)}</span></div>
       <div class="s">rekord: ${st.weigh.best} ${dni(st.weigh.best)}</div></div>
