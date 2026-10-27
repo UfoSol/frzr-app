@@ -149,6 +149,14 @@ svg text{fill:var(--muted);font:11px var(--body)}
 .wg-big .wg-warn{font:inherit;color:var(--warn);margin:0;letter-spacing:inherit}
 .wg-range > i{border-radius:0;opacity:.85}
 .wg-track .me.off{border-color:var(--warn)}
+.nut{position:relative;margin-top:14px}
+.nut h4{margin:0 0 2px;font:600 13px var(--body);color:var(--ink)}
+.nut .leg{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 0}
+.nut .leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.nut .hit{fill:transparent;cursor:default}
+.nut .hit:hover{fill:var(--frost);opacity:.6}
+.nut-tip{position:absolute;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;box-shadow:0 4px 12px rgb(0 0 0/.12);white-space:nowrap;z-index:3}
+.nut-tip b{display:block;font-size:13px}
 details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;margin-top:14px}
 #print{display:none}
 @media print{
@@ -344,7 +352,8 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <div class="msg" id="w-msg" hidden style="margin-top:8px"></div>
     </div>
     <div class="card" id="w-analysis"></div>
-    <div class="card"><h3>Waga i średnia 7-dniowa</h3><div id="w-chart"></div></div>
+    <div class="card"><h3>Waga i średnia 7-dniowa</h3><div id="w-chart"></div>
+      <details class="wg-more" id="nut-box"><summary>Kalorie, białko i błonnik: ostatnie 30 dni</summary><div id="nut-charts"></div></details></div>
     <div class="card">
       <div class="row" style="justify-content:space-between;margin-bottom:6px">
         <h3 style="margin:0">Dni</h3>
@@ -1230,6 +1239,64 @@ function avg(a) { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : nu
 /* dzisiejszy dzień jeszcze trwa, więc jego kalorie nie wchodzą do średnich */
 function kcalAvg7(d) { const v = [], today = todayIso(); for (let i = 0; i < 7; i++) { const x = addDays(d, -i); if (x >= today) continue; const t = dayTotals(x); if (t.n) v.push(t.k); } return v.length >= 3 ? avg(v) : null; }
 function weightAvg7(d) { const v = []; for (let i = 0; i < 7; i++) { const w = S.weights[addDays(d, -i)]; if (w) v.push(w); } return v.length >= 3 ? avg(v) : null; }
+/* ---------- wykresy kalorii, białka i błonnika (30 dni, słupek na dzień, przerywana linia celu) ---------- */
+/* status kalorii dnia według trybu: w celu, za dużo, za mało (tak samo jak kropki w podsumowaniu) */
+function kcalStatus(k) {
+  const g = S.settings.goals.k, m = dietMode();
+  if (m === "bulk") return k >= g * 0.95 ? "ok" : "under";
+  if (m === "keep") return Math.abs(k - g) <= g * 0.1 ? "ok" : k > g ? "over" : "under";
+  if (m === "recomp") return k > g ? "over" : k >= g * 0.85 ? "ok" : "under";
+  return k <= g ? "ok" : "over";
+}
+$("#nut-box").addEventListener("toggle", () => renderNutCharts());
+let nutResize; window.addEventListener("resize", () => { clearTimeout(nutResize); nutResize = setTimeout(renderNutCharts, 150); });
+function renderNutCharts() {
+  const box = $("#nut-charts"); if (!box || !$("#nut-box").open) return; /* rysujemy dopiero po rozwinięciu, bo potrzebna jest szerokość */
+  const today = todayIso(), days = [...Array(30)].map((_, i) => addDays(today, i - 29)), g = S.settings.goals;
+  const STAT = { ok: ["var(--accent)", "w celu"], over: ["var(--warn)", "za dużo"], under: ["var(--low)", "za mało"], low: ["color-mix(in srgb, var(--muted) 55%, transparent)", "poniżej celu"] };
+  const chart = (key, goal, unit, title, statusOf, fmt) => {
+    const vals = days.map(d => { const t = dayTotals(d); return t.n && (key === "k" || t.p || t.f) ? t[key] : null; });
+    if (!vals.some(v => v != null)) return `<div class="nut"><h4>${title}</h4><p class="muted" style="margin:0">Brak wpisów w ostatnich 30 dniach.</p></div>`;
+    /* szerokość wykresu = szerokość karty, żeby tekst miał 11 px także na telefonie */
+    const W = Math.max(280, box.clientWidth || 760), H = W < 500 ? 130 : 150, L = 36, R = 6, T = 12, B = 22, max = Math.max(goal * 1.15, ...vals.filter(v => v != null)) || 1;
+    const cw = (W - L - R) / days.length, bw = Math.max(2, cw - 2), y = v => T + (H - T - B) * (1 - v / max), base = H - B;
+    const bar = (x, v) => { const top = y(v), h = base - top, r = Math.min(4, bw / 2, h); return `M${x},${base}V${top + r}Q${x},${top} ${x + r},${top}H${x + bw - r}Q${x + bw},${top} ${x + bw},${top + r}V${base}Z`; };
+    const used = new Set();
+    const bars = vals.map((v, i) => { if (v == null) return ""; const st = statusOf(v); used.add(st); const part = days[i] === today;
+      return `<path d="${bar(L + i * cw + 1, v)}" fill="${STAT[st][0]}"${part ? ' opacity=".45"' : ""}/>`; }).join("");
+    const hits = vals.map((v, i) => `<rect class="hit" x="${L + i * cw}" y="${T}" width="${cw}" height="${base - T}" data-i="${i}"/>`).join("");
+    const svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;max-width:100%" role="img" aria-label="${title}, ostatnie 30 dni">
+      <line x1="${L}" x2="${W - R}" y1="${base}" y2="${base}" stroke="var(--line)"/>
+      <text x="${L - 6}" y="${base + 4}" text-anchor="end">0</text>
+      ${bars}
+      <line x1="${L}" x2="${W - R}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--ink)" stroke-opacity=".55" stroke-dasharray="4 4"/>
+      <text x="${L - 6}" y="${y(goal) + 4}" text-anchor="end">${fmt(goal)}</text>
+      ${hits}
+      <text x="${L}" y="${H - 6}">${dm(days[0])}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${dm(today)}</text></svg>`;
+    const leg = [...used].map(st => `<span><i style="background:${STAT[st][0]}"></i>${STAT[st][1]}</span>`).join("") + `<span>przerywana linia: cel ${fmt(goal)} ${unit}</span><span>dziś jaśniej, dzień trwa</span>`;
+    return `<div class="nut" data-key="${key}"><h4>${title}</h4>${svg}<div class="leg">${leg}</div></div>`;
+  };
+  box.innerHTML = chart("k", g.k, "kcal", "Kalorie", kcalStatus, v => r0(v))
+    + chart("p", g.p, "g", "Białko", v => v >= g.p ? "ok" : "low", v => f1(v))
+    + chart("f", g.f, "g", "Błonnik", v => v >= g.f ? "ok" : "low", v => f1(v));
+  /* podpowiedź po najechaniu albo dotknięciu słupka */
+  box.querySelectorAll(".nut[data-key]").forEach(el => {
+    const key = el.dataset.key, unit = key === "k" ? "kcal" : "g";
+    const tip = document.createElement("div"); tip.className = "nut-tip"; tip.hidden = true; el.appendChild(tip);
+    const show = (rect) => {
+      const d = days[+rect.dataset.i], t = dayTotals(d), has = t.n && (key === "k" || t.p || t.f);
+      const v = has ? (key === "k" ? r0(t.k) : f1(t[key])) : null;
+      const st = has ? (key === "k" ? STAT[kcalStatus(t.k)][1] : t[key] >= g[key] ? "w celu" : "poniżej celu") : "";
+      tip.innerHTML = `<b>${v != null ? `${v} ${unit}` : "brak wpisów"}</b>${dm(d)}${d === today ? ", dziś (w trakcie)" : ""}${st ? ` · ${st}` : ""}`;
+      tip.hidden = false;
+      const r = rect.getBoundingClientRect(), pr = el.getBoundingClientRect();
+      tip.style.left = Math.min(Math.max(0, r.left - pr.left + r.width / 2 - tip.offsetWidth / 2), pr.width - tip.offsetWidth) + "px";
+      tip.style.top = Math.max(0, r.top - pr.top - tip.offsetHeight + 8) + "px";
+    };
+    el.querySelectorAll(".hit").forEach(rect => { rect.onmouseenter = () => show(rect); rect.onclick = () => show(rect); });
+    el.onmouseleave = () => tip.hidden = true;
+  });
+}
 /* ---------- grywalizacja wagi ---------- */
 const kg2 = x => x.toFixed(2).replace(".", ","), kg1 = x => x.toFixed(1).replace(".", ",");
 function dietMode() { /* bez wyboru: masa, gdy cel jest wyżej niż pierwsze ważenie, inaczej redukcja */
@@ -1452,6 +1519,7 @@ function renderWeight() {
       <text x="${L}" y="${H - 6}">${dm(pts[0])}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${dm(pts[pts.length - 1])}</text>
     </svg></div><p class="muted" style="margin:6px 0 0">Szara linia: pomiary. Zielona: średnia 7 dni (od 3 pomiarów w oknie).</p>`;
   }
+  renderNutCharts();
   // tabela dni: pogrupowana tygodniami, kolumny w dwóch grupach (waga i jedzenie)
   const all = new Set(dates); S.log.forEach(e => all.add(e.date));
   const list = [...all].sort().reverse().slice(0, 45);
