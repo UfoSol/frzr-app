@@ -464,6 +464,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <div class="row" style="margin-top:12px">
       <button class="btn" id="ed-save">Zapisz</button>
       <button class="btn ghost" id="ed-cancel">Anuluj</button>
+      <button class="btn ghost" id="ed-out" style="margin-left:auto;color:var(--bad);border-color:var(--bad)" hidden></button>
     </div>
   </div>
 </div>
@@ -1228,8 +1229,19 @@ function openEdit(m) {
   edFill();
   const ing = m.rows.filter(r => !r.abs).length;
   $("#ed-note").textContent = ing ? `Posiłek ma ${ing} składników z gramami. Zmiana kcal, białka albo błonnika zastąpi je jedną sumą. Gramy poprawisz przez „Ugotuj ponownie”.` : "";
+  /* usuwanie z zamrażarki tylko tu, żeby nie zaśmiecać kart: pudełka u obu osób albo sama czekająca resztka */
+  const out = $("#ed-out"); delete out.dataset.sure;
+  out.hidden = !(m.stock > 0 || waitingFor(m)); out.textContent = m.stock > 0 ? "Usuń z zamrażarki" : "Usuń resztkę";
   msg($("#ed-msg"), ""); $("#ed-modal").hidden = false; $("#ed-name").focus();
 }
+$("#ed-out").onclick = () => {
+  const b = $("#ed-out"), m = edMeal; if (!m) return;
+  if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = "Na pewno? " + (m.stock > 0 ? "Zniknie u obu osób" : "Zniknie tylko u Ciebie"); return; }
+  if (m.stock > 0) { m.stock = 0; delete m.wait; }
+  else if (m.wait) { delete m.wait[ACT()]; if (!Object.keys(m.wait).length) delete m.wait; }
+  /* posiłek zostaje w bazie, żeby dało się go ugotować ponownie */
+  save(); $("#ed-modal").hidden = true; edMeal = null; render();
+};
 $("#ed-scope").onchange = () => edFill();
 $("#ed-cancel").onclick = () => { $("#ed-modal").hidden = true; edMeal = null; };
 $("#ed-save").onclick = () => {
@@ -1255,7 +1267,7 @@ function renderFreezer() {
       ${waitingFor(m) ? `<div class="waiting">Czeka na Ciebie: ${r0(waitingFor(m) * 100)}% otwartego pudełka od ${esc(userName(1 - ACT()))}</div>` : ""}
       <div class="macro">${shareOf(m) < 1 ? `Moja część (${myShare(m)}%): <b>${r0(myPart(m).k)} kcal</b> · białko ${f1(myPart(m).p)} g · błonnik ${f1(myPart(m).f)} g<br>Całe pudełko: ${r0(pp.k)} kcal` : `Porcja: ${r0(pp.k)} kcal · białko ${f1(pp.p)} g · błonnik ${f1(pp.f)} g`}</div>
       <div class="macro">Ugotowane ${dm(m.date)}, ${m.portions} szt.</div>
-      <div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-lbl="${m.id}">Etykiety</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button><button class="btn ghost small" data-out="${m.id}">${m.stock > 0 ? "Usuń z zamrażarki" : "Usuń resztkę"}</button></div></div>`; }).join("")
+      <div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-lbl="${m.id}">Etykiety</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button></div></div>`; }).join("")
     : `<p class="muted">${fq ? "Nic nie pasuje w zamrażarce." : "Pusto. Nowy posiłek dodasz w zakładce Gotuję."}</p>`;
   $("#meals-table").innerHTML = S.meals.length ? `<thead><tr><th>Posiłek</th><th>Data</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
     S.meals.filter(m => matches(m, fq)).map(m => { return `<tr><td>${hl(m.name, fq)}</td><td>${dm(m.date)}</td><td class="n">${m.portions}</td><td class="n">${myShare(m)}%</td><td class="n">${r0(myPart(m).k)}</td><td class="n">${f1(myPart(m).p)}</td><td class="n">${f1(myPart(m).f)}</td>
@@ -1267,12 +1279,6 @@ function renderFreezer() {
   on("data-plus", m => { m.stock = r1(m.stock + 1); save(); render(); });
   on("data-lbl", m => printLabels(m, m.stock));
   on("data-edit", m => openEdit(m));
-  /* usuwanie z zamrażarki, np. resztki dzielonego pudełka, którego już nie ma: posiłek zostaje w bazie */
-  on("data-out", m => { const b = document.querySelector(`[data-out="${m.id}"]`);
-    if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = "Na pewno?"; return; }
-    if (m.stock > 0) { m.stock = 0; delete m.wait; }
-    else if (m.wait) { delete m.wait[ACT()]; if (!Object.keys(m.wait).length) delete m.wait; }
-    save(); render(); });
   on("data-again", m => { const rc = S.recipes.find(x => x.name.toLowerCase() === m.name.toLowerCase()); loadIntoEditor(m, { fromRecipe: rc ? rc.id : null }); });
   on("data-delmeal", m => { const b = document.querySelector(`[data-delmeal="${m.id}"]`); if (b.dataset.sure) { S.meals = S.meals.filter(x => x !== m); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } });
 }

@@ -78,7 +78,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - `meal.share` to część osoby 1. Osoba 2 ma resztę (40% → 60%), a przy 100% też całe pudełko. Domyślne części ustawiane wprost dla aktywnej osoby, nigdy przez odwracanie bieżącej wartości pola. (24.10)
 - Dzielone pudełko schodzi ze stanu raz, a reszta czeka na drugą osobę (`meal.wait[osoba]`). Usuwanie wpisów w dowolnej kolejności musi wracać do tego samego stanu. Części obu osób, które razem tworzą pudełko, wracają na stan. (26.10)
 - Przełączenie osoby czyści komunikaty i niedokończone wpisy poprzedniej. (24.10)
-- Każdy element zamrażarki da się usunąć z karty, z potwierdzeniem „Na pewno?”. Resztka czekająca tylko na jedną osobę (np. po pudełku, którego już nie ma) znika tylko u niej. Pełne pudełko schodzi ze stanu u obu osób. Posiłek zostaje w bazie, żeby dało się go ugotować ponownie. (13.11)
+- Każdy element zamrażarki da się usunąć w oknie „Edytuj” (nie na karcie, żeby karty nie były zaśmiecone), z potwierdzeniem „Na pewno?”. Resztka czekająca tylko na jedną osobę (np. po pudełku, którego już nie ma) znika tylko u niej. Pełne pudełko schodzi ze stanu u obu osób. Posiłek zostaje w bazie, żeby dało się go ugotować ponownie. (13.11)
 
 ## Interfejs
 
@@ -108,4 +108,4 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 26.10 | Kalorie równe celowi bez pomarańczowego. Dzielone pudełka bez dublowania przy usuwaniu. |
 | 27.10 | Tryby redukcja, utrzymanie, masa. Średnie bez bieżącego dnia. Trend z 14 dni. „Za mało” na niebiesko. Tryb rekompozycja. Wykresy kalorii, białka i błonnika. |
 | 2.11 | Przykładowe dane pod `?demo`. |
-| 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). |
+| 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
