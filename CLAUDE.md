@@ -29,6 +29,22 @@ Ten plik zbiera wymagania i zasady, według których agent (Claude Code) rozwija
 - Nowe teksty nie zakładają płci użytkownika.
 - Wyjaśnienia liczb na własnych danych użytkownika, nie wzorem. (22.10)
 
+## Ochrona przed pomyłką (14.11)
+
+- Większe zmiany powstają w osobnej gałęzi, nie w `main`. `main` to wersja, z której korzystają użytkownicy.
+- Wpis, który wygląda na pomyłkę albo zastępuje istniejące dane, wymaga drugiego kliknięcia tego samego przycisku. Komunikat mówi, co się nie zgadza. Zmiana pola kasuje pytanie. Bez wyskakujących okien, poza wczytaniem kopii.
+- Waga:
+  - wartość różniąca się o ponad 4% od ważeń z okolic danego dnia wymaga potwierdzenia,
+  - dzień, który ma już wagę, nie jest nadpisywany bez pytania,
+  - waga poza 25 do 300 kg i data z przyszłości są odrzucane,
+  - po zapisie na inny dzień pole daty wraca na dziś,
+  - usunięcie ważenia pyta „Na pewno?”.
+- Strona otwarta przez noc przechodzi na nowy dzień, żeby poranne wpisy nie trafiały do wczoraj.
+- Jedzenie bez kalorii zapisuje się dopiero po drugim kliknięciu. Wartości ujemne są odrzucane.
+- Cele w Ustawieniach są sprawdzane (kalorie 800 do 6000, cel wagi 25 do 300 kg albo puste pole) i potwierdzane komunikatem.
+- Wczytanie kopii pyta przed zastąpieniem danych obu osób. Uszkodzony plik zostawia dane bez zmian. Kopia przechodzi te same migracje co dane z przeglądarki (`migrate()`).
+- Import z czatu nie zapisuje dat z przyszłości ani wag poza zakresem i wymienia w komunikacie wagi, które zmienił.
+
 ## Bezpieczeństwo i zdrowie (zasady nadrzędne)
 
 - Grywalizacja nigdy nie nagradza wagi poniżej celu. Średnia 7 dni poniżej zakresu oznacza (22.10):
@@ -78,6 +94,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - `meal.share` to część osoby 1. Osoba 2 ma resztę (40% → 60%), a przy 100% też całe pudełko. Domyślne części ustawiane wprost dla aktywnej osoby, nigdy przez odwracanie bieżącej wartości pola. (24.10)
 - Dzielone pudełko schodzi ze stanu raz, a reszta czeka na drugą osobę (`meal.wait[osoba]`). Usuwanie wpisów w dowolnej kolejności musi wracać do tego samego stanu. Części obu osób, które razem tworzą pudełko, wracają na stan. (26.10)
 - Przełączenie osoby czyści komunikaty i niedokończone wpisy poprzedniej. (24.10)
+- Ze stanu schodzi najwyżej tyle pudełek, ile jest. Wpis w dzienniku pamięta, co naprawdę zeszło ze stanu, więc zjedzenie czegoś, czego nie ma, i cofnięcie takiego wpisu nie tworzy pudełek ani resztek. Brak na stanie jest opisany w komunikacie. (14.11)
 - Każdy element zamrażarki da się usunąć w oknie „Edytuj” (nie na karcie, żeby karty nie były zaśmiecone), z potwierdzeniem „Na pewno?”. Resztka czekająca tylko na jedną osobę (np. po pudełku, którego już nie ma) znika tylko u niej. Pełne pudełko schodzi ze stanu u obu osób. Posiłek zostaje w bazie, żeby dało się go ugotować ponownie. (13.11)
 
 ## Interfejs
@@ -85,6 +102,8 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Podpowiedzi w „Dodaj coś spoza zamrażarki” nic nie wpisują same. Wartości z bazy tylko po kliknięciu podpowiedzi, a Enter dodaje to, co wpisane. (22.10)
 - Przycisk „Dziś” obok kalendarza, widoczny tylko na innym dniu. (22.10)
 - Tabela dni pogrupowana tygodniami, kolumny w grupach „Waga” i „Jedzenie”, ze średnią kcal z 7 dni. (24.10)
+- „Wszystkie posiłki” to zwijana lista, na start zwinięta. Jedno danie to jeden wiersz z ostatnią partią, a starsze partie o tej samej nazwie są pod przyciskiem „Partie”. Kolejność do wyboru: ostatnio gotowane, alfabetycznie, najczęściej gotowane. Wyszukiwanie rozwija listę. Na telefonie wiersz jest kartą. (14.11)
+- Tabela dni w Wadze pokazuje 45 dni, starsze pod przyciskiem „Pokaż starsze dni”. (14.11)
 - Wykresy kalorii, białka i błonnika (30 dni) w zwijanej sekcji pod wykresem wagi (27.10):
   - jedna oś na wykres,
   - przerywana linia celu,
@@ -108,4 +127,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 26.10 | Kalorie równe celowi bez pomarańczowego. Dzielone pudełka bez dublowania przy usuwaniu. |
 | 27.10 | Tryby redukcja, utrzymanie, masa. Średnie bez bieżącego dnia. Trend z 14 dni. „Za mało” na niebiesko. Tryb rekompozycja. Wykresy kalorii, białka i błonnika. |
 | 2.11 | Przykładowe dane pod `?demo`. |
+| 14.11 | Gałąź `porzadki-logiki`: przegląd logiki. Pytanie przed nietypową wagą, nadpisaniem dnia i wczytaniem kopii. Zamrażarka bez pudełek z powietrza. Lista posiłków pogrupowana i zwijana. Sprawdzanie celów i importu z czatu. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |

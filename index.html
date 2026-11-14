@@ -162,6 +162,24 @@ svg text{fill:var(--muted);font:11px var(--body)}
 a.btn{display:inline-block;text-decoration:none;font:600 14px var(--body);border-radius:6px;padding:8px 14px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink)}
 a.btn.ghost{background:transparent;color:var(--accent)}
 .demo-card{margin-bottom:12px}
+details.fold > summary{cursor:pointer}
+details.fold > summary h3{display:inline;margin:0 6px 0 4px}
+#meals-table td small{display:block;font-size:12px;color:var(--muted);font-weight:400}
+#meals-table tr.mb td{background:var(--bg);font-size:13px}
+#meals-table tr.mb td:first-child{padding-left:22px}
+#meals-table .acts{display:flex;gap:4px;flex-wrap:nowrap;align-items:center;justify-content:flex-end;margin:0}
+/* telefon: wiersz jako karta, nazwa na całą szerokość, wartości z podpisami, przyciski w jednym rzędzie */
+@media (max-width:560px){
+  #meals-table thead{display:none}
+  #meals-table tbody tr{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 8px;padding:10px 0;border-bottom:1px solid var(--line)}
+  #meals-table tbody td{border:0;padding:0}
+  #meals-table tbody td:first-child,#meals-table tbody td:last-child{grid-column:1/-1}
+  #meals-table tbody td[data-l]{text-align:left;font-size:13px}
+  #meals-table tbody td[data-l]::before{content:attr(data-l) " ";color:var(--muted);font-size:12px}
+  #meals-table .acts{justify-content:flex-start;flex-wrap:wrap;margin-top:6px}
+  #meals-table tr.mb{padding-left:14px}
+  #meals-table tr.mb td:first-child{padding-left:0}
+}
 details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;margin-top:14px}
 #print{display:none}
 @media print{
@@ -277,11 +295,14 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <h2>W zamrażarce</h2>
       <div class="stock" id="stock"></div>
     </div>
-    <div class="card">
-      <h3>Wszystkie posiłki</h3>
-      <p class="muted" style="margin:0 0 8px">Posiłki, których już nie ma, zostają tutaj. „Ugotuj ponownie” wczytuje przepis do zakładki Gotuję.</p>
+    <details class="card fold" id="meals-box">
+      <summary><h3>Wszystkie posiłki</h3> <span class="pill" id="meals-count"></span></summary>
+      <div class="row" style="justify-content:space-between;margin:10px 0 8px">
+        <p class="muted" style="margin:0;flex:1;min-width:200px">Każde danie jest tu raz, z ostatnio ugotowaną partią. Starsze partie rozwiniesz przyciskiem „Partie”. „Ugotuj ponownie” wczytuje przepis do zakładki Gotuję.</p>
+        <label>Kolejność<select id="meals-sort"><option value="date">ostatnio gotowane</option><option value="name">alfabetycznie</option><option value="count">najczęściej gotowane</option></select></label>
+      </div>
       <div class="tablebox"><table id="meals-table"></table></div>
-    </div>
+    </details>
   </section>
 
   <!-- GOTUJĘ -->
@@ -1038,7 +1059,7 @@ function renderSearch() {
 $("#ck-search").oninput = renderSearch;
 $("#ck-search").onkeydown = e => { if (e.key === "Enter") { const b = $("#ck-results button"); if (b) b.click(); } };
 $("#rc-search").oninput = () => { renderRecipes(); renderFoods(); };
-$("#fz-search").oninput = () => renderFreezer();
+$("#fz-search").oninput = () => { if ($("#fz-search").value.trim()) $("#meals-box").open = true; renderFreezer(); };
 $("#ck-spice-add").onclick = () => {
   const s = S.spices.find(x => x.id === $("#ck-spice").value), g = num($("#ck-spice-g").value);
   if (!s) return msg($("#ck-msg"), "Najpierw zapisz jakąś przyprawę.", true);
@@ -1311,6 +1332,8 @@ $("#ed-save").onclick = () => {
   Object.assign(m, { name, date: $("#ed-date").value || m.date, portions: n, stock: Math.max(0, num($("#ed-stock").value)), share: myShareOf(shareNew) });
   save(); $("#ed-modal").hidden = true; edMeal = null; render();
 };
+const mealsOpen = new Set(); /* dania z rozwiniętymi partiami */
+$("#meals-sort").onchange = () => renderFreezer();
 function renderFreezer() {
   const fq = $("#fz-search").value.trim();
   const inStock = S.meals.filter(m => (m.stock > 0 || waitingFor(m)) && matches(m, fq));
@@ -1321,10 +1344,27 @@ function renderFreezer() {
       <div class="macro">Ugotowane ${dm(m.date)}, ${m.portions} szt.</div>
       <div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-lbl="${m.id}">Etykiety</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button></div></div>`; }).join("")
     : `<p class="muted">${fq ? "Nic nie pasuje w zamrażarce." : "Pusto. Nowy posiłek dodasz w zakładce Gotuję."}</p>`;
-  $("#meals-table").innerHTML = S.meals.length ? `<thead><tr><th>Posiłek</th><th>Data</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
-    S.meals.filter(m => matches(m, fq)).map(m => { return `<tr><td>${hl(m.name, fq)}</td><td>${dm(m.date)}</td><td class="n">${m.portions}</td><td class="n">${myShare(m)}%</td><td class="n">${r0(myPart(m).k)}</td><td class="n">${f1(myPart(m).p)}</td><td class="n">${f1(myPart(m).f)}</td>
-      <td class="n" style="white-space:nowrap"><button class="btn ghost small" data-edit="${m.id}">Edytuj</button> <button class="btn ghost small" data-again="${m.id}">Ugotuj ponownie</button> <button class="x" data-delmeal="${m.id}" title="Usuń z bazy">×</button></td></tr>`; }).join("") + `</tbody>`
+  /* Wszystkie posiłki: jedno danie w jednym wierszu (partie o tej samej nazwie razem), starsze partie pod przyciskiem */
+  const groups = new Map();
+  S.meals.forEach((m, i) => { const k = norm(m.name.trim()); if (!groups.has(k)) groups.set(k, { k, items: [] }); groups.get(k).items.push({ m, i }); });
+  let list = [...groups.values()].filter(g => g.items.some(x => matches(x.m, fq)));
+  list.forEach(g => { g.items.sort((a, b) => (b.m.date || "").localeCompare(a.m.date || "") || a.i - b.i); g.last = g.items[0].m; g.stock = g.items.reduce((a, x) => a + (x.m.stock || 0), 0); });
+  const by = $("#meals-sort").value;
+  list.sort((a, b) => by === "name" ? a.last.name.localeCompare(b.last.name, "pl") : by === "count" ? b.items.length - a.items.length || a.last.name.localeCompare(b.last.name, "pl") : (b.last.date || "").localeCompare(a.last.date || "") || a.items[0].i - b.items[0].i);
+  $("#meals-count").textContent = groups.size ? (fq ? `${list.length} z ${groups.size}` : groups.size) : "";
+  const macro = m => `<td class="n" data-l="kcal">${r0(myPart(m).k)}</td><td class="n" data-l="białko">${f1(myPart(m).p)}</td><td class="n" data-l="błonnik">${f1(myPart(m).f)}</td>`;
+  const inFz = n => n > 0 ? ` · <b>w zamrażarce ${f1(n)} szt.</b>` : "";
+  $("#meals-table").innerHTML = S.meals.length ? `<thead><tr><th>Danie</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
+    (list.map(g => { const m = g.last, n = g.items.length, open = mealsOpen.has(g.k);
+      return `<tr><td>${hl(m.name, fq)}<small>ostatnio ${dm(m.date)} · ${n === 1 ? "gotowane raz" : `gotowane ${n} razy`} · ${m.portions} szt., moja część ${myShare(m)}%${inFz(g.stock)}</small></td>${macro(m)}
+        <td><div class="acts"><button class="btn ghost small" data-again="${m.id}">Ugotuj ponownie</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button>${n > 1
+          ? `<button class="btn ghost small" data-mg="${esc(g.k)}" aria-expanded="${open}">${open ? "Zwiń partie" : `Partie (${n})`}</button>`
+          : `<button class="x" data-delmeal="${m.id}" title="Usuń z bazy">×</button>`}</div></td></tr>` +
+        (n > 1 && open ? g.items.map(({ m: x }) => `<tr class="mb"><td>${dm(x.date)}${x.date ? "." + x.date.slice(0, 4) : ""}<small>${x.portions} szt., moja część ${myShare(x)}%${inFz(x.stock || 0)}</small></td>${macro(x)}
+          <td><div class="acts"><button class="btn ghost small" data-edit="${x.id}">Edytuj</button><button class="x" data-delmeal="${x.id}" title="Usuń tę partię z bazy">×</button></div></td></tr>`).join("") : ""); }).join("")
+      || `<tr><td class="muted" colspan="5">Nic nie pasuje.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Brak zapisanych posiłków.</td></tr></tbody>`;
+  $("#meals-table").querySelectorAll("[data-mg]").forEach(b => b.onclick = () => { mealsOpen.has(b.dataset.mg) ? mealsOpen.delete(b.dataset.mg) : mealsOpen.add(b.dataset.mg); renderFreezer(); });
   const on = (attr, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(S.meals.find(m => m.id === b.getAttribute(attr))));
   on("data-eat", m => { day = todayIso(); $("#day-date").value = day; eat(m.id, 1); });
   on("data-minus", m => { m.stock = Math.max(0, r1(m.stock - 1)); save(); render(); });
@@ -1332,7 +1372,7 @@ function renderFreezer() {
   on("data-lbl", m => printLabels(m, m.stock));
   on("data-edit", m => openEdit(m));
   on("data-again", m => { const rc = S.recipes.find(x => x.name.toLowerCase() === m.name.toLowerCase()); loadIntoEditor(m, { fromRecipe: rc ? rc.id : null }); });
-  on("data-delmeal", m => { const b = document.querySelector(`[data-delmeal="${m.id}"]`); if (b.dataset.sure) { S.meals = S.meals.filter(x => x !== m); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } });
+  on("data-delmeal", m => { const b = document.querySelector(`[data-delmeal="${m.id}"]`); if (b.dataset.sure) { S.meals = S.meals.filter(x => x !== m); save(); render(); } else { b.dataset.sure = 1; b.textContent = m.stock > 0 || m.wait ? "Na pewno? Zniknie też z zamrażarki" : "Na pewno?"; } });
 }
 
 /* ---------- WAGA ---------- */
