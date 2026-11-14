@@ -371,6 +371,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <button class="btn ghost small" id="w-copy">Kopiuj dane dla Claude</button>
       </div>
       <div class="tablebox"><table id="w-table"></table></div>
+      <button class="btn ghost small" id="w-more" hidden style="margin-top:8px">Pokaż starsze dni</button>
     </div>
   </section>
 
@@ -623,6 +624,7 @@ function switchUser(i) {
   /* komunikaty i niedokończone wpisy należą do poprzedniej osoby */
   document.querySelectorAll(".msg").forEach(el => msg(el, ""));
   ["#w-kg", "#free-name", "#free-k", "#free-p", "#free-f", "#fav-search"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
+  wReset(); $("#w-date").value = todayIso();
   freePicked = null; hideFreeSugg();
   flipShareInputs();
   save(); fillSettings(); render();
@@ -679,6 +681,18 @@ $("#day-prev").onclick = () => { day = addDays(day, -1); $("#day-date").value = 
 $("#day-next").onclick = () => { day = addDays(day, 1); $("#day-date").value = day; render(); };
 $("#day-today").onclick = () => { day = todayIso(); $("#day-date").value = day; render(); };
 
+/* Strona otwarta przez noc: wybrany „dzisiejszy” dzień i data wagi przechodzą na nowy dzień.
+   Bez tego wpisy z rana trafiały do wczoraj, a waga nadpisywała wczorajszą. */
+let seenToday = todayIso();
+function rollDay() {
+  const t = todayIso(); if (t === seenToday) return;
+  if (day === seenToday) { day = t; $("#day-date").value = t; }
+  if ($("#w-date").value === seenToday) $("#w-date").value = t;
+  seenToday = t; render();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) rollDay(); });
+window.addEventListener("focus", rollDay);
+document.addEventListener("pointerdown", rollDay, true);
 function renderToday() {
   $("#today-lbl").textContent = new Date().toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
   $("#day-today").hidden = day === todayIso();
@@ -1285,15 +1299,43 @@ function renderFreezer() {
 
 /* ---------- WAGA ---------- */
 $("#w-date").value = todayIso();
+/* Kontrola wpisu wagi: liczba daleka od ostatnich ważeń albo dzień, który już ma wagę, wymaga drugiego kliknięcia.
+   wPending pamięta, co pokazaliśmy do potwierdzenia; każda zmiana pola je kasuje. */
+const W_MIN = 25, W_MAX = 300, W_DIFF = 0.04;
+let wPending = null;
+function wReset() { wPending = null; $("#w-add").textContent = "Zapisz"; }
+/* waga odniesienia dla dnia d: średnia z ważeń do 7 dni od niego, a gdy ich nie ma, najbliższe ważenie */
+function weightRef(d) {
+  const near = []; for (let i = -7; i <= 7; i++) { const w = i && S.weights[addDays(d, i)]; if (w) near.push(w); }
+  if (near.length) return avg(near);
+  const ds = Object.keys(S.weights).filter(x => x !== d); if (!ds.length) return null;
+  const gap = x => Math.abs(new Date(x) - new Date(d));
+  return S.weights[ds.reduce((a, x) => gap(x) < gap(a) ? x : a)];
+}
+function weightDoubts(d, kg) {
+  const out = [], old = S.weights[d], ref = weightRef(d);
+  if (old && Math.abs(old - kg) > 0.001) out.push(`w dniu ${dm(d)} jest już zapisane ${kg2(old)} kg i ten wpis je zastąpi`);
+  if (ref && Math.abs(kg - ref) / ref > W_DIFF) out.push(`${kg2(kg)} kg różni się o ${kg1(Math.abs(kg - ref))} kg od ważeń z okolic tego dnia (ok. ${kg1(ref)} kg)`);
+  return out;
+}
+["#w-date", "#w-kg"].forEach(sel => $(sel).addEventListener("input", () => { if (wPending) { wReset(); msg($("#w-msg"), ""); } }));
 $("#w-add").onclick = () => {
-  const d = $("#w-date").value, kg = num($("#w-kg").value); if (!d || !kg) return;
-  const before = wgStats(); S.weights[d] = kg; $("#w-kg").value = ""; save(); render();
-  const after = wgStats(), bits = [`Zapisane: ${kg.toFixed(2).replace(".", ",")} kg.`];
+  const d = $("#w-date").value, raw = $("#w-kg").value.trim(), kg = num(raw), today = todayIso(), warn = t => msg($("#w-msg"), t, true);
+  if (!d) return warn("Wybierz datę.");
+  if (!raw) return warn("Wpisz wagę.");
+  if (kg < W_MIN || kg > W_MAX) return warn(`Waga musi być między ${W_MIN} a ${W_MAX} kg. Sprawdź, czy przecinek jest w dobrym miejscu.`);
+  if (d > today) return warn("Ta data jest z przyszłości. Wybierz dzisiejszą albo wcześniejszą.");
+  const doubts = weightDoubts(d, kg), key = d + "|" + kg;
+  if (doubts.length && wPending !== key) { wPending = key; $("#w-add").textContent = "Zapisz mimo to"; return warn(`Sprawdź: ${doubts.join(", a ")}. Jeśli wszystko się zgadza, kliknij „Zapisz mimo to”.`); }
+  wReset();
+  const before = wgStats(), old = S.weights[d]; S.weights[d] = kg; $("#w-kg").value = ""; $("#w-date").value = today; save(); render();
+  const after = wgStats(), bits = [`Zapisane${d !== today ? ` na ${dm(d)}` : ""}: ${kg2(kg)} kg.`];
+  if (old && Math.abs(old - kg) > 0.001) bits.push(`Poprzednio było ${kg2(old)} kg.`);
   if (after.weigh.cur > 1) bits.push(`Seria ważenia: ${after.weigh.cur} dni z rzędu.`);
   if (after.bestAvg != null && (before.bestAvg == null || after.bestAvg < before.bestAvg - 0.001) && after.mode === "cut" && !before.reached && !after.below) bits.push("Najniższa średnia 7 dni do tej pory!");
   if (after.bestAvg != null && before.bestAvg != null && after.bestAvg > before.bestAvg + 0.001 && after.mode === "bulk" && !before.reached) bits.push("Najwyższa średnia 7 dni do tej pory!");
   if (after.warnLow) bits.push(`Średnia jest poniżej Twojego zakresu (${kg1(after.lowEdge)}–${kg1(after.highEdge)} kg), jedz więcej.`);
-  const fresh = after.badges.filter(b => b.got && !before.badges.find(x => x.id === b.id).got);
+  const fresh = after.badges.filter(b => b.got && !before.badges.find(x => x.id === b.id)?.got);
   if (fresh.length) bits.push("Nowa odznaka: " + fresh.map(b => b.name).join(", ") + "!");
   msg($("#w-msg"), bits.join(" "));
 };
@@ -1584,7 +1626,8 @@ function renderWeight() {
   renderNutCharts();
   // tabela dni: pogrupowana tygodniami, kolumny w dwóch grupach (waga i jedzenie)
   const all = new Set(dates); S.log.forEach(e => all.add(e.date));
-  const list = [...all].sort().reverse().slice(0, 45);
+  const allDays = [...all].sort().reverse(), list = allDays.slice(0, wRows);
+  $("#w-more").hidden = allDays.length <= wRows;
   const kg = v => v ? v.toFixed(2).replace(".", ",") : "";
   const weekStart = d => { const wd = (new Date(d + "T12:00:00").getDay() + 6) % 7; return addDays(d, -wd); };
   const weeks = []; list.forEach(d => { const ws = weekStart(d); if (!weeks.length || weeks[weeks.length - 1].ws !== ws) weeks.push({ ws, days: [] }); weeks[weeks.length - 1].days.push(d); });
@@ -1604,8 +1647,14 @@ function renderWeight() {
     const bits = [ws.length ? `śr. ${kg(avg(ws))} kg${now ? ` z ${ws.length} ${n(ws.length)}` : ""}` : "", ks.length ? `śr. ${r0(avg(ks))} kcal${now ? ` z ${ks.length} ${n(ks.length)}` : ""}` : ""].filter(Boolean).join(" · ");
     return `<tr class="wk"><td colspan="8">Tydzień ${dm(wk.ws)}–${dm(addDays(wk.ws, 6))}${now ? " (w trakcie)" : ""}${bits ? ` <span>${bits}</span>` : ""}</td></tr>`; };
   $("#w-table").innerHTML = list.length ? head + `<tbody>` + weeks.map(wk => weekRow(wk) + wk.days.map(row).join("")).join("") + `</tbody>` : "";
-  $("#w-table").querySelectorAll("[data-delw]").forEach(b => b.onclick = () => { delete S.weights[b.dataset.delw]; save(); render(); });
+  $("#w-table").querySelectorAll("[data-delw]").forEach(b => b.onclick = () => {
+    if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = "Na pewno?"; return; }
+    delete S.weights[b.dataset.delw]; save(); render();
+  });
 }
+/* tabela dni pokazuje ostatnie 45 dni, starsze na życzenie */
+let wRows = 45;
+$("#w-more").onclick = () => { wRows += 90; renderWeight(); };
 $("#w-copy").onclick = async () => {
   const g = S.settings.goals; const all = new Set(Object.keys(S.weights)); S.log.forEach(e => all.add(e.date));
   const list = [...all].sort().slice(-30);
