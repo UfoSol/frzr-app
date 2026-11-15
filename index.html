@@ -1491,7 +1491,7 @@ function foodFind(text) {
   lib.forEach((r, n) => { if (!u && foodKey(n) === key) u = r; });
   if (u) return { name: u.name, k: u.k100, p: u.p100, f: u.f100, src: "Twoje przepisy", info };
   const c = (S.calcCache || {})[key];
-  if (c) return { name: c.n, k: c.k, p: c.p, f: c.f, src: "Gemini, zapamiętane", info };
+  if (c) { delete S.calcCache[key]; S.calcCache[key] = c; return { name: c.n, k: c.k, p: c.p, f: c.f, src: "Gemini, zapamiętane", info }; }
   if (info) return { name: info.name, k: info.k, p: info.p, f: info.f, src: "baza FRZR", spice: !!info.o.sp, info };
   return null;
 }
@@ -2774,14 +2774,17 @@ $("#fav-search").oninput = () => renderFoods();
 $("#sp-add-new").onclick = () => newSpice();
 $("#fd-sort").onchange = () => renderFoods();
 $("#fd-more").onclick = () => { fdAll = !fdAll; renderFoods(); };
-function render() { renderWho(); renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }
+/* karta zachęty tylko przy pustej aplikacji; odświeżana przy każdym rysowaniu, także po wczytaniu kopii */
+function renderStartCard() {
+  const other = S.profiles ? S.profiles.list.some((p, i) => i !== ACT() && ((p.log || []).length || Object.keys(p.weights || {}).length)) : false;
+  $("#demo-card").hidden = DEMO || S.log.length > 0 || S.meals.length > 0 || Object.keys(S.weights).length > 0 || other;
+}
+function render() { renderStartCard(); renderWho(); renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }
 flipShareInputs();
 $("#demo-bar").hidden = !DEMO;
 /* wyjście z przykładu wraca na tę samą stronę bez ?demo, a nie do katalogu, w którym leży plik */
 $("#demo-exit").href = location.href.split(/[?#]/)[0];
 if (DEMO) { $("#demo-link").hidden = true; document.title = "FRZR: przykład"; }
-/* zachęta tylko przy pustej aplikacji */
-$("#demo-card").hidden = DEMO || S.log.length > 0 || S.meals.length > 0 || Object.keys(S.weights).length > 0;
 fillSettings(); renderCook(); render();
 </script>
 </body>
