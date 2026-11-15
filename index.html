@@ -91,6 +91,9 @@ td input.num{width:72px;text-align:right}
 .msg{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
 .msg.err{color:var(--bad)}
 .msg.busy{display:block}
+.tip{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
+.info-i{width:18px;height:18px;border-radius:50%;border:0;padding:0;background:var(--accent);color:var(--accent-ink);font:700 12px/18px var(--body);text-align:center;cursor:pointer;flex:none}
+.info-i:hover{filter:brightness(1.1)}
 .scale-in{display:inline-flex;align-items:center;gap:2px;color:var(--muted)}.scale-in input{width:64px;text-align:center;padding:5px 6px}
 .scale-arrows{display:inline-flex;flex-direction:column}.scale-arr{border:0;background:none;color:var(--muted);padding:0 6px;font-size:10px;line-height:1.15;cursor:pointer;border-radius:4px}
 .scale-arr:hover:not(:disabled){color:var(--accent);background:var(--frost)}.scale-arr:disabled{opacity:.3;cursor:default}
@@ -407,7 +410,6 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <div class="seg" id="ck-modes" role="group" aria-label="Sposób dodawania składników">
           <button type="button" data-ck-mode="opis">Opisowo</button>
           <button type="button" data-ck-mode="tabela">Tabela</button>
-          <button type="button" data-ck-mode="przyprawa">Z przyprawy</button>
           <button type="button" data-ck-mode="przepis">Z przepisu</button>
         </div>
       </div>
@@ -423,14 +425,6 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
           <button class="btn" id="ck-row">Dodaj wiersz</button>
           <button class="btn ghost" id="ck-ean">Dodaj z kodu kreskowego</button>
         </div>
-      </div>
-      <div data-ck-panel="przyprawa" hidden>
-        <div class="row" id="ck-spice-row">
-          <label style="flex:1;min-width:160px">Moja przyprawa<select id="ck-spice"></select></label>
-          <label style="flex:1;min-width:160px" id="ck-spice-var-wrap">Przepis tej przyprawy<select id="ck-spice-var"></select></label>
-          <button class="btn" id="ck-spice-load">Wczytaj przepis do tabeli</button>
-        </div>
-        <div class="results" id="ck-spice-info"></div>
       </div>
       <div data-ck-panel="przepis" hidden>
         <input type="search" id="ck-search" placeholder="Szukaj po nazwie albo składniku, np. curry, kurczak" autocomplete="off" aria-label="Szukaj przepisu">
@@ -455,15 +449,16 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Moja część pudełka %<input type="number" id="ck-share" value="40" min="1" max="100" step="5" style="width:110px"></label>
         <div class="row" style="gap:4px" id="ck-share-btns"></div>
       </div>
-      <div class="row" id="ck-scale-row" style="justify-content:space-between;margin:12px 0 8px">
-        <p class="muted" style="margin:0;flex:1;min-width:200px">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same. Gotujesz z przepisu, ale chcesz zrobić więcej (np. podwójną porcję)? Wybierz mnożnik strzałkami.</p>
+      <div class="row" id="ck-scale-row" style="justify-content:flex-end;margin:12px 0 8px">
         <span class="row scale-box" style="gap:4px;align-items:center">
           <span class="muted">Ile razy więcej?</span>
+          <button type="button" class="info-i" id="ck-scale-info" aria-label="Co to jest?" aria-expanded="false" aria-controls="ck-scale-tip" title="Co to jest?">i</button>
           <span class="scale-in">×<input id="ck-scale" type="text" inputmode="decimal" value="1" autocomplete="off" aria-label="Mnożnik porcji"></span>
           <span class="scale-arrows"><button type="button" class="scale-arr" id="ck-scale-up" aria-label="Więcej" title="Więcej">▲</button><button type="button" class="scale-arr" id="ck-scale-dn" aria-label="Mniej" title="Mniej">▼</button></span>
           <button class="btn ghost small" id="ck-scale-go" disabled>Powiększ porcje</button>
         </span>
       </div>
+      <div class="tip" id="ck-scale-tip" hidden style="margin-bottom:8px">Użyj, jeśli chcesz przeskalować wielkość przygotowanego jedzenia, np. zrobić podwójną porcję z przepisu. Wpisz mnożnik albo użyj strzałek, a gramy przeliczą się w całej tabeli. Gramy i wartości na 100 g nadal możesz poprawiać ręcznie, a sumy przeliczą się same.</div>
       <div class="msg" id="ck-scale-msg" hidden style="margin-bottom:8px"></div>
       <datalist id="ing-list"></datalist>
       <div class="tablebox"><table id="ck-table"></table></div>
@@ -478,7 +473,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <label class="muted" id="ck-upd-wrap" style="flex-direction:row;align-items:center;gap:6px;margin-top:10px" hidden><input type="checkbox" id="ck-upd"> Zaktualizuj też przepis bazowy o dzisiejsze zmiany</label>
       <details class="wg-more" id="ck-later">
         <summary>Zapisz na później: przepis bazowy</summary>
-        <p class="muted" style="margin:8px 0">Przepis bazowy wczytasz następnym razem w trybie „Z przepisu” albo przez przyprawę, do której go przypiszesz. Ten zapis nie dodaje nic do zamrażarki.</p>
+        <p class="muted" style="margin:8px 0">Przepis bazowy wczytasz następnym razem w trybie „Z przepisu” albo z podglądu przyprawy, do której go dodasz. Ten zapis nie dodaje nic do zamrażarki.</p>
         <div class="row">
           <label>Dodaj do przyprawy jako wariant<select id="ck-assign"></select></label>
           <button class="btn ghost" id="ck-as-recipe">Zapisz jako przepis bazowy</button>
@@ -1750,14 +1745,13 @@ function saveSpice({ id, name, compText, recipeIds }) {
   if (ex) Object.assign(ex, data); else S.spices.push({ id: uid(), ...data });
   save(); render(); return null;
 }
-/* przepis przyprawy trafia do tabeli: nie wypełniasz jej od zera. Przy kilku wariantach wybierasz wariant w trybie „Z przyprawy”. */
+/* przepis przyprawy trafia do tabeli: nie wypełniasz jej od zera. Przy kilku przepisach wybiera się przepis w podglądzie przyprawy albo w trybie „Z przepisu”. */
 function useSpice(sp, recipeId) {
   const rs = recipesOf(sp), r = recipeId ? rs.find(x => x.id === recipeId) : rs.length === 1 ? rs[0] : null;
-  if (rs.length > 1 && !r) {
-    showTab("gotuje"); setCookKind("dish"); setCookMode("przyprawa"); $("#ck-spice").value = sp.id; renderSpicePanel();
-    return msg($("#ck-msg"), `Przyprawa „${sp.name}” ma ${rs.length} przepisy. Wybierz przepis z listy albo „Nowy przepis…” i kliknij przycisk obok.`);
+  if (!r) {
+    showTab("gotuje"); setCookKind("dish");
+    return msg($("#ck-msg"), rs.length ? `Przyprawa „${sp.name}” ma kilka przepisów. Wybierz przepis w podglądzie przyprawy albo w trybie „Z przepisu” (przepisy z przyprawą mają ikonkę 🧂).` : `Przyprawa „${sp.name}” nie ma jeszcze przepisu. Dodaj go przyciskiem „Nowy przepis dla tej przyprawy” w podglądzie przyprawy.`, !rs.length);
   }
-  if (!r) { showTab("gotuje"); setCookKind("dish"); setCookMode("przyprawa"); $("#ck-spice").value = sp.id; renderSpicePanel(); return msg($("#ck-msg"), `Przyprawa „${sp.name}” nie ma jeszcze przepisu. Wybierz „Nowy przepis…” na liście i kliknij „Zacznij nowy przepis”.`); }
   loadIntoEditor(r, { fromRecipe: r.id, spice: sp });
 }
 /* opis dania zapisywany z przepisem: to, co zostało dodane z pola „Opisowo” (samo pole po dodaniu się czyści) */
@@ -1767,12 +1761,11 @@ const ckNote = t => { t = String(t || "").trim(); if (t) draft.text = [draft.tex
 const CK_MODES = {
   opis: "Wpisz składniki z ilościami tak, jak piszesz do czatu. „Policz” szuka najpierw w wbudowanej bazie i w Twoich przepisach, a Gemini pyta tylko o resztę. Jeśli wpisujesz już kalorie, kliknij „Dodaj”: nic nie jest wtedy liczone. Możesz też wkleić same sumy garnka, np. „1635 kcal, 106 g białka, 38 g błonnika”.",
   tabela: "Dodawaj składniki po jednym: nazwa, gramy i wartości na 100 g. Składnik znany z wcześniejszych przepisów uzupełni się sam po wpisaniu nazwy.",
-  przyprawa: "Wybierz przyprawę (a gdy ma kilka wariantów dania, także wariant): wczytam jej przepis do tabeli, a Ty poprawisz gramy i zapiszesz danie. Samych przypraw nie liczę kalorycznie.",
   przepis: "Wczytaj zapisany przepis bazowy. Potem popraw gramy w wyliczeniu i zapisz do zamrażarki."
 };
 /* Co przygotowujemy: danie (do zamrażarki) albo samą przyprawę (nazwa, skład i przypisany przepis). Nie jest zapamiętywane między sesjami. */
 let ckKind = "dish";
-let ckMode = CK_MODES[S.settings.cookMode] ? S.settings.cookMode : "opis";
+let ckMode = CK_MODES[S.settings.cookMode] ? S.settings.cookMode : S.settings.cookMode === "przyprawa" ? "przepis" : "opis";
 function setCookKind(k) { if (k !== "dish" && k !== "spice") return; ckKind = k; msg($("#ck-msg"), ""); msg($("#ck-msg2"), ""); renderCook(); }
 document.querySelectorAll("[data-ck-kind]").forEach(b => b.onclick = () => setCookKind(b.dataset.ckKind));
 /* nowa, pusta przyprawa: z zakładki Przepisy */
@@ -1786,24 +1779,8 @@ function renderCookMode() {
   document.querySelectorAll("[data-ck-panel]").forEach(el => el.hidden = el.dataset.ckPanel !== ckMode);
   $("#ck-mode-hint").textContent = CK_MODES[ckMode];
   if (ckMode === "przepis") renderSearch();
-  if (ckMode === "przyprawa") renderSpicePanel();
 }
 document.querySelectorAll("[data-ck-mode]").forEach(b => b.onclick = () => { msg($("#ck-msg"), ""); setCookMode(b.dataset.ckMode); });
-/* panel przyprawy: skład (tylko podgląd) i przypisany przepis do wczytania */
-function renderSpicePanel() {
-  const box = $("#ck-spice-info"), none = !S.spices.length; $("#ck-spice-row").hidden = none;
-  if (none) { box.innerHTML = `<p class="muted" style="margin:0">Nie masz jeszcze żadnej przyprawy. Dodaj ją przyciskiem „Nowa przyprawa” w zakładce Przepisy albo przełącz u góry na „Samą przyprawę”.</p>`; return; }
-  const sp = S.spices.find(x => x.id === $("#ck-spice").value) || S.spices[0], rs = recipesOf(sp);
-  /* lista przepisów tej przyprawy i na końcu „Nowy przepis”; bez przepisów jest tylko „Nowy” */
-  keepSel($("#ck-spice-var"), rs.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("") + `<option value="new">Nowy przepis…</option>`);
-  if ($("#ck-spice-var").value === "" || ![...$("#ck-spice-var").options].some(o => o.value === $("#ck-spice-var").value)) $("#ck-spice-var").value = rs.length ? rs[0].id : "new";
-  const isNew = $("#ck-spice-var").value === "new", r = isNew ? null : rs.find(x => x.id === $("#ck-spice-var").value) || rs[0];
-  $("#ck-spice-load").textContent = isNew ? "Zacznij nowy przepis" : "Wczytaj przepis do tabeli";
-  box.innerHTML = `<div class="res"><div class="t">${esc(sp.name)}<small>Skład: ${sp.comp.length ? esc(sp.comp.join(", ")) : "nie podano"}</small><small>${r ? (rs.length > 1 ? `Warianty: ${esc(rs.map(x => x.name).join(", "))}. Wybrany: ${esc(r.name)}, ${r.rows.length} składników` : `Przepis: ${esc(r.name)}, ${r.rows.length} składników`) : isNew ? "Nowy przepis: zaczniesz od pustej tabeli, a zapisany w kroku 3 dołączy do tej przyprawy jako wariant." : "Brak przypisanego przepisu."}</small></div></div>`;
-}
-$("#ck-spice").onchange = () => { $("#ck-spice-var").value = ""; renderSpicePanel(); };
-$("#ck-spice-var").onchange = () => renderSpicePanel();
-$("#ck-spice-load").onclick = () => { const sp = S.spices.find(x => x.id === $("#ck-spice").value); if (!sp) return; const v = $("#ck-spice-var").value; if (v === "new") newRecipeFor(sp); else useSpice(sp, v || undefined); };
 /* nowy przepis dla przyprawy: czyste Gotuję, a przepis bazowy zapisany w kroku 3 dopina się do niej jako wariant */
 function newRecipeFor(sp) {
   showTab("gotuje"); $("#ck-clear").click(); setCookKind("dish"); setCookMode("opis");
@@ -1823,7 +1800,7 @@ $("#sp-save").onclick = () => {
   const name = $("#sp-name").value.trim(), err = saveSpice({ id: null, name, compText: $("#sp-comp").value, recipeIds: recPick["#sp-rec-pick"] });
   if (err) return msg($("#sp-msg"), err, true);
   ["#sp-name", "#sp-comp"].forEach(sel => $(sel).value = ""); recPickSet("#sp-rec-pick", []);
-  msg($("#sp-msg"), `Zapisano przyprawę „${name}”. Znajdziesz ją w Przepisach i w trybie „Z przyprawy”.`);
+  msg($("#sp-msg"), `Zapisano przyprawę „${name}”. Znajdziesz ją w Przepisach.`);
 };
 function renderSearch() {
   const q = $("#ck-search").value.trim(), box = $("#ck-results");
@@ -1848,6 +1825,7 @@ function renderScale() {
   const go = $("#ck-scale-go"); go.disabled = same; go.textContent = same ? "Powiększ porcje" : f > 1 ? `Powiększ porcje ${t}` : `Zmniejsz porcje ${t}`;
   $("#ck-scale").setAttribute("aria-invalid", String(!f && $("#ck-scale").value.trim() !== ""));
 }
+$("#ck-scale-info").onclick = () => { const t = $("#ck-scale-tip"); t.hidden = !t.hidden; $("#ck-scale-info").setAttribute("aria-expanded", String(!t.hidden)); };
 $("#ck-scale").oninput = renderScale;
 $("#ck-scale").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("#ck-scale-go").click(); } };
 $("#ck-scale-dn").onclick = () => { const f = scaleF() || 1, v = [...SCALES].reverse().find(x => x < f - 1e-9); if (v !== undefined) $("#ck-scale").value = fmtF(v); renderScale(); };
@@ -1865,7 +1843,6 @@ renderScale();
 const keepSel = (sel, html) => { const old = sel.value; sel.innerHTML = html; if ([...sel.options].some(o => o.value === old)) sel.value = old; };
 function renderCookSelects() {
   const spOpts = S.spices.map(sp => `<option value="${sp.id}">${esc(sp.name)}</option>`).join("");
-  keepSel($("#ck-spice"), S.spices.length ? spOpts : `<option value="">Brak przypraw</option>`);
   keepSel($("#ck-assign"), `<option value="">bez przypisania</option>` + spOpts);
   recPickRender("#sp-rec-pick");
   $("#ing-list").innerHTML = [...new Set([...ingredientLib().values()].map(r => r.name).concat([...new Set([...foodDb().values()].filter(e => !e.o.sp).map(e => e.name.replace(/\s*\(.*\)/, "")))]))].map(n => `<option value="${esc(n)}"></option>`).join("");
@@ -1934,7 +1911,7 @@ function renderCook(onlyFoot) {
     (shareOf(m) < 1 ? `<tr><td colspan="2">Moja część pudełka (${myShare(m)}%)</td><td></td><td class="n">${r0(mp.k)}</td><td></td><td class="n">${f1(mp.p)}</td><td></td><td class="n">${f1(mp.f)}</td><td></td></tr>` : "");
   const foot = dishFoot;
   if (onlyFoot && $("#ck-table tfoot")) { $("#ck-table tfoot").innerHTML = foot; return; }
-  renderCkBar(); $("#ck-scale-row").hidden = !draft.rows.length; if (!draft.rows.length) msg($("#ck-scale-msg"), "");
+  renderCkBar(); $("#ck-scale-row").hidden = !draft.rows.length; if (!draft.rows.length) $("#ck-scale-tip").hidden = true; if (!draft.rows.length) msg($("#ck-scale-msg"), "");
   if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Tu pojawi się wyliczenie. Dodaj składniki w kroku 1.</td></tr></tbody>`; return; }
   $("#ck-table").innerHTML = `<thead><tr><th>Składnik</th><th>Ilość</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">kcal/100</th><th class="n">Białko</th><th class="n">B/100</th><th class="n">Błonnik</th><th class="n">Bł/100</th><th></th></tr></thead><tbody>` +
     draft.rows.map((r, i) => r.abs ? `<tr title="${esc(r.src)}">
