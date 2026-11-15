@@ -88,6 +88,15 @@ td input.num{width:72px;text-align:right}
 .count{font:800 22px var(--display)}
 .msg{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
 .msg.err{color:var(--bad)}
+.msg.busy{display:block}
+.busy-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.busy-t{font-weight:600}.busy-s{font-size:12px}.busy-x{margin-left:auto}
+.spin{width:14px;height:14px;border:2px solid var(--line,#ccc);border-top-color:var(--ok,#2a7);border-radius:50%;animation:spin .8s linear infinite;flex:none}
+.busy-bar{height:4px;border-radius:2px;background:rgba(128,128,128,.25);overflow:hidden;margin-top:8px}
+.busy-bar i{display:block;height:100%;width:35%;border-radius:2px;background:var(--ok,#2a7);animation:slide 1.3s ease-in-out infinite}
+.busy-h{font-size:12px;margin-top:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slide{0%{margin-left:-35%}100%{margin-left:100%}}
 #reader{width:100%;max-width:380px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:6px 12px;font:500 14px var(--body);cursor:pointer}
@@ -254,7 +263,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   #print{display:block!important}
   .label{break-after:page;page-break-after:always}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.spin{animation-duration:2.5s}.busy-bar i{animation:none;width:100%;opacity:.5}}
 </style>
 </head>
 <body>
@@ -322,7 +331,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       </div>
       <div class="row" style="margin-top:8px">
         <button class="btn" id="free-add">Dodaj</button>
-        <button class="btn ghost" id="free-ai">Policz z Gemini</button>
+        <button class="btn ghost" id="free-ai">Policz</button>
         <button class="btn ghost" id="free-ean">Z kodu kreskowego</button>
       </div>
       <div class="msg" id="free-msg" hidden></div>
@@ -345,10 +354,10 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Moja część %<input type="number" id="fa-share" value="40" min="1" max="100" step="5" style="width:90px"></label>
         <div class="row" style="gap:4px"><button class="btn ghost small" data-fa-share="40">40%</button><button class="btn ghost small" data-fa-share="100">100%</button></div>
       </div>
-      <p class="muted" style="margin:8px 0 0">„Dodaj do zamrażarki” zapisuje wpisane sumy bez Gemini. „Policz z Gemini” liczy składniki, a każda wersja staje się osobną pozycją. Przepis to cała partia dzielona na podaną liczbę pudełek: dla pojedynczej pizzy ustaw 1 pudełko i 100%.</p>
+      <p class="muted" style="margin:8px 0 0">„Dodaj do zamrażarki” zapisuje wpisane sumy bez liczenia. „Policz” liczy składniki (najpierw z wbudowanej bazy, Gemini tylko dla reszty), a każda wersja staje się osobną pozycją. Przepis to cała partia dzielona na podaną liczbę pudełek: dla pojedynczej pizzy ustaw 1 pudełko i 100%.</p>
       <div class="row" style="margin-top:10px">
         <button class="btn" id="fa-add">Dodaj do zamrażarki</button>
-        <button class="btn ghost" id="fa-ai">Policz z Gemini</button>
+        <button class="btn ghost" id="fa-ai">Policz</button>
         <button class="btn ghost" id="fa-add-print">Dodaj i drukuj etykiety</button>
       </div>
       <div class="msg" id="fa-msg" hidden></div>
@@ -397,7 +406,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Składniki, jak piszesz do czatu
           <textarea id="ck-text" placeholder="150 g mąki pełnoziarnistej, 250 g zwykłej mąki, 29 g oliwy, łyżeczka suchych drożdży, 125 g mleka, łyżeczka miodu"></textarea>
         </label>
-        <div class="row" style="margin-top:8px"><button class="btn" id="ck-ai">Policz z Gemini</button></div>
+        <div class="row" style="margin-top:8px"><button class="btn" id="ck-ai">Policz</button><button class="btn ghost" id="ck-add-text">Dodaj</button></div>
       </div>
       <div data-ck-panel="tabela" hidden>
         <div class="row">
@@ -545,7 +554,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     </div>
     <div class="card">
       <h3>Gemini</h3>
-      <p class="muted" style="margin:0 0 8px">Darmowy klucz: aistudio.google.com/apikey. Do Gemini trafiają tylko nazwy i ilości składników, nigdy waga ani dziennik.</p>
+      <p class="muted" style="margin:0 0 8px">Darmowy klucz: aistudio.google.com/apikey. Wartości najpierw szuka wbudowana baza, a do Gemini trafiają tylko nazwy i ilości składników, których w niej nie ma. Nigdy waga ani dziennik.</p>
       <div class="row">
         <label style="flex:2">Klucz API<input type="password" id="s-key" autocomplete="off"></label>
         <label>Model<input id="s-model" style="width:170px"></label>
@@ -553,6 +562,12 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <button class="btn ghost" id="s-test">Testuj</button>
       </div>
       <div class="msg" id="s-msg" hidden></div>
+      <div class="row" style="margin-top:12px;align-items:center">
+        <button class="btn ghost" id="cache-clear">Wyczyść zapamiętane z Gemini</button>
+        <span class="muted" id="cache-info"></span>
+      </div>
+      <p class="muted" style="margin:6px 0 0">Wartości, które Gemini raz policzył, zapisują się w przeglądarce i następnym razem nie trzeba o nie pytać. Czyszczenie usuwa je wszystkie naraz, wbudowana baza i Twoje przepisy zostają.</p>
+      <div class="msg" id="cache-msg" hidden></div>
     </div>
     <div class="card">
       <h3>Kopia danych</h3>
@@ -817,6 +832,7 @@ function migrate() {
     if (m.open) { m.wait = { [1 - m.open.u]: m.open.f }; delete m.open; } });
   if (!S.recipes) { const seen = new Set(); S.recipes = S.meals.filter(m => !seen.has(m.name) && seen.add(m.name)).map(m => ({ id: uid(), name: m.name, portions: m.portions, share: m.share ?? 100, rows: m.rows.map(r => ({ ...r })), text: m.text || "" })); }
   if (!S.spices) S.spices = [];
+  if (!S.calcCache || typeof S.calcCache !== "object" || Array.isArray(S.calcCache)) S.calcCache = {};
   /* Przyprawy nie mają wartości odżywczych. Przyprawa to nazwa, skład (lista nazw do podglądu) i przypisany przepis (recipeId).
      Starsze przyprawy z gramami i kaloriami zamieniamy na ten kształt, a wiersze przypraw w przepisach i posiłkach zostają jako linie bez kalorii. */
   S.spices.forEach(sp => {
@@ -863,6 +879,7 @@ function switchUser(i) {
   S.settings.goals = S.settings.goals || { ...cur.goals }; S.settings.track = S.settings.track || "kp";
   S.profiles.active = i;
   /* komunikaty i niedokończone wpisy należą do poprzedniej osoby */
+  if (typeof calcAbort !== "undefined" && calcAbort) calcAbort.abort("switch");
   document.querySelectorAll(".msg").forEach(el => msg(el, ""));
   ["#w-kg", "#free-name", "#free-k", "#free-p", "#free-f", "#fav-search"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
   wReset(); $("#w-date").value = todayIso(); pick = null; pickN = {}; $("#lbl-modal").hidden = true; closePreview();
@@ -903,13 +920,14 @@ const myPart = m => { const pp = perPortion(m), s = shareOf(m); return { k: pp.k
 const perPortion = m => { const t = mealTotals(m), n = m.portions || 1; return { k: t.k / n, p: t.p / n, f: t.f / n }; };
 const dayTotals = d => S.log.filter(e => e.date === d).reduce((a, e) => ({ k: a.k + e.k, p: a.p + e.p, f: a.f + e.f, n: a.n + 1 }), { k: 0, p: 0, f: 0, n: 0 });
 
-function msg(el, text, err) { el.hidden = !text; el.textContent = text || ""; el.classList.toggle("err", !!err); }
+function msg(el, text, err) { el.hidden = !text; el.textContent = text || ""; el.classList.toggle("err", !!err); el.classList.remove("busy"); el.removeAttribute("role"); }
 
 /* ---------- zakładki ---------- */
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(t) {
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t));
   document.querySelectorAll("section.panel").forEach(s => s.hidden = s.id !== "tab-" + t);
+  if (t === "ustawienia" && typeof fillSettings === "function") fillSettings();
   render();
 }
 
@@ -1043,22 +1061,28 @@ $("#free-add").onclick = async () => {
   let p = $("#free-p").value, f = $("#free-f").value;
   if (k < 0 || num(p) < 0 || num(f) < 0) return msg($("#free-msg"), "Wartości nie mogą być ujemne.", true);
   /* wpis bez kalorii to zwykle pomyłka: zapis dopiero po drugim kliknięciu */
-  if (!k && freeZero !== name) { freeZero = name; return msg($("#free-msg"), `„${name}” nie ma kalorii. Wpisz kcal albo kliknij „Policz z Gemini”. Żeby zapisać 0 kcal, kliknij „Dodaj” jeszcze raz.`, true); }
+  if (!k && freeZero !== name) { freeZero = name; return msg($("#free-msg"), `„${name}” nie ma kalorii. Wpisz kcal albo kliknij „Policz”. Żeby zapisać 0 kcal, kliknij „Dodaj” jeszcze raz.`, true); }
   freeZero = null;
   /* dzień i osoba z chwili kliknięcia: liczenie w Gemini trwa, a w tym czasie można zmienić widok */
   const d0 = day, u0 = ACT();
   if (p === "" && parsed.p !== undefined) p = parsed.p;
   if (f === "" && parsed.f !== undefined) f = parsed.f;
   const btn = $("#free-add");
-  if (k && (p === "" || f === "") && S.settings.key) {
-    btn.disabled = true; msg($("#free-msg"), "Liczę białko i błonnik…");
-    try {
-      const rows = await geminiRows(name + " (porcja o łącznej wartości około " + k + " kcal)");
-      const t = rows.reduce((a, r) => ({ k: a.k + r.g * r.k100 / 100, p: a.p + r.g * r.p100 / 100, f: a.f + r.g * r.f100 / 100 }), { k: 0, p: 0, f: 0 });
-      const scale = t.k ? k / t.k : 0;
-      if (p === "") p = r1(t.p * scale); if (f === "") f = r1(t.f * scale);
-    } catch (e) { msg($("#free-msg"), "Gemini nie odpowiedział, zapisuję same kalorie. Szczegóły: " + e.message, true); if (p === "") p = 0; if (f === "") f = 0; }
-    btn.disabled = false;
+  if (k && (p === "" || f === "")) {
+    /* najpierw wbudowana baza, w proporcji do wpisanych kalorii; Gemini tylko gdy bazy nie wystarczą */
+    const loc = foodSplit(name).map(x => foodResolve(x, { ratio: true }));
+    const lt = loc.length && loc.every(Boolean) ? loc.reduce((a, r) => ({ k: a.k + r.g * r.k100 / 100, p: a.p + r.g * r.p100 / 100, f: a.f + r.g * r.f100 / 100 }), { k: 0, p: 0, f: 0 }) : null;
+    if (lt && lt.k > 0) { const scale = k / lt.k; if (p === "") p = r1(lt.p * scale); if (f === "") f = r1(lt.f * scale); }
+    else if (S.settings.key) {
+      btn.disabled = true; const ui = busyStart($("#free-msg"), "Liczę białko i błonnik…");
+      try {
+        const rows = await geminiRows(name + " (porcja o łącznej wartości około " + k + " kcal)", ui); ui.end();
+        const t = rows.reduce((a, r) => ({ k: a.k + r.g * r.k100 / 100, p: a.p + r.g * r.p100 / 100, f: a.f + r.g * r.f100 / 100 }), { k: 0, p: 0, f: 0 });
+        const scale = t.k ? k / t.k : 0;
+        if (p === "") p = r1(t.p * scale); if (f === "") f = r1(t.f * scale);
+      } catch (e) { ui.end(); if (e.reason === "switch") { btn.disabled = false; return; } msg($("#free-msg"), "Gemini nie odpowiedział, zapisuję same kalorie. Szczegóły: " + e.message, true); if (p === "") p = 0; if (f === "") f = 0; }
+      btn.disabled = false;
+    }
   }
   const entry = { id: uid(), date: d0, name, k, p: num(p), f: num(f) };
   if (ACT() === u0) S.log.push(entry); else { const pr = S.profiles.list[u0]; pr.log = pr.log || []; pr.log.push(entry); }
@@ -1102,13 +1126,14 @@ $("#free-name").onkeydown = e => {
 $("#free-name").onblur = () => { clearTimeout(freeHideT); freeHideT = setTimeout(hideFreeSugg, 150); };
 $("#free-ai").onclick = async () => {
   const txt = $("#free-name").value.trim(); if (!txt) return msg($("#free-msg"), "Wpisz nazwę z ilością, np. „jogurt naturalny 150 g”.", true);
-  const b = $("#free-ai"); b.disabled = true; msg($("#free-msg"), "Gemini szuka wartości…");
+  const b = $("#free-ai"); b.disabled = true; const ui = busyStart($("#free-msg"), "Szukam w bazie…");
   try {
-    const rows = await geminiRows(txt);
-    const t = rows.reduce((a, r) => ({ k: a.k + r.g * r.k100 / 100, p: a.p + r.g * r.p100 / 100, f: a.f + r.g * r.f100 / 100 }), { k: 0, p: 0, f: 0 });
+    const r = await calcRows(txt, ui); ui.end();
+    if (!r.rows.length) return msg($("#free-msg"), "Nie znalazłem tego w bazie." + calcMissing(r), true);
+    const t = r.rows.reduce((a, x) => ({ k: a.k + x.g * x.k100 / 100, p: a.p + x.g * x.p100 / 100, f: a.f + x.g * x.f100 / 100 }), { k: 0, p: 0, f: 0 });
     $("#free-k").value = r0(t.k); $("#free-p").value = r1(t.p); $("#free-f").value = r1(t.f);
-    msg($("#free-msg"), "Policzone: " + rows.map(r => `${r.name} ${r0(r.g)} g`).join(", ") + ". Sprawdź i kliknij Dodaj.");
-  } catch (e) { msg($("#free-msg"), e.message, true); }
+    msg($("#free-msg"), "Policzone" + (r.ai ? "" : " z bazy") + ": " + r.rows.map(x => `${x.name} ${r0(x.g)} g`).join(", ") + "." + calcMissing(r) + " Sprawdź i kliknij Dodaj.", !!r.missing.length);
+  } catch (e) { calcFail(ui, $("#free-msg"), e); }
   b.disabled = false;
 };
 
@@ -1159,8 +1184,9 @@ const RULES = `- Jeśli przy składniku podano kaloryczność w formacie typu �
 - Jeśli podano markę, sklep albo konkretny produkt (np. mozzarella w kostce Galbani, berlinka serowa, Monte), szukaj tego produktu w polskich sklepach internetowych.
 - Surowe składniki licz w postaci, w jakiej podano (mąka, surowy ryż, surowe mięso).
 - Miary domowe przelicz na gramy: łyżka, łyżeczka, szklanka, sztuka, plaster, opakowanie, ml.
+- Suche przyprawy (pieprz, curry, cynamon, oregano, papryka w proszku, sól i podobne) licz jako 0 kcal, 0 g białka i 0 g błonnika.
 - Nie pomijaj żadnego składnika i nie dodawaj własnych.`;
-async function geminiRows(text) {
+async function geminiRows(text, ui) {
   const prompt = `Jesteś kalkulatorem wartości odżywczych. Dla każdego składnika z listy poniżej znajdź w internecie wartości odżywcze na 100 g.
 Zasady:
 ${RULES}
@@ -1168,14 +1194,14 @@ Zwróć WYŁĄCZNIE tablicę JSON, bez komentarza, w formacie:
 [{"nazwa":"…","ilosc":"ilość tak jak podano","gramy":liczba,"kcal100":liczba,"bialko100":liczba,"blonnik100":liczba,"zrodlo":"krótko skąd wartości"}]
 Lista składników:
 ${text}`;
-  const out = await geminiText(prompt);
+  const out = await geminiText(prompt, ui);
   const a = out.indexOf("["), b = out.lastIndexOf("]");
   if (a < 0 || b < a) throw new Error("Gemini nie zwrócił tabeli. Spróbuj jeszcze raz.");
   let arr; try { arr = JSON.parse(out.slice(a, b + 1)); } catch (e) { throw new Error("Nie udało się odczytać odpowiedzi Gemini. Spróbuj jeszcze raz."); }
   return arr.map(mapRow);
 }
 /* przepis z bazą i wersjami: jedno zapytanie, każda wersja osobno */
-async function geminiVersions(text) {
+async function geminiVersions(text, ui) {
   const prompt = `Jesteś kalkulatorem wartości odżywczych. Poniżej jest przepis, czasem ze wspólną bazą i kilkoma wersjami dodatków. Dla każdego składnika znajdź w internecie wartości odżywcze na 100 g.
 Zasady:
 ${RULES}
@@ -1187,35 +1213,435 @@ Zwróć WYŁĄCZNIE obiekt JSON, bez komentarza, w formacie:
 gdzie SKŁADNIK to {"nazwa":"…","ilosc":"ilość tak jak podano","gramy":liczba,"kcal100":liczba,"bialko100":liczba,"blonnik100":liczba,"zrodlo":"krótko skąd wartości"}
 Przepis:
 ${text}`;
-  const out = await geminiText(prompt);
+  const out = await geminiText(prompt, ui);
   const a = out.indexOf("{"), b = out.lastIndexOf("}");
   let o; try { o = JSON.parse(out.slice(a, b + 1)); } catch (e) { throw new Error("Nie udało się odczytać odpowiedzi Gemini. Spróbuj jeszcze raz."); }
   const base = (o.baza || []).map(mapRow);
   const vs = (o.wersje || []).filter(v => (v.skladniki || []).length);
   return { dish: o.danie || "", versions: vs.length ? vs.map(v => ({ name: v.nazwa || "", rows: [...base.map(r => ({ ...r })), ...v.skladniki.map(mapRow)] })) : [{ name: "", rows: base }] };
 }
-async function geminiText(prompt) {
+/* Zapytanie do Gemini z limitem czasu na każdą próbę i przyciskiem Anuluj (ui z busyStart).
+   Najpierw bez „myślenia” (szybciej), a gdy model tego nie przyjmie, ta sama próba bez tego ustawienia. */
+let geminiThinkOff = true;
+const abortErr = r => Object.assign(new Error(r === "switch" ? "" : "Anulowano."), { reason: r });
+async function geminiText(prompt, ui) {
   const { key, model } = S.settings;
   if (!key) throw new Error("Brak klucza Gemini. Wpisz go w Ustawieniach.");
   /* najpierw z wyszukiwaniem Google, przy wyczerpanym limicie bez wyszukiwania, potem lżejszy model */
   const tries = [[model, true], [model, false], ["gemini-3.5-flash-lite", false]];
   let j = null, lastErr = "";
-  for (const [mdl, search] of tries) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(key)}`;
-    const body = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1 } };
-    if (search) body.tools = [{ google_search: {} }];
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok) { j = data; break; }
-    lastErr = data.error?.message || String(res.status);
-    if (!(res.status === 429 || res.status === 404 || /quota|not found|no longer available/i.test(lastErr))) break;
+  for (let i = 0; i < tries.length && !j; i++) {
+    const [mdl, search] = tries[i];
+    ui && ui.stage(i === 0 ? "Gemini szuka wartości w internecie…" : i === 1 ? "Próbuję jeszcze raz, bez wyszukiwania…" : "Próbuję lżejszego modelu…");
+    for (let again = 0; again < 2; again++) {
+      if (ui && ui.signal.aborted) throw abortErr(ui.signal.reason);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(key)}`;
+      const body = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1 } };
+      if (geminiThinkOff) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      if (search) body.tools = [{ google_search: {} }];
+      const ac = new AbortController(), onAbort = () => ac.abort(ui.signal.reason);
+      if (ui) ui.signal.addEventListener("abort", onAbort);
+      const timer = setTimeout(() => ac.abort("timeout"), search ? 45000 : 30000);
+      let res, data;
+      try {
+        res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: ac.signal });
+        data = await res.json().catch(() => ({}));
+      } catch (e) {
+        if (ui && ui.signal.aborted) throw abortErr(ui.signal.reason);
+        if (ac.signal.reason === "timeout") { lastErr = "timeout"; break; }
+        throw new Error("Nie mogę połączyć się z Gemini. Sprawdź internet i spróbuj jeszcze raz.");
+      } finally { clearTimeout(timer); if (ui) ui.signal.removeEventListener("abort", onAbort); }
+      if (res.ok) { j = data; break; }
+      lastErr = data.error?.message || String(res.status);
+      if (res.status === 400 && geminiThinkOff && /think|budget/i.test(lastErr)) { geminiThinkOff = false; continue; }
+      break;
+    }
+    if (j) break;
+    if (!(lastErr === "timeout" || /quota|not found|no longer available/i.test(lastErr) || /^(429|404)$/.test(lastErr))) break;
   }
   if (!j) {
+    if (lastErr === "timeout") throw new Error("Gemini nie odpowiedział na czas. Spróbuj jeszcze raz za chwilę albo wpisz wartości ręcznie.");
     if (/quota/i.test(lastErr)) throw new Error("Gemini: wyczerpany darmowy limit na tym kluczu. Limit odnawia się co minutę i codziennie około 9:00 naszego czasu. Stan limitu: aistudio.google.com, zakładka Usage. Do tego czasu możesz wpisać wartości ręcznie albo wkleić sumy z czatu.");
     throw new Error("Gemini: " + lastErr);
   }
   return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
 }
+
+/* ---------- wbudowana baza wartości i liczenie bez Gemini ----------
+   Format wiersza: Nazwa|alias;alias|kcal|białko|błonnik|opcje (na 100 g).
+   Opcje: c=pow/liq/oil/spr (rodzaj), d=gęstość g/ml, l=łyżka g, lz=łyżeczka g, s=szklanka g, p=sztuka g,
+   kr=kromka g, pl=plaster g, zab=ząbek g, sp=1 przyprawa (0 kcal). */
+const FOODDB_TXT = `Mąka pszenna|maka;maka pszenna;maka zwykla|364|10.3|2.7|c=pow,l=10,lz=3,s=150
+Mąka pełnoziarnista|maka pelnoziarnista;maka razowa;maka pszenna pelnoziarnista|340|13.2|10.7|c=pow,l=10,lz=3,s=130
+Mąka żytnia|maka zytnia|340|9|14|c=pow,l=10,lz=3
+Mąka kukurydziana|maka kukurydziana|361|6.9|7.3|c=pow,l=10,lz=3
+Mąka ryżowa|maka ryzowa|366|5.9|2.4|c=pow,l=10,lz=3
+Skrobia ziemniaczana|maka ziemniaczana;skrobia ziemniaczana;skrobia|350|0.3|0|c=pow,l=12,lz=4
+Kasza manna|kasza manna;manna|360|12.7|3.9|s=180
+Kasza gryczana|kasza gryczana;gryka;kasza gryka|343|13.3|10|s=190
+Kasza jaglana|kasza jaglana;proso;kasza proso|378|11|8.5|s=200
+Kasza jęczmienna (pęczak)|kasza jeczmienna;kasza peczak;peczak|352|9.9|15.6|s=200
+Kasza bulgur|bulgur;kasza bulgur|342|12.3|12.5|s=170
+Kuskus|kuskus;couscous;kasza kuskus|376|12.8|5|s=180
+Ryż biały (suchy)|ryz;ryz bialy;ryz dlugoziarnisty;ryz basmati;ryz jasminowy;ryz parboiled|365|7.1|1.3|s=200
+Ryż brązowy (suchy)|ryz brazowy;ryz pelnoziarnisty|370|7.9|3.5|s=200
+Ryż gotowany|ryz gotowany;ryz ugotowany|130|2.7|0.4|s=160
+Makaron (suchy)|makaron;makaron pszenny;makaron suchy;spaghetti;penne;fusilli;farfalle;tagliatelle;makaron spaghetti;makaron penne|371|13|3.2
+Makaron gotowany|makaron gotowany;makaron ugotowany;spaghetti gotowane;spaghetti ugotowane;penne gotowane|158|5.8|1.8
+Makaron pełnoziarnisty (suchy)|makaron pelnoziarnisty;makaron razowy|348|14.6|8
+Makaron jajeczny (suchy)|makaron jajeczny|384|14.2|3.3
+Makaron ryżowy (suchy)|makaron ryzowy|364|3.4|1.6
+Płatki owsiane|platki owsiane;platki owsiane gorskie;platki gorskie;platki owsiane zwykle|379|13.2|10.1|c=pow,l=8,lz=3,s=90
+Otręby owsiane|otreby owsiane|246|17.3|15.4|c=pow,l=7,lz=2.5
+Otręby pszenne|otreby pszenne|216|15.6|42.8|c=pow,l=6,lz=2
+Chia|chia;nasiona chia|486|16.5|34.4|c=pow,l=12,lz=4
+Siemię lniane|siemie lniane;siemie;len;nasiona lnu;lniane nasiona|534|18.3|27.3|c=pow,l=10,lz=3.5
+Quinoa|quinoa;komosa ryzowa|368|14.1|7|s=170
+Chleb pszenny|chleb;chleb pszenny;chleb jasny;chleb bialy|266|8.9|2.7|kr=30
+Chleb pełnoziarnisty|chleb pelnoziarnisty;chleb razowy;chleb zytni;chleb graham|252|12.5|6|kr=35
+Bułka pszenna|bulka;bulka pszenna;kajzerka;bulka kajzerka|290|9|2.5|p=50
+Bułka tarta|bulka tarta;tarta bulka|395|13.4|4.5|c=pow,l=10,lz=3
+Tortilla pszenna|tortilla;tortilla pszenna|310|8.5|3|p=60
+Pierś z kurczaka (surowa)|piers kurczaka;piers z kurczaka;filet kurczaka;filet z kurczaka;kurczak piers;kurczak filet;piers kurczak;filet z piersi kurczaka|120|22.5|0
+Udko z kurczaka (mięso, surowe)|udko kurczaka;udka kurczaka;udo kurczaka;uda kurczaka;udko z kurczaka;udo z kurczaka|121|19.7|0
+Pierś z indyka (surowa)|piers indyka;piers z indyka;filet z indyka;filet indyka;indyk piers|114|23.7|0
+Wieprzowina mielona (ok. 20% tłuszczu)|mieso mielone wieprzowe;mielone wieprzowe;wieprzowina mielona;mieso wieprzowe mielone|263|17.2|0
+Wołowina mielona (ok. 20% tłuszczu)|mieso mielone wolowe;mielone wolowe;wolowina mielona;mieso wolowe mielone|254|17.2|0
+Schab wieprzowy (surowy)|schab;schab wieprzowy;schab surowy|143|21|0
+Boczek wędzony (surowy)|boczek;boczek wedzony;boczek surowy;bekon|417|12.6|0
+Łosoś (świeży)|losos;losos swiezy;filet z lososia;filet lososia;losos filet;losos atlantycki|208|20.4|0
+Dorsz (świeży)|dorsz;filet z dorsza;filet dorsza;dorsz filet|82|17.8|0
+Tuńczyk w wodzie (z puszki)|tunczyk;tunczyk w wodzie;tunczyk z puszki;tunczyk puszka;tunczyk w sosie wlasnym;tunczyk konserwowy|116|25.5|0
+Krewetki (surowe)|krewetki;krewetka|85|20.1|0
+Jajko kurze|jajko;jajka;jajo;jaja;jajek;jajko kurze;jajka kurze|143|12.6|0|p=55
+Białko jajka|bialko jajka;bialko jaja;bialka jajek;bialka jaj|52|10.9|0|p=33
+Żółtko jajka|zoltko jajka;zoltko jaja;zoltko;zoltka;zoltka jajek|322|15.9|0|p=17
+Mleko 2%|mleko;mleko p2;mleko polttluste|50|3.4|0|c=liq
+Mleko 3,2%|mleko p3_2;mleko p3_5;mleko pelne;mleko tluste|60|3|0|c=liq
+Mleko 1,5%|mleko p1_5|46|3.3|0|c=liq
+Mleko odtłuszczone (0,5%)|mleko p0_5;mleko p0;mleko odtluszczone;mleko chude|35|3.4|0|c=liq
+Jogurt naturalny|jogurt;jogurt naturalny;jogurt bialy;jogurt naturalny bez cukru|61|3.5|0|c=liq
+Skyr naturalny|skyr;skyr naturalny|63|11|0|c=liq
+Kefir|kefir;kefir naturalny|51|3.4|0|c=liq
+Maślanka|maslanka;maslanka naturalna|40|3.3|0|c=liq
+Twaróg półtłusty|twarog;twarog polttlusty|133|18|0|c=spr
+Twaróg chudy|twarog chudy|99|20|0|c=spr
+Śmietana 18%|smietana;smietana p18|186|2.7|0|c=spr
+Śmietanka 30%|smietanka;smietanka p30;smietana p30;smietanka kremowka|290|2.2|0|c=liq
+Śmietanka 36%|smietanka p36;smietana p36|340|2.1|0|c=liq
+Masło|maslo;maslo extra;maslo ekstra;maslo osiadle|736|0.7|0|l=14,lz=5
+Ser żółty (gouda, edamski)|ser zolty;gouda;ser gouda;edamski;ser edamski|356|25|0|pl=20
+Mozzarella|mozzarella;ser mozzarella;mozzarella w kostce;mozzarella kulki|250|18.5|0
+Parmezan|parmezan;ser parmezan|431|38.5|0|c=pow,l=5,lz=2
+Feta|feta;ser feta|264|14.2|0
+Mleko kokosowe (z puszki)|mleko kokosowe;mleczko kokosowe|185|1.8|0|c=liq
+Napój sojowy|napoj sojowy;mleko sojowe|33|2.9|0.4|c=liq
+Napój owsiany|napoj owsiany;mleko owsiane|45|1|0.8|c=liq
+Oliwa z oliwek|oliwa;oliwa z oliwek;oliwa extra virgin;olej oliwkowy|884|0|0|c=oil,d=0.92
+Olej rzepakowy|olej;olej rzepakowy;olej roslinny;olej slonecznikowy|884|0|0|c=oil,d=0.92
+Olej kokosowy|olej kokosowy|862|0|0|c=oil,d=0.92
+Majonez|majonez|680|1|0|l=15,lz=5
+Masło orzechowe|maslo orzechowe;maslo arachidowe|588|25.1|6|c=spr
+Tahini|tahini;pasta sezamowa|595|17|9.3|c=spr
+Ziemniaki (surowe)|ziemniak;ziemniaki;ziemniaki surowe|77|2|2.1|p=150
+Ziemniaki gotowane|ziemniaki gotowane;ziemniaki ugotowane;ziemniak gotowany;ziemniak ugotowany|87|1.9|1.8|p=120
+Bataty|batat;bataty;slodki ziemniak;slodkie ziemniaki|86|1.6|3|p=200
+Marchew|marchew;marchewka;marchwi|41|0.9|2.8|p=70
+Cebula|cebula;cebulka|40|1.1|1.7|p=110
+Czosnek|czosnek;czosnku|149|6.4|2.1|zab=4
+Czosnek granulowany (przyprawa)|czosnek granulowany;czosnek w proszku;czosnek suszony|0|0|0|sp=1,lz=3
+Pomidor|pomidor;pomidory;pomidorki;pomidorki koktajlowe;pomidory koktajlowe;pomidory malinowe|18|0.9|1.2|p=120
+Pomidory z puszki|pomidory z puszki;pomidory krojone;pomidory w puszce;pomidory pelati;pomidory w kawalkach|24|1.3|1.5|c=liq
+Koncentrat pomidorowy|koncentrat pomidorowy;koncentrat|82|4.3|4.1|l=16,lz=5
+Passata pomidorowa|passata;passata pomidorowa;przecier pomidorowy|33|1.6|1.5|c=liq
+Papryka (czerwona, żółta)|papryka;papryka czerwona;papryka zolta;papryka pomaranczowa|31|1|2.1|p=150
+Papryka zielona|papryka zielona|20|0.9|1.7|p=150
+Papryka mielona (przyprawa)|papryka mielona;papryka wedzona;papryka w proszku;papryka slodka mielona|0|0|0|sp=1,c=pow,l=7,lz=2.3
+Ogórek|ogorek;ogorek zielony;ogorek gruntowy|15|0.7|0.5|p=200
+Ogórek kiszony|ogorek kiszony;ogorki kiszone|12|0.6|1.2|p=80
+Sałata|salata;salata zielona;salata lodowa;salata rzymska|15|1.4|1.3
+Szpinak|szpinak;szpinak swiezy;szpinak baby;liscie szpinaku|23|2.9|2.2
+Rukola|rukola|25|2.6|1.6
+Brokuł|brokul;brokuly|34|2.8|2.6
+Kalafior|kalafior|25|1.9|2
+Cukinia|cukinia;cukinie|17|1.2|1|p=200
+Bakłażan|baklazan;baklazany|25|1|3|p=250
+Dynia|dynia;dyni;miaz dyni|26|1|0.5
+Kapusta biała|kapusta;kapusta biala|25|1.3|2.5
+Kapusta kiszona|kapusta kiszona|19|0.9|2.9
+Por|por;pory|61|1.5|1.8
+Seler (korzeń)|seler;korzen selera;seler korzeniowy|42|1.5|1.8
+Seler naciowy|seler naciowy;nac selera;selery naciowe|14|0.7|1.6
+Burak|burak;buraki;burak czerwony;buraki czerwone|43|1.6|2.8
+Rzodkiewka|rzodkiewka;rzodkiewki|16|0.7|1.6
+Groszek zielony|groszek;groszek zielony;groszek mrozony|81|5.4|5.7
+Kukurydza konserwowa|kukurydza;kukurydza konserwowa;kukurydza z puszki;kukurydza w puszce|80|2.6|2.4
+Pieczarki|pieczarki;pieczarka;pieczarki swieze|22|3.1|1|p=20
+Awokado|awokado|160|2|6.7|p=150
+Imbir (świeży)|imbir;imbir swiezy;korzen imbiru|80|1.8|2
+Natka pietruszki|natka pietruszki;natka;pietruszka natka|36|3|3.3
+Szczypiorek|szczypiorek|30|3.3|2.5
+Fasola czerwona (z puszki)|fasola czerwona;fasola z puszki;fasola czerwona z puszki;fasola w puszce|90|6.3|5.6
+Ciecierzyca (z puszki)|ciecierzyca z puszki;ciecierzyca w puszce;cieciorka z puszki|125|7.2|5.5
+Ciecierzyca (sucha)|ciecierzyca sucha;cieciorka sucha|378|20.5|12.2
+Soczewica czerwona (sucha)|soczewica;soczewica czerwona;soczewica sucha|352|24.6|10.7
+Jabłko|jablko;jablka;jablek|52|0.3|2.4|p=180
+Banan|banan;banany|89|1.1|2.6|p=120
+Pomarańcza|pomarancza;pomarancze|47|0.9|2.4|p=150
+Mandarynka|mandarynka;mandarynki|53|0.8|1.8|p=75
+Cytryna|cytryna;cytryny|29|1.1|2.8|p=100
+Sok z cytryny|sok z cytryny;sok cytrynowy|22|0.4|0.3|c=liq
+Gruszka|gruszka;gruszki|57|0.4|3.1|p=170
+Truskawki|truskawki;truskawka|32|0.7|2
+Maliny|maliny;malina|52|1.2|6.5
+Borówki|borowki;borowka;jagody;jagoda|57|0.7|2.4
+Winogrona|winogrona|69|0.7|0.9
+Kiwi|kiwi|61|1.1|3|p=75
+Ananas|ananas|50|0.5|1.4
+Mango|mango|60|0.8|1.6
+Arbuz|arbuz|30|0.6|0.4
+Brzoskwinia|brzoskwinia;brzoskwinie|39|0.9|1.5|p=150
+Śliwka|sliwka;sliwki|46|0.7|1.4|p=40
+Czereśnie|czeresnie;czeresnia|63|1.1|2.1
+Wiśnie|wisnie;wisnia|50|1|1.6
+Daktyle|daktyle;daktyl|282|2.5|8|p=8
+Rodzynki|rodzynki|299|3.1|3.7|c=pow,l=10,lz=3
+Migdały|migdaly;migdal|579|21.2|12.5
+Orzechy włoskie|orzechy wloskie;orzech wloski|654|15.2|6.7
+Orzechy laskowe|orzechy laskowe;orzech laskowy|628|15|9.7
+Orzechy nerkowca|orzechy nerkowca;nerkowce;orzechy nerkowiec|553|18.2|3.3
+Orzeszki ziemne|orzeszki ziemne;orzechy ziemne;orzeszki arachidowe|567|25.8|8.5
+Pistacje|pistacje|560|20.2|10.6
+Pestki słonecznika|slonecznik;pestki slonecznika;slonecznik pestki|584|20.8|8.6|c=pow,l=10,lz=3
+Pestki dyni|pestki dyni;pestki z dyni|559|30.2|6|c=pow,l=10,lz=3
+Sezam|sezam;nasiona sezamu|573|17.7|11.8|c=pow,l=9,lz=3
+Wiórki kokosowe|wiorki kokosowe;kokos wiorki;wiorki|660|6.9|16.3|c=pow,l=6,lz=2
+Cukier|cukier;cukru;cukier bialy;cukier kryształ|387|0|0|c=pow,l=12,lz=4,s=220
+Cukier puder|cukier puder|389|0|0|c=pow,l=10,lz=3
+Miód|miod|304|0.3|0.2|l=21,lz=7
+Syrop klonowy|syrop klonowy|260|0|0|l=20,lz=7
+Dżem|dzem;konfitura;dzem truskawkowy|250|0.4|0.7|c=spr
+Czekolada mleczna|czekolada;czekolada mleczna|535|7.7|3.4
+Czekolada gorzka|czekolada gorzka|598|7.8|10.9
+Kakao (proszek)|kakao;kakao naturalne;kakao w proszku|228|19.6|33.2|c=pow,l=8,lz=3
+Sól (przyprawa)|sol;soli;sol morska;sol kamienna|0|0|0|sp=1,l=18,lz=6
+Pieprz czarny (przyprawa)|pieprz;pieprz czarny;pieprz mielony|0|0|0|sp=1,lz=2.3
+Curry (przyprawa)|curry;przyprawa curry;curry w proszku|0|0|0|sp=1,lz=2.5,l=7
+Cynamon (przyprawa)|cynamon|0|0|0|sp=1,lz=2.6,l=8
+Kurkuma (przyprawa)|kurkuma|0|0|0|sp=1,lz=3,l=9
+Oregano (suszone) (przyprawa)|oregano;oregano suszone|0|0|0|sp=1,lz=1.8,l=5
+Bazylia (suszona) (przyprawa)|bazylia suszona;bazylia|0|0|0|sp=1,lz=1.4,l=4
+Tymianek (suszony) (przyprawa)|tymianek;tymianek suszony|0|0|0|sp=1,lz=1.4,l=4
+Majeranek (suszony) (przyprawa)|majeranek;majeranek suszony|0|0|0|sp=1,lz=1,l=3
+Drożdże suche|drozdze suche;drozdze instant;drozdze suszone|325|40.4|26.9|lz=3
+Proszek do pieczenia|proszek do pieczenia|53|0.1|0.2|lz=4
+Sos sojowy|sos sojowy|53|8.1|0.8|l=16,lz=5.5
+Ketchup|ketchup|101|1|0.3|l=17,lz=6
+Tofu|tofu;tofu naturalne|76|8.1|0.3
+Hummus|hummus|166|7.9|6|c=spr
+Woda|woda;woda mineralna;woda gazowana|0|0|0|c=liq
+Kawa czarna|kawa;kawa czarna;kawa parzona;espresso|2|0.1|0|c=liq
+Herbata|herbata;herbata czarna;herbata zielona;herbata ziolowa|1|0|0|c=liq
+Sok pomarańczowy|sok pomaranczowy|45|0.7|0.2|c=liq
+Sok jabłkowy|sok jablkowy|46|0.1|0.2|c=liq
+Cola|cola;coca cola;napoj cola|42|0|0|c=liq
+Liść laurowy|lisc laurowy;liscie laurowe;lisc laurowy suszony|0|0|0|sp=1
+Ziele angielskie|ziele angielskie|0|0|0|sp=1
+Gałka muszkatołowa|galka muszkatolowa;galka|0|0|0|sp=1
+Chili (płatki, proszek)|chili;chilli;chili w proszku;platki chili;chili mielone|0|0|0|sp=1
+Imbir mielony (przyprawa)|imbir mielony;imbir w proszku|0|0|0|sp=1
+Kminek|kminek;kmin;kmin rzymski|0|0|0|sp=1
+Rozmaryn|rozmaryn;rozmaryn suszony|0|0|0|sp=1
+Kolendra mielona|kolendra mielona;kolendra|0|0|0|sp=1
+Zioła prowansalskie|ziola prowansalskie;ziola|0|0|0|sp=1`;
+const FOOD_STOP = new Set("z ze i lub oraz w na do typ ok okolo swiez surow duz mal sredn zwykl posiekan pokrojon start drobn smak plask czubat peln".split(" "));
+const FOOD_END = ["ami", "ach", "ego", "emu", "owi", "ych", "ich", "ej", "ym", "im", "om", "em", "ow", "ie", "a", "e", "i", "y", "u", "o"];
+/* sprowadza słowo do rdzenia, żeby „mąki”, „mąka”, „mąką” dały to samo */
+function foodStem(w) {
+  if (/^p\d/.test(w) || w.length <= 3) return w;
+  for (const e of FOOD_END) if (w.endsWith(e) && w.length - e.length >= 3) { w = w.slice(0, -e.length); break; }
+  if (w.length > 3 && w.endsWith("i")) w = w.slice(0, -1);
+  return w;
+}
+/* „mleko 3,2%” → p3_2; liczby bez % pomijamy */
+function foodTokens(s) {
+  s = norm(s).replace(/(\d+(?:[.,]\d+)?)\s*%/g, (m, n) => " p" + n.replace(/[.,]/, "_") + " ");
+  return s.split(/[^a-z0-9_]+/).filter(w => w && !/^\d+$/.test(w) && !FOOD_STOP.has(w)).map(foodStem).filter(w => !FOOD_STOP.has(w));
+}
+const foodKey = s => [...new Set(foodTokens(s))].sort().join(" ");
+let FOOD_IDX = null;
+function foodDb() {
+  if (FOOD_IDX) return FOOD_IDX;
+  FOOD_IDX = new Map();
+  FOODDB_TXT.trim().split("\n").forEach(line => {
+    const [name, al, k, p, f, opt] = line.split("|"), o = {};
+    (opt || "").split(",").forEach(x => { const [a, b] = x.split("="); if (a) o[a] = isNaN(b) ? b : +b; });
+    const e = { name, k: +k, p: +p, f: +f, o };
+    [name.replace(/\s*\(.*\)/, ""), ...(al || "").split(";")].forEach(a => { const key = foodKey(a); if (key && !FOOD_IDX.has(key)) FOOD_IDX.set(key, e); });
+  });
+  return FOOD_IDX;
+}
+/* gdzie szukamy, po kolei: Twoje przyprawy (0 kcal), składniki z Twoich przepisów, wcześniejsze wyniki Gemini, wbudowana baza */
+function foodFind(text) {
+  const key = foodKey(text); if (!key) return null;
+  const info = foodDb().get(key) || null;
+  const sp = S.spices.find(x => foodKey(x.name) === key);
+  if (sp) return { name: sp.name, k: 0, p: 0, f: 0, src: "Twoja przyprawa", spice: true, info };
+  const lib = ingredientLib(); let u = null;
+  lib.forEach((r, n) => { if (!u && foodKey(n) === key) u = r; });
+  if (u) return { name: u.name, k: u.k100, p: u.p100, f: u.f100, src: "Twoje przepisy", info };
+  const c = (S.calcCache || {})[key];
+  if (c) return { name: c.n, k: c.k, p: c.p, f: c.f, src: "Gemini, zapamiętane", info };
+  if (info) return { name: info.name, k: info.k, p: info.p, f: info.f, src: "baza FRZR", spice: !!info.o.sp, info };
+  return null;
+}
+const FOOD_UNITS = [
+  [/^(g|gr|gram\w*)$/, "g"], [/^(dag|dkg|deka\w*)$/, "dag"], [/^(kg|kilogram\w*|kilo)$/, "kg"],
+  [/^(ml|mililitr\w*)$/, "ml"], [/^(l|litr\w*)$/, "lt"], [/^lyzeczk\w*$/, "lz"], [/^lyzk\w*$/, "ls"],
+  [/^(szklank\w*|szkl)$/, "s"], [/^(szt|sztuk\w*)$/, "p"], [/^kromk\w*$/, "kr"], [/^plast\w*$/, "pl"],
+  [/^zab\w*$/, "zab"], [/^szczypt\w*$/, "szcz"]
+];
+const FOOD_UNIT_TXT = { g: "g", dag: "dag", kg: "kg", ml: "ml", lt: "l", ls: "łyżka", lz: "łyżeczka", s: "szklanka", p: "szt.", kr: "kromka", pl: "plaster", zab: "ząbek", szcz: "szczypta" };
+const foodUnit = w => { for (const [re, u] of FOOD_UNITS) if (re.test(w)) return u; return null; };
+function foodNum(w) {
+  if (/^\d+\/\d+$/.test(w)) { const [a, b] = w.split("/"); return +b ? a / b : null; }
+  if (/^\d+(?:[.,]\d+)?$/.test(w)) return num(w);
+  return { pol: 0.5, polowa: 0.5, cwierc: 0.25 }[w] ?? null;
+}
+/* wyciąga z jednego składnika ilość, jednostkę i nazwę */
+function foodScan(seg) {
+  let s = norm(seg).replace(/(\d+(?:[.,]\d+)?)\s*%/g, (m, n) => " p" + n.replace(/[.,]/, "_") + " ").replace(/(\d)([a-z])/g, "$1 $2");
+  const w = s.split(/[^a-z0-9_/.,]+/).map(x => x.replace(/^[.,]+|[.,]+$/g, "")).filter(Boolean);
+  let q = null, u = null, used = new Set();
+  /* jednostka: pierwsze słowo-jednostka, ilość tuż przed albo tuż po niej */
+  for (let i = 0; i < w.length && u === null; i++) {
+    const un = /^p\d/.test(w[i]) || foodNum(w[i]) !== null ? null : foodUnit(w[i]);
+    if (!un) continue;
+    u = un; used.add(i);
+    if (i > 0 && foodNum(w[i - 1]) !== null) { q = foodNum(w[i - 1]); used.add(i - 1); }
+    else if (i + 1 < w.length && foodNum(w[i + 1]) !== null && !foodUnit(w[i + 1])) { q = foodNum(w[i + 1]); used.add(i + 1); }
+    else q = 1;
+  }
+  if (u === null) { const i = w.findIndex(x => foodNum(x) !== null); if (i >= 0) { q = foodNum(w[i]); u = "p"; used.add(i); } }
+  const name = w.filter((x, i) => !used.has(i)).join(" ");
+  return { q, u, name, taste: /\bdo smaku\b/.test(s) };
+}
+/* ile gramów to ta ilość; null = nie umiem przeliczyć */
+function foodGrams(sc, hit) {
+  const o = (hit.info && hit.info.o) || {}, sp = hit.spice;
+  const dens = o.d || (o.c === "liq" ? 1 : null);
+  const q = sc.q ?? 1, u = sc.u || "p";
+  if (u === "g") return q;
+  if (u === "dag") return q * 10;
+  if (u === "kg") return q * 1000;
+  if (u === "ml") return dens ? q * dens : null;
+  if (u === "lt") return dens ? q * 1000 * dens : null;
+  const per = { ls: o.l || (dens ? 15 * dens : null), lz: o.lz || (dens ? 5 * dens : null), s: o.s || (dens ? 250 * dens : null), p: o.p, kr: o.kr, pl: o.pl, zab: o.zab }[u];
+  if (u === "szcz") return sp ? 0.5 * q : null;
+  return per ? q * per : null;
+}
+const foodQtyTxt = sc => sc.q === null ? "" : `${r1(sc.q).toLocaleString("pl-PL")} ${FOOD_UNIT_TXT[sc.u] || ""}`.trim();
+/* jeden składnik: wiersz z wartościami albo null, gdy bazy nie wystarczą */
+function foodResolve(seg, opt) {
+  if (KCAL_RE.test(seg)) return null;
+  const sc = foodScan(seg);
+  const hit = foodFind(sc.name); if (!hit) return null;
+  let g = sc.taste ? 0 : foodGrams(sc, hit);
+  if (g === null && hit.spice) g = 0;
+  if (g === null && opt && opt.ratio) g = 100;
+  if (g === null) return null;
+  return { name: hit.name, qty: sc.taste ? "do smaku" : foodQtyTxt(sc), g, k100: hit.k, p100: hit.p, f100: hit.f, src: hit.src };
+}
+/* dzieli tekst na składniki: nowa linia, średnik albo przecinek (nie ten w „3,2”) */
+const foodSplit = t => String(t || "").split(/\n|;|,(?!\d)/).map(x => x.trim()).filter(Boolean);
+const plSk = n => n === 1 ? "składnik" : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? "składniki" : "składników";
+/* zapamiętuje to, co policzył Gemini, żeby następnym razem nie pytać (najwyżej 300 wpisów) */
+function calcRemember(segs, rows) {
+  S.calcCache = S.calcCache || {};
+  rows.forEach((r, i) => {
+    const key = foodKey(segs.length === rows.length ? foodScan(segs[i]).name : r.name);
+    if (!key || !(r.k100 > 0) || /\d/.test(key.replace(/p\d+_?\d*/g, ""))) return;
+    delete S.calcCache[key]; S.calcCache[key] = { n: r.name, k: r.k100, p: r.p100, f: r.f100 };
+  });
+  const ks = Object.keys(S.calcCache); ks.slice(0, Math.max(0, ks.length - 300)).forEach(k => delete S.calcCache[k]);
+  save();
+}
+/* Policz: najpierw lokalnie, Gemini tylko dla reszty. Zwraca { rows, local, ai, missing } */
+async function calcRows(text, ui) {
+  const segs = foodSplit(text), res = segs.map(s => foodResolve(s));
+  const need = segs.filter((s, i) => !res[i]);
+  let ai = [], missing = [];
+  if (need.length) {
+    if (!S.settings.key) missing = need;
+    else {
+      ui && ui.stage(`W bazie brakuje: ${need.length} ${plSk(need.length)}. Pytam Gemini…`);
+      ai = await geminiRows(need.join("\n"), ui);
+      calcRemember(need, ai);
+    }
+  }
+  const rows = []; let a = 0;
+  segs.forEach((s, i) => { if (res[i]) rows.push(res[i]); else if (!missing.includes(s) && ai.length === need.length) rows.push(ai[a++]); });
+  if (need.length && ai.length && ai.length !== need.length) rows.push(...ai);
+  return { rows, local: res.filter(Boolean).length, ai: ai.length, missing };
+}
+const calcSummary = r => `Dodano ${r.rows.length} ${plSk(r.rows.length)}` + (r.rows.length ? (r.ai ? `: ${r.local} z bazy, ${r.ai} z Gemini.` : ": wszystkie z bazy, bez Gemini.") : ".");
+const calcMissing = r => r.missing.length ? ` Nie ma w bazie: ${r.missing.join(", ")}. Wpisz klucz Gemini w Ustawieniach albo dodaj to ręcznie w tabeli.` : "";
+/* przepis z „Baza:”, „Wersja N:”: lokalnie, a gdy czegoś brakuje, całość idzie do Gemini */
+async function calcVersions(raw, ui) {
+  const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean), secs = []; let title = "", cur = null;
+  lines.forEach((l, i) => {
+    const m = l.match(/^(baza|wersja[^:]{0,20}|wariant[^:]{0,20})\s*:\s*(.*)$/i);
+    if (m) { cur = { name: /^baza/i.test(m[1]) ? "" : m[1].trim(), text: m[2], base: /^baza/i.test(m[1]) }; secs.push(cur); }
+    else if (cur) cur.text += "\n" + l;
+    else if (i === 0 && lines.length > 1 && !/\d/.test(l)) title = l.replace(/^policz\s+/i, "").replace(/:$/, "").trim();
+    else { cur = { name: "", text: l, base: true }; secs.push(cur); }
+  });
+  const inline = raw.match(/^(?:policz\s+)?([^:\n]{2,60}?)\s+baza\s*:/i);
+  if (!title && inline && !/\d/.test(inline[1])) { title = inline[1].replace(/^policz\s+/i, "").trim(); const f = secs.find(x => x.base); if (f) f.text = f.text.replace(/^.*?baza\s*:\s*/i, ""); }
+  const parse = t => foodSplit(t).map(x => foodResolve(x));
+  const base = secs.filter(x => x.base).flatMap(x => parse(x.text)), vs = secs.filter(x => !x.base).map(x => ({ name: x.name, rows: parse(x.text) }));
+  const all = [...base, ...vs.flatMap(v => v.rows)];
+  if (!secs.length || !all.length || all.some(x => !x)) { ui && ui.stage("Nie wszystko jest w bazie. Pytam Gemini…"); return { ...(await geminiVersions(raw, ui)), local: false }; }
+  const cp = r => ({ ...r });
+  return { dish: title, local: true, versions: vs.length ? vs.map(v => ({ name: v.name, rows: [...base.map(cp), ...v.rows.map(cp)] })) : [{ name: "", rows: base.map(cp) }] };
+}
+/* „Dodaj”: bierze kalorie wpisane w tekście, niczego nie liczy */
+function textRows(text) {
+  const rows = [], skipped = [], last = () => rows[rows.length - 1];
+  foodSplit(text).forEach(seg => {
+    const x = parseFree(seg);
+    if (x.k === undefined) {
+      const pm = seg.match(PROT_RE), fm = seg.match(FIB_RE);
+      if (last() && (pm || fm) && !/[a-ząćęłńóśźż]{3,}/i.test(seg.replace(PROT_RE, "").replace(FIB_RE, ""))) { if (pm) last().p = num(pm[1]); if (fm) last().f = num(fm[1]); return; }
+      skipped.push(seg); return;
+    }
+    if (!/[a-ząćęłńóśźż]{3,}/i.test(x.name || "")) { skipped.push(seg); return; }
+    const gm = x.name.match(/(\d+(?:[.,]\d+)?)\s*g\b/i), g = gm ? num(gm[1]) : 0;
+    rows.push({ abs: true, name: x.name.replace(/\s+/g, " ").trim(), qty: gm ? gm[1].replace(".", ",") + " g" : "wpisane", g, k: x.k, p: x.p || 0, f: x.f || 0, src: "wpisane ręcznie" });
+  });
+  return { rows, skipped };
+}
+/* wskaźnik pracy: kółko, etap, sekundy, przycisk Anuluj i pasek; po 12 s podpowiedź */
+let calcAbort = null, cacheAsk = false;
+function busyStart(el, text) {
+  if (calcAbort) calcAbort.abort("switch");
+  const ac = new AbortController(); calcAbort = ac;
+  const t0 = Date.now();
+  el.hidden = false; el.classList.remove("err"); el.classList.add("busy");
+  el.innerHTML = `<div class="busy-row"><span class="spin" aria-hidden="true"></span><span class="busy-t"></span><span class="busy-s muted"></span><button type="button" class="small ghost busy-x">Anuluj</button></div><div class="busy-bar" aria-hidden="true"><i></i></div><div class="busy-h muted" hidden>Gemini odpowiada wolno. Możesz poczekać albo anulować i wpisać wartości ręcznie.</div>`;
+  const tt = el.querySelector(".busy-t"), ts = el.querySelector(".busy-s"), th = el.querySelector(".busy-h");
+  tt.textContent = text; el.setAttribute("role", "status");
+  const tick = () => { const s = Math.floor((Date.now() - t0) / 1000); ts.textContent = `${s} s`; th.hidden = s < 12; };
+  tick(); const iv = setInterval(tick, 1000);
+  el.querySelector(".busy-x").onclick = () => ac.abort("cancel");
+  return {
+    signal: ac.signal,
+    stage: t => { tt.textContent = t; },
+    end: () => { clearInterval(iv); if (calcAbort === ac) calcAbort = null; el.classList.remove("busy"); el.removeAttribute("role"); }
+  };
+}
+/* po błędzie: przy zmianie osoby milczymy, przy anulowaniu i reszcie pokazujemy komunikat */
+function calcFail(ui, el, e) { ui.end(); if (e && e.reason === "switch") return; msg(el, e.message, true); }
 
 /* ---------- GOTUJĘ ---------- */
 let draft = { id: null, rows: [], fromRecipe: null, editing: null };
@@ -1272,7 +1698,7 @@ function useSpice(sp) {
 /* ---------- tryb dodawania składników: opisowo, tabela, z przyprawy, z przepisu ----------
    Tryb wybiera tylko, które pole wejściowe widać. Wyliczenie jest jedno, więc tryby można łączyć w jednym daniu. */
 const CK_MODES = {
-  opis: "Wpisz składniki z ilościami tak, jak piszesz do czatu, a Gemini policzy wartości. Możesz też wkleić same sumy garnka, np. „1635 kcal, 106 g białka, 38 g błonnika”.",
+  opis: "Wpisz składniki z ilościami tak, jak piszesz do czatu. „Policz” szuka najpierw w wbudowanej bazie i w Twoich przepisach, a Gemini pyta tylko o resztę. Jeśli wpisujesz już kalorie, kliknij „Dodaj”: nic nie jest wtedy liczone. Możesz też wkleić same sumy garnka, np. „1635 kcal, 106 g białka, 38 g błonnika”.",
   tabela: "Dodawaj składniki po jednym: nazwa, gramy i wartości na 100 g. Składnik znany z wcześniejszych przepisów uzupełni się sam po wpisaniu nazwy.",
   przyprawa: "Wybierz przyprawę: wczytam jej przypisany przepis do tabeli, a Ty poprawisz gramy i zapiszesz danie. Samych przypraw nie liczę kalorycznie.",
   przepis: "Wczytaj zapisany przepis bazowy. Potem popraw gramy w wyliczeniu i zapisz do zamrażarki."
@@ -1349,10 +1775,26 @@ $("#ck-ai").onclick = async () => {
     draft.rows.push({ abs: true, name: "Cały garnek (sumy z czatu)", qty: "podane sumy", g: 0, k: pt.k, p: pt.p || 0, f: pt.f || 0, src: "wklejone sumy" });
     $("#ck-text").value = ""; msg($("#ck-msg"), `Wpisano sumy całego garnka: ${r0(pt.k)} kcal, białko ${f1(pt.p || 0)} g, błonnik ${f1(pt.f || 0)} g. Podział na pudełka i Twoją część jest w wyliczeniu.`); renderCook(); return;
   }
-  const b = $("#ck-ai"); b.disabled = true; msg($("#ck-msg"), "Gemini szuka wartości…");
-  try { const rows = await geminiRows(txt); draft.rows.push(...rows); msg($("#ck-msg"), `Dodano ${rows.length} składników. Sprawdź gramy przy miarach typu łyżka.`); renderCook(); }
-  catch (e) { msg($("#ck-msg"), e.message, true); }
+  const segs = foodSplit(txt);
+  if (segs.length && segs.every(x => KCAL_RE.test(x))) return msg($("#ck-msg"), "W tym tekście są już kalorie, więc nie trzeba liczyć. Kliknij „Dodaj”, a wpiszę je bez liczenia.");
+  const b = $("#ck-ai"); b.disabled = true; const ui = busyStart($("#ck-msg"), "Szukam w bazie…");
+  try {
+    const r = await calcRows(txt, ui); ui.end();
+    if (!r.rows.length) return msg($("#ck-msg"), "Nie znalazłem tych składników w bazie." + calcMissing(r), true);
+    draft.rows.push(...r.rows); $("#ck-text").value = r.missing.length ? r.missing.join(", ") : "";
+    msg($("#ck-msg"), calcSummary(r) + calcMissing(r) + " Sprawdź gramy przy miarach typu łyżka.", !!r.missing.length); renderCook();
+  } catch (e) { calcFail(ui, $("#ck-msg"), e); }
   b.disabled = false;
+};
+/* „Dodaj”: kalorie są już w tekście, więc nic nie liczymy */
+$("#ck-add-text").onclick = () => {
+  const txt = $("#ck-text").value.trim(); if (!txt) return msg($("#ck-msg"), "Wpisz składniki z kaloriami, np. „jogurt 150 g 90 kcal”.", true);
+  const pt = parseFree(txt);
+  if (pt.k !== undefined && !/[a-ząćęłńóśźż]{3,}/i.test(pt.name)) return $("#ck-ai").click();
+  const { rows, skipped } = textRows(txt);
+  if (!rows.length) return msg($("#ck-msg"), "Nie widzę kalorii w tym tekście. Dopisz je, np. „jogurt 150 g 90 kcal”, albo kliknij „Policz”.", true);
+  draft.rows.push(...rows); $("#ck-text").value = skipped.join(", ");
+  msg($("#ck-msg"), `Dodano ${rows.length} ${plSk(rows.length)} z wpisanymi kaloriami, bez liczenia.` + (skipped.length ? ` Bez kalorii (zostały w polu, kliknij „Policz”): ${skipped.join(", ")}.` : ""), !!skipped.length); renderCook();
 };
 $("#ck-row").onclick = () => { draft.rows.push({ name: "", qty: "", g: 0, k100: 0, p100: 0, f100: 0, src: "ręcznie" }); renderCook(); };
 $("#ck-clear").onclick = () => { draft = blankDraft(); msg($("#ck-from"), ""); msg($("#ck-msg2"), ""); $("#ck-name").value = ""; $("#ck-portions").value = 2; $("#ck-share").value = myShareOf(40); $("#ck-text").value = ""; msg($("#ck-msg"), ""); renderCook(); };
@@ -1699,14 +2141,14 @@ function faCommit(print) {
   if (print) printMany(added);
 }
 async function freezerAddAI(raw) {
-  const b1 = $("#fa-ai"), b2 = $("#fa-add"); b1.disabled = b2.disabled = true; msg($("#fa-msg"), "Gemini liczy składniki…");
+  const b1 = $("#fa-ai"), b2 = $("#fa-add"); b1.disabled = b2.disabled = true; const ui = busyStart($("#fa-msg"), "Szukam w bazie…");
   try {
-    const r = await geminiVersions(raw);
+    const r = await calcVersions(raw, ui); ui.end();
     const dish = r.dish || raw.replace(/^policz\s+/i, "").split(/[:\n]/)[0].trim();
     faDraft = { dish, text: raw, versions: r.versions.map((v, i) => ({ ...v, on: true, title: r.versions.length > 1 ? `${dish}, ${(v.name || "wersja " + (i + 1)).toLowerCase()}` : dish })) };
-    msg($("#fa-msg"), r.versions.length > 1 ? `Policzone ${r.versions.length} wersje. Sprawdź i dodaj.` : "Policzone. Sprawdź i dodaj.");
+    msg($("#fa-msg"), (r.versions.length > 1 ? `Policzone ${r.versions.length} wersje` : "Policzone") + (r.local ? " z bazy, bez Gemini" : "") + ". Sprawdź i dodaj.");
     renderFaPreview();
-  } catch (e) { msg($("#fa-msg"), e.message, true); }
+  } catch (e) { calcFail(ui, $("#fa-msg"), e); }
   b1.disabled = b2.disabled = false;
 }
 $("#fa-n").addEventListener("input", renderFaPreview);
@@ -1729,7 +2171,7 @@ function freezerAdd() {
     return added[0];
   }
   const pt = parseFree(raw), name = pt.name || raw;
-  if (!num($("#fa-k").value) && !pt.k) { msg($("#fa-msg"), "Wpisz kcal w polu albo w opisie. Żeby policzyć składniki, kliknij „Policz z Gemini”.", true); return null; }
+  if (!num($("#fa-k").value) && !pt.k) { msg($("#fa-msg"), "Wpisz kcal w polu albo w opisie. Żeby policzyć składniki, kliknij „Policz”.", true); return null; }
   const k = num($("#fa-k").value) || pt.k || 0;
   const p = $("#fa-p").value !== "" ? num($("#fa-p").value) : (pt.p || 0);
   const f = $("#fa-f").value !== "" ? num($("#fa-f").value) : (pt.f || 0);
@@ -2209,6 +2651,7 @@ $("#w-copy").onclick = async () => {
 function fillSettings() {
   const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal; $("#g-track").value = s.track || "kp"; $("#g-mode").value = dietMode(); $("#mode-hint").textContent = MODE_HINT[dietMode()];
   $("#s-key").value = s.key; $("#s-model").value = s.model;
+  const nc = Object.keys(S.calcCache || {}).length; $("#cache-info").textContent = nc ? `Zapamiętane: ${nc}` : "Nic nie jest zapamiętane."; $("#cache-clear").disabled = !nc; msg($("#cache-msg"), ""); cacheAsk = false; $("#cache-clear").textContent = "Wyczyść zapamiętane z Gemini";
   $("#u-name-0").value = userName(0); $("#u-name-1").value = userName(1); $("#goals-who").textContent = TWO() ? ": " + userName(ACT()) : "";
   $("#u-people").value = TWO() ? "2" : "1"; document.querySelectorAll("[data-two]").forEach(el => el.hidden = !TWO());
   $("#people-hint").textContent = TWO()
@@ -2241,10 +2684,15 @@ $("#g-save").onclick = () => {
   save(); render(); msg($("#g-msg"), TWO() ? `Zapisano cele: ${userName(ACT())}.` : "Zapisano cele.");
 };
 $("#s-save").onclick = () => { S.settings.key = $("#s-key").value.trim(); S.settings.model = $("#s-model").value.trim() || "gemini-3.8-flash"; save(); msg($("#s-msg"), "Zapisano."); };
+/* czyszczenie całej zapamiętanej bazy z Gemini: drugie kliknięcie potwierdza */
+$("#cache-clear").onclick = () => {
+  if (!cacheAsk) { cacheAsk = true; $("#cache-clear").textContent = "Na pewno? Kliknij jeszcze raz"; return msg($("#cache-msg"), `Usunę ${Object.keys(S.calcCache || {}).length} zapamiętanych składników. Policzenie ich od nowa znowu wymaga Gemini.`); }
+  S.calcCache = {}; save(); fillSettings(); msg($("#cache-msg"), "Wyczyszczono zapamiętane z Gemini.");
+};
 $("#s-test").onclick = async () => {
-  $("#s-save").click(); msg($("#s-msg"), "Pytam Gemini o łyżkę oliwy…");
-  try { const r = (await geminiRows("1 łyżka oliwy z oliwek"))[0]; msg($("#s-msg"), `Działa: ${r.name}, ${r.qty} = ${f1(r.g)} g, ${r0(r.g * r.k100 / 100)} kcal.`); }
-  catch (e) { msg($("#s-msg"), e.message, true); }
+  $("#s-save").click(); const ui = busyStart($("#s-msg"), "Pytam Gemini o łyżkę oliwy…");
+  try { const r = (await geminiRows("1 łyżka oliwy z oliwek", ui))[0]; ui.end(); msg($("#s-msg"), `Działa: ${r.name}, ${r.qty} = ${f1(r.g)} g, ${r0(r.g * r.k100 / 100)} kcal.`); }
+  catch (e) { calcFail(ui, $("#s-msg"), e); }
 };
 $("#exp").onclick = () => {
   const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
