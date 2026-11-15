@@ -163,6 +163,12 @@ a.btn{display:inline-block;text-decoration:none;font:600 14px var(--body);border
 a.btn.ghost{background:transparent;color:var(--accent)}
 .demo-card{margin-bottom:12px}
 .pill:empty{display:none}
+/* zielona strzałka rozwijania partii w „Wszystkich posiłkach” */
+.chev{width:34px;height:34px;display:inline-grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--accent);cursor:pointer;flex:none;padding:0}
+.chev:hover{background:var(--frost)}
+.chev svg{transition:transform .15s}
+.chev[aria-expanded="true"] svg{transform:rotate(180deg)}
+#meals-table .acts .btn{white-space:nowrap}
 /* przełącznik trybu, np. w zakładce Gotuję */
 .seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:2px;background:var(--bg);gap:2px}
 .seg button{border:0;background:none;border-radius:8px;padding:6px 12px;font:600 13px var(--body);color:var(--muted);cursor:pointer}
@@ -195,6 +201,7 @@ details.fold > summary h3{display:inline;margin:0 6px 0 4px}
   #meals-table tbody td[data-l]{text-align:left;font-size:13px}
   #meals-table tbody td[data-l]::before{content:attr(data-l) " ";color:var(--muted);font-size:12px}
   #meals-table .acts{justify-content:flex-start;flex-wrap:wrap;margin-top:6px}
+  #meals-table .acts .chev{margin-left:auto}
   #meals-table tr.mb{padding-left:14px}
   #meals-table tr.mb td:first-child{padding-left:0}
 }
@@ -339,7 +346,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <details class="card fold" id="meals-box">
       <summary><h3>Wszystkie posiłki</h3> <span class="pill" id="meals-count"></span></summary>
       <div class="row" style="justify-content:space-between;margin:10px 0 8px">
-        <p class="muted" style="margin:0;flex:1;min-width:200px">Każde danie jest tu raz, z ostatnio ugotowaną partią. Starsze partie rozwiniesz przyciskiem „Partie”. „Ugotuj ponownie” wczytuje przepis do zakładki Gotuję.</p>
+        <p class="muted" style="margin:0;flex:1;min-width:200px">Każde danie jest tu raz, z ostatnio ugotowaną partią. Starsze partie rozwiniesz zieloną strzałką po prawej. „Ugotuj ponownie” wczytuje przepis do zakładki Gotuję.</p>
         <label>Kolejność<select id="meals-sort"><option value="date">ostatnio gotowane</option><option value="name">alfabetycznie</option><option value="count">najczęściej gotowane</option></select></label>
       </div>
       <div class="tablebox"><table id="meals-table"></table></div>
@@ -348,6 +355,13 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
 
   <!-- GOTUJĘ -->
   <section class="panel" id="tab-gotuje" hidden>
+    <div class="row" style="align-items:center;margin-bottom:12px">
+      <span class="muted" style="font-weight:600">Przygotowuję:</span>
+      <div class="seg" id="ck-kind" role="group" aria-label="Co przygotowujesz">
+        <button type="button" data-ck-kind="dish">Danie</button>
+        <button type="button" data-ck-kind="spice">Samą przyprawę</button>
+      </div>
+    </div>
     <div class="card" id="ck-start">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
         <h3 style="margin:0">1. Składniki</h3>
@@ -388,14 +402,14 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     </div>
     <div class="card">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h3 style="margin:0">2. Danie i wyliczenie</h3>
+        <h3 style="margin:0" id="ck-h2">2. Danie i wyliczenie</h3>
         <button class="btn ghost small" id="ck-clear">Zacznij od nowa</button>
       </div>
       <div class="row">
-        <label style="flex:2;min-width:180px">Nazwa posiłku<input id="ck-name" placeholder="np. Ciasto na hot dogi"></label>
-        <label>Pudełka / porcje<input type="number" id="ck-portions" value="2" min="1" step="1" style="width:90px"></label>
-        <label>Moja część pudełka %<input type="number" id="ck-share" value="40" min="1" max="100" step="5" style="width:110px"></label>
-        <div class="row" style="gap:4px"><button class="btn ghost small" data-share="40">40%</button><button class="btn ghost small" data-share="100">100%</button></div>
+        <label style="flex:2;min-width:180px"><span id="ck-name-lbl">Nazwa posiłku</span><input id="ck-name" placeholder="np. Ciasto na hot dogi"></label>
+        <label data-dish-only>Pudełka / porcje<input type="number" id="ck-portions" value="2" min="1" step="1" style="width:90px"></label>
+        <label data-dish-only>Moja część pudełka %<input type="number" id="ck-share" value="40" min="1" max="100" step="5" style="width:110px"></label>
+        <div class="row" style="gap:4px" data-dish-only><button class="btn ghost small" data-share="40">40%</button><button class="btn ghost small" data-share="100">100%</button></div>
       </div>
       <div class="row" id="ck-scale-row" style="justify-content:space-between;margin:12px 0 8px">
         <p class="muted" style="margin:0;flex:1;min-width:200px">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same.</p>
@@ -406,19 +420,22 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     </div>
     <div class="card">
       <h3>3. Zapis</h3>
-      <div class="row">
-        <button class="btn" id="ck-save">Zapisz do zamrażarki</button>
-        <button class="btn ghost" id="ck-save-print">Zapisz i drukuj etykiety</button>
-      </div>
-      <label class="muted" id="ck-upd-wrap" style="flex-direction:row;align-items:center;gap:6px;margin-top:10px" hidden><input type="checkbox" id="ck-upd"> Zaktualizuj też przepis bazowy o dzisiejsze zmiany</label>
-      <details class="wg-more" id="ck-later">
-        <summary>Zapisz na później: przepis bazowy albo moja przyprawa</summary>
-        <p class="muted" style="margin:8px 0">Przepis bazowy wczytasz następnym razem w trybie „Z przepisu”. Przyprawa to mieszanka liczona na 100 g, którą dodajesz do dań w trybie „Z przyprawy”. Żaden z tych zapisów nie dodaje nic do zamrażarki.</p>
+      <div data-dish-only>
         <div class="row">
-          <button class="btn ghost" id="ck-as-recipe">Zapisz jako przepis bazowy</button>
-          <button class="btn ghost" id="ck-as-spice">Zapisz jako moją przyprawę</button>
+          <button class="btn" id="ck-save">Zapisz do zamrażarki</button>
+          <button class="btn ghost" id="ck-save-print">Zapisz i drukuj etykiety</button>
         </div>
-      </details>
+        <label class="muted" id="ck-upd-wrap" style="flex-direction:row;align-items:center;gap:6px;margin-top:10px" hidden><input type="checkbox" id="ck-upd"> Zaktualizuj też przepis bazowy o dzisiejsze zmiany</label>
+        <details class="wg-more" id="ck-later">
+          <summary>Zapisz na później: przepis bazowy</summary>
+          <p class="muted" style="margin:8px 0">Przepis bazowy wczytasz następnym razem w trybie „Z przepisu”. Ten zapis nie dodaje nic do zamrażarki. Samą przyprawę zapiszesz, przełączając u góry na „Samą przyprawę”.</p>
+          <div class="row"><button class="btn ghost" id="ck-as-recipe">Zapisz jako przepis bazowy</button></div>
+        </details>
+      </div>
+      <div data-spice-only hidden>
+        <p class="muted" style="margin:0 0 8px">Przyprawa to mieszanka liczona na 100 g. Trafi do listy w zakładce Przepisy i do trybu „Z przyprawy”. Nic nie dodaje do zamrażarki.</p>
+        <div class="row"><button class="btn" id="ck-as-spice">Zapisz przyprawę</button></div>
+      </div>
       <div class="msg" id="ck-msg2" hidden style="margin-top:10px"></div>
     </div>
   </section>
@@ -428,7 +445,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <input type="search" id="rc-search" placeholder="Szukaj przepisu, przyprawy albo składnika" autocomplete="off" aria-label="Szukaj">
     <details class="card fold" id="rc-box" open>
       <summary><h3>Moje przepisy</h3> <span class="pill" id="rc-count"></span></summary>
-      <p class="muted" style="margin:10px 0 8px">„Gotuję” wczytuje przepis z aktualnymi gramami. Nowy przepis zapiszesz w zakładce Gotuję przyciskiem „Zapisz jako przepis bazowy”.</p>
+      <p class="muted" style="margin:10px 0 8px">„Gotuję” wczytuje przepis z aktualnymi gramami. Nowy przepis zapiszesz w zakładce Gotuję, w kroku 3 pod „Zapisz na później”.</p>
       <div class="tablebox"><table id="rc-table"></table></div>
     </details>
     <details class="card fold" id="fd-box">
@@ -442,7 +459,8 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     </details>
     <details class="card fold" id="sp-box" open>
       <summary><h3>Moje przyprawy</h3> <span class="pill" id="sp-count"></span></summary>
-      <p class="muted" style="margin:10px 0 8px">Mieszankę tworzysz w zakładce Gotuję: wpisz jej skład i kliknij „Zapisz jako moją przyprawę”. Wartości liczą się na 100 g gotowej mieszanki.</p>
+      <p class="muted" style="margin:10px 0 8px">Wartości liczą się na 100 g gotowej mieszanki.</p>
+      <div class="row" style="margin-bottom:8px"><button class="btn ghost small" id="sp-add-new">Nowa przyprawa</button></div>
       <div class="tablebox"><table id="sp-table"></table></div>
     </details>
   </section>
@@ -980,6 +998,7 @@ $("#free-add").onclick = async () => {
 /* podpowiedzi z bazy: nic się nie wpisuje samo, tylko kliknięcie w podpowiedź bierze jej wartości */
 let freePicked = null, freeZero = null;
 function showFreeSugg() {
+  clearTimeout(freeHideT);
   const q = $("#free-name").value.trim(), box = $("#free-sugg");
   const list = q.length < 2 ? [] : (S.foods || []).filter(x => matches(x, q)).sort(foodCmp).slice(0, 6);
   if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
@@ -995,7 +1014,9 @@ function showFreeSugg() {
     };
   });
 }
-function hideFreeSugg() { $("#free-sugg").hidden = true; }
+/* licznik ukrycia po opuszczeniu pola nie może schować podpowiedzi pokazanych chwilę później */
+let freeHideT = null;
+function hideFreeSugg() { clearTimeout(freeHideT); $("#free-sugg").hidden = true; }
 $("#free-name").oninput = () => {
   /* zmieniona nazwa po wybraniu podpowiedzi: stare wartości już nie pasują */
   freeZero = null;
@@ -1006,7 +1027,7 @@ $("#free-name").onkeydown = e => {
   if (e.key === "Escape") hideFreeSugg();
   if (e.key === "Enter") { hideFreeSugg(); $("#free-add").click(); }
 };
-$("#free-name").onblur = () => setTimeout(hideFreeSugg, 150);
+$("#free-name").onblur = () => { clearTimeout(freeHideT); freeHideT = setTimeout(hideFreeSugg, 150); };
 $("#free-ai").onclick = async () => {
   const txt = $("#free-name").value.trim(); if (!txt) return msg($("#free-msg"), "Wpisz nazwę z ilością, np. „jogurt naturalny 150 g”.", true);
   const b = $("#free-ai"); b.disabled = true; msg($("#free-msg"), "Gemini szuka wartości…");
@@ -1137,11 +1158,12 @@ function ingredientLib() {
 function refreshSpices(rows) { return rows.map(r => { const s = r.spiceId && S.spices.find(x => x.id === r.spiceId); return s ? { ...r, name: s.name, k100: s.k100, p100: s.p100, f100: s.f100 } : { ...r }; }); }
 function loadIntoEditor(src, opts) {
   draft = { id: null, rows: refreshSpices(src.rows), fromRecipe: opts.fromRecipe || null, editing: opts.editing || null };
+  ckKind = opts.editing && opts.editing.type === "spice" ? "spice" : "dish";
   $("#ck-name").value = src.name; $("#ck-portions").value = src.portions ?? 1; $("#ck-share").value = myShareOf(src.share); $("#ck-text").value = src.text || "";
   msg($("#ck-msg"), ""); msg($("#ck-msg2"), "");
-  const from = opts.editing ? `Edytujesz ${opts.editing.type === "spice" ? "przyprawę" : "przepis bazowy"} „${src.name}”. Zapisz przyciskiem na dole.` : `Wczytano „${src.name}”. Popraw gramy, usuń albo dodaj składniki, potem zapisz do zamrażarki.`;
+  const from = opts.editing ? `Edytujesz ${opts.editing.type === "spice" ? "przyprawę" : "przepis bazowy"} „${src.name}”. Zapisz przyciskiem w kroku 3.` : `Wczytano „${src.name}”. Popraw gramy, usuń albo dodaj składniki, potem zapisz do zamrażarki.`;
   msg($("#ck-from"), from);
-  $("#ck-later").open = !!opts.editing;
+  $("#ck-later").open = !!opts.editing && opts.editing.type === "recipe";
   renderCook(); showTab("gotuje");
 }
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l");
@@ -1160,6 +1182,7 @@ const spicesOf = r => r.rows.filter(x => x.spiceId).map(x => (S.spices.find(s =>
 /* nowe danie z przyprawy: przyprawa staje się przepisem */
 function dishFromSpice(s) {
   const lastG = (() => { for (const m of S.meals) { const r = m.rows.find(x => x.spiceId === s.id); if (r) return r.g; } return 0; })();
+  ckKind = "dish";
   draft = { id: null, rows: [{ name: s.name, qty: "", g: lastG, k100: s.k100, p100: s.p100, f100: s.f100, src: "moja przyprawa", spiceId: s.id }], fromRecipe: null, editing: null };
   $("#ck-name").value = s.name.replace(/,?\s*(moja )?mieszanka/i, "").trim(); $("#ck-portions").value = 2; $("#ck-share").value = myShareOf(40); $("#ck-text").value = "";
   msg($("#ck-from"), `Nowe danie z przyprawą „${s.name}”. ${lastG ? "" : "Wpisz gramy przyprawy, "}dodaj resztę składników i zapisz jako przepis bazowy, żeby następnym razem był gotowy.`);
@@ -1174,20 +1197,39 @@ const CK_MODES = {
   przyprawa: "Dodaj do dania swoją mieszankę przypraw. Resztę składników dopiszesz w trybie „Opisowo” albo „Tabela”.",
   przepis: "Wczytaj zapisany przepis bazowy. Potem popraw gramy w wyliczeniu i zapisz do zamrażarki."
 };
+/* Co przygotowujemy: danie (do zamrażarki) albo sama przyprawa (mieszanka liczona na 100 g, zapisywana w Przepisach).
+   Przyprawa ma tylko dwa tryby składników i własny zapis, bez pudełek i części. Nie jest zapamiętywana między sesjami. */
+let ckKind = "dish";
+const CK_SPICE_MODES = {
+  opis: "Wpisz skład mieszanki z gramami, np. „30 g curry, 20 g papryki słodkiej, 10 g czosnku granulowanego”. Gemini policzy wartości na 100 g.",
+  tabela: "Dodawaj składniki mieszanki po jednym: nazwa, gramy i wartości na 100 g. Składnik znany z wcześniejszych przepisów uzupełni się sam."
+};
 let ckMode = CK_MODES[S.settings.cookMode] ? S.settings.cookMode : "opis";
+function setCookKind(k) { if (k !== "dish" && k !== "spice") return; ckKind = k; msg($("#ck-msg"), ""); msg($("#ck-msg2"), ""); renderCook(); }
+document.querySelectorAll("[data-ck-kind]").forEach(b => b.onclick = () => setCookKind(b.dataset.ckKind));
+/* nowa, pusta przyprawa: z zakładki Przepisy albo „Zacznij od nowa” */
+function newSpice() { draft = blankDraft(); ckKind = "spice"; $("#ck-name").value = ""; $("#ck-text").value = ""; msg($("#ck-from"), ""); msg($("#ck-msg"), ""); msg($("#ck-msg2"), ""); renderCook(); showTab("gotuje"); $("#ck-name").focus(); }
 function setCookMode(m) { if (!CK_MODES[m]) return; ckMode = m; if (S.settings.cookMode !== m) { S.settings.cookMode = m; save(); } renderCookMode(); }
 function renderCookMode() {
-  document.querySelectorAll("[data-ck-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ckMode === ckMode));
-  document.querySelectorAll("[data-ck-panel]").forEach(el => el.hidden = el.dataset.ckPanel !== ckMode);
-  $("#ck-mode-hint").textContent = CK_MODES[ckMode];
-  if (ckMode === "przepis") renderSearch();
-  if (ckMode === "przyprawa") renderSpicePanel();
+  const spice = ckKind === "spice", eff = spice && !CK_SPICE_MODES[ckMode] ? "opis" : ckMode; /* przyprawa: tylko opis i tabela */
+  document.querySelectorAll("[data-ck-kind]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ckKind === ckKind));
+  document.querySelectorAll("[data-ck-mode]").forEach(b => { b.setAttribute("aria-pressed", b.dataset.ckMode === eff); b.hidden = spice && !CK_SPICE_MODES[b.dataset.ckMode]; });
+  document.querySelectorAll("[data-ck-panel]").forEach(el => el.hidden = el.dataset.ckPanel !== eff);
+  document.querySelectorAll("[data-dish-only]").forEach(el => el.hidden = spice);
+  document.querySelectorAll("[data-spice-only]").forEach(el => el.hidden = !spice);
+  $("#ck-mode-hint").textContent = (spice ? CK_SPICE_MODES : CK_MODES)[eff];
+  $("#ck-h2").textContent = spice ? "2. Mieszanka i wyliczenie" : "2. Danie i wyliczenie";
+  $("#ck-name-lbl").textContent = spice ? "Nazwa przyprawy" : "Nazwa posiłku";
+  $("#ck-name").placeholder = spice ? "np. Mieszanka do kurczaka" : "np. Ciasto na hot dogi";
+  $("#ck-text").placeholder = spice ? "30 g curry, 20 g papryki słodkiej, 10 g czosnku granulowanego, 5 g soli" : "150 g mąki pełnoziarnistej, 250 g zwykłej mąki, 29 g oliwy, łyżeczka suchych drożdży, 125 g mleka, łyżeczka miodu";
+  if (eff === "przepis") renderSearch();
+  if (eff === "przyprawa") renderSpicePanel();
 }
 document.querySelectorAll("[data-ck-mode]").forEach(b => b.onclick = () => { msg($("#ck-msg"), ""); setCookMode(b.dataset.ckMode); });
 /* panel przyprawy: wybór mieszanki, gramy i dania, które już jej używają */
 function renderSpicePanel() {
   const box = $("#ck-spice-dishes"); $("#ck-spice-row").hidden = !S.spices.length;
-  if (!S.spices.length) { box.innerHTML = `<p class="muted" style="margin:0">Nie masz jeszcze żadnej przyprawy. Wpisz skład mieszanki w trybie „Opisowo” albo „Tabela”, a w kroku 3 wybierz „Zapisz jako moją przyprawę”.</p>`; return; }
+  if (!S.spices.length) { box.innerHTML = `<p class="muted" style="margin:0">Nie masz jeszcze żadnej przyprawy. Przełącz u góry na „Samą przyprawę”, wpisz skład mieszanki i zapisz.</p>`; return; }
   const s = S.spices.find(x => x.id === $("#ck-spice").value) || S.spices[0], d = dishesFor(s);
   box.innerHTML = `<div class="res"><div class="t">${esc(s.name)}<small>${r0(s.k100)} kcal na 100 g · ${d.length ? "przepisy z tą przyprawą:" : "jeszcze bez przepisu"}</small></div>
     <span class="row" style="gap:4px">${d.map(x => `<button class="btn ghost small" data-s-rc="${x.id}">${esc(x.name)}</button>`).join("")}</span></div>`;
@@ -1196,7 +1238,7 @@ function renderSpicePanel() {
 $("#ck-spice").onchange = () => renderSpicePanel();
 function renderSearch() {
   const q = $("#ck-search").value.trim(), box = $("#ck-results");
-  if (!S.recipes.length) { box.innerHTML = `<p class="muted" style="margin:6px 0 0">Nie masz jeszcze przepisów. Dodaj składniki w trybie „Opisowo” albo „Tabela”, a w kroku 3 wybierz „Zapisz jako przepis bazowy”.</p>`; return; }
+  if (!S.recipes.length) { box.innerHTML = `<p class="muted" style="margin:6px 0 0">Nie masz jeszcze przepisów. Dodaj składniki w trybie „Opisowo” albo „Tabela”, a w kroku 3 rozwiń „Zapisz na później” i wybierz „Zapisz jako przepis bazowy”.</p>`; return; }
   const found = S.recipes.filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")), all = found.slice(0, 12);
   box.innerHTML = all.length ? all.map(r => `<div class="res"><div class="t">${hl(r.name, q)}<small>${spicesOf(r).length ? "Przyprawa: " + esc(spicesOf(r).join(", ")) : "Bez przyprawy"} · ${r.portions} szt. · moja część ${r0(myPart({ ...r, rows: refreshSpices(r.rows) }).k)} kcal</small></div><button class="btn small" data-s-rc="${r.id}">Gotuję</button></div>`).join("")
       + (found.length > all.length ? `<p class="muted" style="margin:6px 0 0">Pokazuję 12 z ${found.length}. Wpisz nazwę albo składnik, żeby zawęzić.</p>` : "")
@@ -1252,12 +1294,16 @@ function renderCook(onlyFoot) {
   const m = { rows: draft.rows, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))) };
   const mp = myPart(m);
   const t = mealTotals(m), pp = perPortion(m);
-  const foot = `<tr><td colspan="2">Razem${t.g ? ` (${r0(t.g)} g)` : ""}</td><td></td><td class="n">${r0(t.k)}</td><td></td><td class="n">${f1(t.p)}</td><td></td><td class="n">${f1(t.f)}</td><td></td></tr>
+  const dishFoot = `<tr><td colspan="2">Razem${t.g ? ` (${r0(t.g)} g)` : ""}</td><td></td><td class="n">${r0(t.k)}</td><td></td><td class="n">${f1(t.p)}</td><td></td><td class="n">${f1(t.f)}</td><td></td></tr>
     <tr><td colspan="2">Pudełko (1 z ${m.portions}${t.g ? `, ok. ${r0(t.g / m.portions)} g` : ""})</td><td></td><td class="n">${r0(pp.k)}</td><td></td><td class="n">${f1(pp.p)}</td><td></td><td class="n">${f1(pp.f)}</td><td></td></tr>` +
     (shareOf(m) < 1 ? `<tr><td colspan="2">Moja część pudełka (${myShare(m)}%)</td><td></td><td class="n">${r0(mp.k)}</td><td></td><td class="n">${f1(mp.p)}</td><td></td><td class="n">${f1(mp.f)}</td><td></td></tr>` : "");
+  const per100 = v => t.g ? v / t.g * 100 : null;
+  const spiceFoot = `<tr><td colspan="2">Razem${t.g ? ` (${r0(t.g)} g)` : ""}</td><td></td><td class="n">${r0(t.k)}</td><td></td><td class="n">${f1(t.p)}</td><td></td><td class="n">${f1(t.f)}</td><td></td></tr>
+    <tr><td colspan="2"><b>Na 100 g mieszanki</b></td><td></td><td></td><td class="n"><b>${t.g ? r0(per100(t.k)) : "–"}</b></td><td></td><td class="n"><b>${t.g ? f1(per100(t.p)) : "–"}</b></td><td></td><td class="n"><b>${t.g ? f1(per100(t.f)) : "–"}</b></td></tr>`;
+  const foot = ckKind === "spice" ? spiceFoot : dishFoot;
   if (onlyFoot && $("#ck-table tfoot")) { $("#ck-table tfoot").innerHTML = foot; return; }
   $("#ck-scale-row").hidden = !draft.rows.length;
-  if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Tu pojawi się wyliczenie. Dodaj składniki w kroku 1.</td></tr></tbody>`; return; }
+  if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Tu pojawi się wyliczenie${ckKind === "spice" ? " na 100 g mieszanki" : ""}. Dodaj składniki w kroku 1.</td></tr></tbody>`; return; }
   $("#ck-table").innerHTML = `<thead><tr><th>Składnik</th><th>Ilość</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">kcal/100</th><th class="n">Białko</th><th class="n">B/100</th><th class="n">Błonnik</th><th class="n">Bł/100</th><th></th></tr></thead><tbody>` +
     draft.rows.map((r, i) => r.abs ? `<tr title="${esc(r.src)}">
       <td><input data-i="${i}" data-k="name" value="${esc(r.name)}"></td><td class="muted">${esc(r.qty)}</td>
@@ -1297,11 +1343,18 @@ function saveDraft() {
   draft = blankDraft(); renderCook(); return meal;
 }
 $("#ck-save").onclick = () => saveDraft();
+/* zastąpienie innego przepisu albo przyprawy o tej samej nazwie wymaga drugiego kliknięcia */
+let ckPending = null;
+$("#ck-name").addEventListener("input", () => { ckPending = null; });
 $("#ck-as-recipe").onclick = () => {
   const name = $("#ck-name").value.trim(); if (!name) return msg($("#ck-msg2"), "Wpisz nazwę przepisu.", true);
   if (!draft.rows.length) return msg($("#ck-msg2"), "Dodaj składniki.", true);
   const data = { name, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
   const ex = (draft.editing?.type === "recipe" && S.recipes.find(x => x.id === draft.editing.id)) || S.recipes.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (ex && ex.id !== draft.fromRecipe && !(draft.editing?.type === "recipe" && draft.editing.id === ex.id) && ckPending !== "r:" + ex.id) {
+    ckPending = "r:" + ex.id; return msg($("#ck-msg2"), `Przepis „${ex.name}” już istnieje. Kliknij „Zapisz jako przepis bazowy” jeszcze raz, żeby go zastąpić, albo zmień nazwę.`, true);
+  }
+  ckPending = null;
   if (ex) Object.assign(ex, data); else S.recipes.push({ id: uid(), ...data });
   if (!draft.fromRecipe) draft.fromRecipe = (ex || S.recipes[S.recipes.length - 1]).id;
   draft.editing = null; save(); renderCook(); msg($("#ck-msg2"), ex ? `Zaktualizowano przepis „${name}”.` : `Zapisano przepis „${name}”. Wczytasz go w trybie „Z przepisu”.`);
@@ -1311,9 +1364,13 @@ $("#ck-as-spice").onclick = () => {
   const t = mealTotals({ rows: draft.rows }); if (!t.g) return msg($("#ck-msg2"), "Dodaj składniki mieszanki z gramami.", true);
   const data = { name, k100: t.k / t.g * 100, p100: t.p / t.g * 100, f100: t.f / t.g * 100, rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value, g: t.g };
   const ex = (draft.editing?.type === "spice" && S.spices.find(x => x.id === draft.editing.id)) || S.spices.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (ex && !(draft.editing?.type === "spice" && draft.editing.id === ex.id) && ckPending !== "s:" + ex.id) {
+    ckPending = "s:" + ex.id; return msg($("#ck-msg2"), `Przyprawa „${ex.name}” już istnieje (${r0(ex.k100)} kcal na 100 g). Kliknij „Zapisz przyprawę” jeszcze raz, żeby ją zastąpić, albo zmień nazwę.`, true);
+  }
+  ckPending = null;
   if (ex) Object.assign(ex, data); else S.spices.push({ id: uid(), ...data });
   save(); draft = blankDraft(); $("#ck-name").value = ""; $("#ck-text").value = ""; msg($("#ck-from"), ""); renderCook();
-  msg($("#ck-msg2"), `Zapisano przyprawę „${name}”: ${r0(data.k100)} kcal na 100 g. Dodasz ją do dań w trybie „Z przyprawy”.`);
+  msg($("#ck-msg2"), `${ex ? "Zaktualizowano" : "Zapisano"} przyprawę „${name}”: ${r0(data.k100)} kcal na 100 g, ${r0(data.g)} g mieszanki. Dodasz ją do dań w trybie „Z przyprawy”.`);
 };
 function renderRecipes() {
   const q = $("#rc-search").value.trim(), cnt = (list) => list.length ? (q ? `${list.filter(x => matches(x, q)).length} z ${list.length}` : list.length) : "";
@@ -1321,11 +1378,11 @@ function renderRecipes() {
   $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th>Przyprawa</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
     ([...S.recipes].filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(r => { const x = { ...r, rows: refreshSpices(r.rows) }, mp = myPart(x), sp = spicesOf(r); return `<tr><td>${hl(r.name, q)} <span class="muted">${r.rows.length} skł.</span></td><td class="${sp.length ? "" : "muted"}">${sp.length ? esc(sp.join(", ")) : "bez przyprawy"}</td><td class="n">${r.portions}</td><td class="n">${myShareOf(r.share)}%</td><td class="n">${r0(mp.k)}</td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td>
       <td class="n" style="white-space:nowrap"><button class="btn small" data-rc-cook="${r.id}">Gotuję</button> <button class="btn ghost small" data-rc-edit="${r.id}">Edytuj</button> <button class="x" data-rc-del="${r.id}" title="Usuń przepis">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="8">Brak wyników.</td></tr>`) + `</tbody>`
-    : `<tbody><tr><td class="muted">Brak przepisów. Wpisz składniki w zakładce Gotuję i kliknij „Zapisz jako przepis bazowy”.</td></tr></tbody>`;
+    : `<tbody><tr><td class="muted">Brak przepisów. Wpisz składniki w zakładce Gotuję i zapisz je w kroku 3 jako przepis bazowy.</td></tr></tbody>`;
   $("#sp-table").innerHTML = S.spices.length ? `<thead><tr><th>Przyprawa</th><th>Dania</th><th class="n">kcal/100 g</th><th class="n">Białko/100</th><th class="n">Błonnik/100</th><th></th></tr></thead><tbody>` +
     (S.spices.filter(s => matches(s, q)).map(s => { const d = dishesFor(s); return `<tr><td>${hl(s.name, q)} <span class="muted">${s.rows.map(r => esc(r.name)).join(", ")}</span></td><td class="${d.length ? "" : "muted"}">${d.length ? esc(d.map(x => x.name).join(", ")) : "jeszcze bez dania"}</td><td class="n">${r0(s.k100)}</td><td class="n">${f1(s.p100)}</td><td class="n">${f1(s.f100)}</td>
       <td class="n" style="white-space:nowrap"><button class="btn small" data-sp-new="${s.id}">Nowe danie</button> <button class="btn ghost small" data-sp-edit="${s.id}">Edytuj</button> <button class="x" data-sp-del="${s.id}" title="Usuń przyprawę">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="6">Brak wyników.</td></tr>`) + `</tbody>`
-    : `<tbody><tr><td class="muted">Brak przypraw. Wpisz skład mieszanki w zakładce Gotuję i kliknij „Zapisz jako moją przyprawę”.</td></tr></tbody>`;
+    : `<tbody><tr><td class="muted">Brak przypraw. Kliknij „Nowa przyprawa” albo przełącz w zakładce Gotuję na „Samą przyprawę”.</td></tr></tbody>`;
   const on = (attr, list, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(list.find(x => x.id === b.getAttribute(attr)), b));
   on("data-rc-cook", S.recipes, r => loadIntoEditor(r, { fromRecipe: r.id }));
   on("data-rc-edit", S.recipes, r => loadIntoEditor(r, { editing: { type: "recipe", id: r.id } }));
@@ -1565,7 +1622,7 @@ function renderFreezer() {
     (list.map(g => { const m = g.last, n = g.items.length, open = mealsOpen.has(g.k);
       return `<tr><td>${hl(m.name, fq)}<small>ostatnio ${dm(m.date)} · ${n === 1 ? "gotowane raz" : `gotowane ${n} razy`} · ${m.portions} szt., moja część ${myShare(m)}%${inFz(g.stock)}</small></td>${macro(m)}
         <td><div class="acts"><button class="btn ghost small" data-again="${m.id}">Ugotuj ponownie</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button>${n > 1
-          ? `<button class="btn ghost small" data-mg="${esc(g.k)}" aria-expanded="${open}">${open ? "Zwiń partie" : `Partie (${n})`}</button>`
+          ? `<button class="chev" data-mg="${esc(g.k)}" aria-expanded="${open}" aria-label="${open ? "Zwiń" : "Pokaż"} partie (${n})" title="${open ? "Zwiń" : "Pokaż"} partie (${n})"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`
           : `<button class="x" data-delmeal="${m.id}" title="Usuń z bazy">×</button>`}</div></td></tr>` +
         (n > 1 && open ? g.items.map(({ m: x }) => `<tr class="mb"><td>${dm(x.date)}${x.date ? "." + x.date.slice(0, 4) : ""}<small>${x.portions} szt., moja część ${myShare(x)}%${inFz(x.stock || 0)}</small></td>${macro(x)}
           <td><div class="acts"><button class="btn ghost small" data-edit="${x.id}">Edytuj</button><button class="x" data-delmeal="${x.id}" title="Usuń tę partię z bazy">×</button></div></td></tr>`).join("") : ""); }).join("")
@@ -2070,6 +2127,7 @@ function renderFoods() {
   $("#fd-table").querySelectorAll("[data-fd-del]").forEach(b => b.onclick = () => { if (b.dataset.sure) { S.foods = foods.filter(z => z.id !== b.dataset.fdDel); save(); render(); } else { b.dataset.sure = 1; b.textContent = TWO() ? "Na pewno? Zniknie u obu osób" : "Na pewno?"; } });
 }
 $("#fav-search").oninput = () => renderFoods();
+$("#sp-add-new").onclick = () => newSpice();
 $("#fd-sort").onchange = () => renderFoods();
 $("#fd-more").onclick = () => { fdAll = !fdAll; renderFoods(); };
 function render() { renderWho(); renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }

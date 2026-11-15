@@ -104,9 +104,10 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Podpowiedzi w „Dodaj coś spoza zamrażarki” nic nie wpisują same. Wartości z bazy tylko po kliknięciu podpowiedzi, a Enter dodaje to, co wpisane. (22.10)
 - Przycisk „Dziś” obok kalendarza, widoczny tylko na innym dniu. (22.10)
 - Tabela dni pogrupowana tygodniami, kolumny w grupach „Waga” i „Jedzenie”, ze średnią kcal z 7 dni. (24.10)
-- „Wszystkie posiłki” to zwijana lista, na start zwinięta. Jedno danie to jeden wiersz z ostatnią partią, a starsze partie o tej samej nazwie są pod przyciskiem „Partie”. Kolejność do wyboru: ostatnio gotowane, alfabetycznie, najczęściej gotowane. Wyszukiwanie rozwija listę. Na telefonie wiersz jest kartą. (14.11)
+- „Wszystkie posiłki” to zwijana lista, na start zwinięta. Jedno danie to jeden wiersz z ostatnią partią, a starsze partie o tej samej nazwie rozwija zielona strzałka po prawej (bez przycisku z napisem, tylko gdy partii jest więcej niż jedna). Kolejność do wyboru: ostatnio gotowane, alfabetycznie, najczęściej gotowane. Wyszukiwanie rozwija listę. Na telefonie wiersz jest kartą. (14.11)
 - Zakładka „Przepisy”: trzy zwijane sekcje z licznikiem. „Moje produkty” są na start zwinięte, pokazują 15 pozycji i resztę pod przyciskiem, z kolejnością do wyboru: najczęściej dodawane, ostatnio dodawane, alfabetycznie. Wyszukiwanie rozwija sekcje i pokazuje wszystkie trafienia. Na telefonie produkt jest kartą. (15.11)
 - Długie listy nie są pokazywane w całości: mają zwijanie, wybór kolejności albo przycisk „pokaż więcej”. (15.11)
+- Zakładka „Gotuję” ma na górze wybór „Przygotowuję: Danie / Samą przyprawę” (15.11). Sama przyprawa to mieszanka liczona na 100 g: ma tylko tryby opisowo i tabela, wyliczenie pokazuje „Razem” i „Na 100 g mieszanki”, nie ma pudełek, części ani zamrażarki, a zapis to „Zapisz przyprawę”. Zastąpienie przyprawy albo przepisu o tej samej nazwie wymaga drugiego kliknięcia. „Nowa przyprawa” jest też w zakładce Przepisy.
 - Zakładka „Gotuję” to trzy ponumerowane kroki (15.11):
   - krok 1 „Składniki” z przełącznikiem trybu: opisowo (tekst i Gemini albo wklejone sumy), tabela (wiersze ręcznie i z kodu kreskowego), z przyprawy (moja mieszanka, gramy, przepisy z tą przyprawą), z przepisu (lista i wyszukiwarka przepisów bazowych),
   - tryb pokazuje tylko swoje pola, a wyliczenie jest jedno, więc tryby można łączyć w jednym daniu,
@@ -149,4 +150,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Wspólna baza „Często jem” z osobnymi licznikami. Wybór trybu: jedna albo dwie osoby. |
 | 15.11 | Etykiety: zaznaczanie wielu posiłków i jeden wydruk, format pod drukarkę etykiet 50 mm. |
 | 15.11 | „Gotuję” w trzech krokach z wyborem trybu: opisowo, tabela, z przyprawy, z przepisu. |
+| 15.11 | „Gotuję”: osobny tryb samej przyprawy. „Wszystkie posiłki”: zielona strzałka zamiast przycisku „Partie”. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
