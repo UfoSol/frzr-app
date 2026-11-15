@@ -1998,7 +1998,7 @@ $("#ck-as-recipe").onclick = () => {
   const rid = (ex || S.recipes[S.recipes.length - 1]).id, newVar = sp && !(sp.recipeIds || []).includes(rid), nVar = sp ? (sp.recipeIds || []).length : 0;
   if (newVar) sp.recipeIds = [...(sp.recipeIds || []), rid];
   draft.fromRecipe = (ex || S.recipes[S.recipes.length - 1]).id; draft.forSpice = null;
-  draft.editing = null; save(); renderCook(); msg($("#ck-msg2"), (ex ? `Zaktualizowano przepis „${name}”.` : `Zapisano przepis „${name}”. Wczytasz go w trybie „Z przepisu”.`) + (sp ? (newVar ? ` Dodano go do przyprawy „${sp.name}” jako ${nVar ? "kolejny wariant" : "przepis"}.` : ` Przyprawa „${sp.name}” już go ma.`) : ""));
+  draft.editing = null; save(); renderCook(); msg($("#ck-msg2"), (ex ? `Zapisano zmiany w przepisie „${name}”.` : `Zapisano przepis „${name}”. Wczytasz go w trybie „Z przepisu”.`) + (sp ? (newVar ? ` Dodano go do przyprawy „${sp.name}” jako ${nVar ? "kolejny wariant" : "przepis"}.` : "") : ""));
 };
 function renderRecipes() {
   const q = $("#rc-search").value.trim(), cnt = (list) => list.length ? (q ? `${list.filter(x => matches(x, q)).length} z ${list.length}` : list.length) : "";

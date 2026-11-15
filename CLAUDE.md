@@ -123,7 +123,7 @@ Tryb jest osobny dla każdej osoby (27.10).
   - wybrany tryb jest zapamiętany (`settings.cookMode`), komunikat pojawia się w kroku, którego dotyczy.
 - Praca na przepisie w „Gotuję” (15.11):
   - krok 2 ma stały przycisk „+ Dodaj wiersz” w każdym trybie (bez przechodzenia do „Tabela”), kursor od razu w nazwie,
-  - przy pracy na przepisie (edycja, wczytany przepis, nowy przepis dla przyprawy) u góry kroku 2 jest pasek z opisem sytuacji i przyciskiem „Zapisz zmiany w przepisie” (albo „Zapisz przepis”) oraz „Zakończ i zacznij od nowa”, a komunikat zapisu pojawia się w pasku; zmiana nazwy przed zapisem tworzy nowy przepis, czyli kolejny wariant przyprawy,
+  - przy pracy na przepisie (edycja, wczytany przepis, nowy przepis dla przyprawy) u góry kroku 2 jest pasek z opisem sytuacji i przyciskiem „Zapisz zmiany w przepisie” (albo „Zapisz przepis”) oraz „Zakończ i zacznij od nowa”, a komunikat zapisu pojawia się w pasku; zmiana nazwy przed zapisem tworzy nowy przepis, czyli kolejny wariant przyprawy, zapis edytowanego przepisu pod tą samą nazwą nadpisuje go bez pytania, a komunikat mówi tylko „Zapisano zmiany w przepisie” (bez dopisków w rodzaju „przyprawa już go ma”, które brzmiały jak odmowa),
   - po wczytaniu przepisu pole „Opisowo” jest puste, a opis przepisu trzyma szkic (`draft.text`) i dopisuje do niego to, co dodano z pola, więc „Policz” nie dubluje składników, a zapisany posiłek i przepis zachowują opis,
   - wczytanie przepisu przewija do kroku 2,
   - kolumna „Ilość” w tabeli pokazuje zawsze aktualne gramy (także dla ręcznie dodanego składnika, po zmianie gramów i po skalowaniu), a miara domowa, np. „1 łyżeczka”, zostaje; zapis do zamrażarki i przepisu zapisuje aktualną ilość,
