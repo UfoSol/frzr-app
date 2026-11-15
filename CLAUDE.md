@@ -5,7 +5,7 @@ Ten plik zbiera wymagania i zasady, według których agent (Claude Code) rozwija
 ## O projekcie
 
 - FRZR to aplikacja w przeglądarce do prowadzenia diety: zamrażarka z posiłkami w pudełkach (etykiety QR), dziennik kalorii, białka i błonnika oraz waga.
-- Używają jej dwie osoby, które jedzą z tej samej zamrażarki.
+- Może z niej korzystać jedna osoba albo dwie, które jedzą z tej samej zamrażarki (wybór w Ustawieniach).
 - Cała aplikacja to jeden plik `index.html`: HTML, CSS i JavaScript bez frameworka i bez kroku budowania.
 - Strona działa na GitHub Pages: https://ufosol.github.io/frzr-app/
 - Dane są tylko w przeglądarce (localStorage, klucz `mroznik.v1`), z kopią JSON w Ustawieniach. Nie ma serwera.
@@ -89,8 +89,10 @@ Tryb jest osobny dla każdej osoby (27.10).
 ## Dwie osoby
 
 - Przełącznik osób na górze strony. (24.10)
-- Wspólne: zamrażarka, przepisy, przyprawy, klucz API.
-- Osobne: dziennik, waga, „Często jem”, odznaki, cele, tryb.
+- Wspólne: zamrażarka, przepisy, przyprawy, klucz API i baza produktów „Często jem”.
+- Osobne: dziennik, waga, odznaki, cele, tryb.
+- Baza „Często jem” jest jedna dla obu osób: nazwa i wartości raz, a licznik i data ostatniego dodania osobno (`food.c[osoba]`, `food.l[osoba]`). Produkt dodany przez jedną osobę jest od razu w podpowiedziach drugiej, z licznikiem 0. Poprawka wartości i usunięcie działają u obu. (15.11)
+- Ustawienie „Kto korzysta”: jedna osoba albo dwie (`settings.people`). Przy jednej nie ma przełącznika ani imion, a dzielone pudełko schodzi ze stanu w całości, bez resztki czekającej na kogoś, kto nie korzysta z aplikacji. Dane osoby 2 nie są kasowane i wracają po ponownym włączeniu. Nowa osoba zaczyna w trybie jednej osoby. (15.11)
 - `meal.share` to część osoby 1. Osoba 2 ma resztę (40% → 60%), a przy 100% też całe pudełko. Domyślne części ustawiane wprost dla aktywnej osoby, nigdy przez odwracanie bieżącej wartości pola. (24.10)
 - Dzielone pudełko schodzi ze stanu raz, a reszta czeka na drugą osobę (`meal.wait[osoba]`). Usuwanie wpisów w dowolnej kolejności musi wracać do tego samego stanu. Części obu osób, które razem tworzą pudełko, wracają na stan. (26.10)
 - Przełączenie osoby czyści komunikaty i niedokończone wpisy poprzedniej. (24.10)
@@ -131,4 +133,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 2.11 | Przykładowe dane pod `?demo`. |
 | 14.11 | Gałąź `porzadki-logiki`: przegląd logiki. Pytanie przed nietypową wagą, nadpisaniem dnia i wczytaniem kopii. Zamrażarka bez pudełek z powietrza. Lista posiłków pogrupowana i zwijana. Sprawdzanie celów i importu z czatu. |
 | 15.11 | „Moje produkty” zwijane, z kolejnością i pierwszymi 15 pozycjami. Liczniki i zwijanie przepisów i przypraw. |
+| 15.11 | Wspólna baza „Często jem” z osobnymi licznikami. Wybór trybu: jedna albo dwie osoby. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |

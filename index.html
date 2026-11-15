@@ -378,7 +378,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <details class="card fold" id="fd-box">
       <summary><h3>Moje produkty</h3> <span class="pill" id="fd-count"></span></summary>
       <div class="row" style="justify-content:space-between;margin:10px 0 8px">
-        <p class="muted" style="margin:0;flex:1;min-width:200px">Wszystko, co dodajesz w „Dodaj coś spoza zamrażarki”, trafia tutaj. Wartości możesz poprawić, zmiana działa przy następnym dodaniu.</p>
+        <p class="muted" style="margin:0;flex:1;min-width:200px">Wszystko, co dodajesz w „Dodaj coś spoza zamrażarki”, trafia tutaj. Wartości możesz poprawić, zmiana działa przy następnym dodaniu.<span id="fd-two" hidden> Baza jest wspólna dla obu osób: „Razy” i „Ostatnio” liczą Twoje dodania, więc 0 oznacza coś, co dodała tylko druga osoba.</span></p>
         <label>Kolejność<select id="fd-sort"><option value="count">najczęściej dodawane</option><option value="last">ostatnio dodawane</option><option value="name">alfabetycznie</option></select></label>
       </div>
       <div class="tablebox"><table id="fd-table"></table></div>
@@ -418,12 +418,13 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   <section class="panel" id="tab-ustawienia" hidden>
     <div class="card">
       <h3>Osoby</h3>
-      <p class="muted" style="margin:0 0 8px">Zamrażarka i przepisy są wspólne. Dziennik, waga, „Często jem” i cele każda osoba ma swoje. Gdy pudełko jest dzielone, np. 40% i 60%, druga osoba dostaje resztę tego samego pudełka.</p>
+      <p class="muted" id="people-hint" style="margin:0 0 8px"></p>
       <div class="row" style="margin-bottom:14px">
-        <label>Osoba 1<input id="u-name-0" style="width:160px"></label>
-        <label>Osoba 2<input id="u-name-1" style="width:160px"></label>
+        <label>Kto korzysta<select id="u-people"><option value="1">jedna osoba</option><option value="2">dwie osoby</option></select></label>
+        <label data-two>Osoba 1<input id="u-name-0" style="width:160px"></label>
+        <label data-two>Osoba 2<input id="u-name-1" style="width:160px"></label>
       </div>
-      <h3>Cele: <span id="goals-who"></span></h3>
+      <h3>Cele<span id="goals-who"></span></h3>
       <div class="row">
         <label>kcal<input type="number" id="g-k" style="width:90px"></label>
         <label>Białko g<input type="number" id="g-p" style="width:90px"></label>
@@ -546,7 +547,7 @@ const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isF
 /* ---------- dane ---------- */
 function seed() {
   /* pusty start: bez cudzych posiłków, wag i celów; cele kalorii i makro to typowe wartości do zmiany w Ustawieniach */
-  return { settings: { key: "", model: "gemini-3.8-flash", goals: { k: 2000, p: 50, f: 25 }, weightGoal: null }, meals: [], log: [], weights: {} };
+  return { settings: { key: "", model: "gemini-3.8-flash", goals: { k: 2000, p: 50, f: 25 }, weightGoal: null, people: 1 }, meals: [], log: [], weights: {} };
 }
 /* ---------- przykład (?demo): zmyślone dane, nic nie czytamy ani nie zapisujemy w przeglądarce ---------- */
 const DEMO = new URLSearchParams(location.search).has("demo");
@@ -576,13 +577,14 @@ function demoData() {
       const n = 1 + Math.floor(rnd() * 2); for (let j = 0; j < n; j++) { const x = pick(snacks); add(x[0], x[1], x[2], x[3]); }
       if (rnd() < 0.18) add(pick(["Lody", "Kawałek ciasta", "Frytki"]), 300 + Math.round(rnd() * 150), 4, 2);
     } return log; };
-  const foodsOf = log => { const m = {}; log.filter(e => !e.mealId).forEach(e => { const x = m[e.name] = m[e.name] || { id: id(), name: e.name, count: 0 }; Object.assign(x, { k: e.k, p: e.p, f: e.f, last: e.date }); x.count++; }); return Object.values(m); };
+  /* wspólna baza produktów: licznik i data osobno dla każdej osoby */
+  const foodsOf = logs => { const m = {}; logs.forEach((log, u) => log.filter(e => !e.mealId).forEach(e => { const x = m[e.name] = m[e.name] || { id: id(), name: e.name, c: [0, 0], l: ["", ""] }; if (!x.k || u === 0) Object.assign(x, { k: e.k / (u ? 1.35 : 1), p: e.p / (u ? 1.35 : 1), f: e.f }); x.c[u]++; x.l[u] = e.date; })); return Object.values(m); };
   const weightsOf = (from, to, noise) => { const w = {}; for (let i = 45; i >= 0; i--) { if (rnd() < 0.12 && i) continue; w[addDays(today, -i)] = Math.round((from + (to - from) * (45 - i) / 45 + (rnd() - 0.5) * noise) * 20) / 20; } return w; };
   const log1 = dayLog(0, 1), log2 = dayLog(1, 1.35);
   return {
-    settings: { key: "", model: "gemini-3.8-flash", goals: { k: 1800, p: 85, f: 22 }, weightGoal: 59, track: "kpf", mode: "cut" },
-    meals, log: log1, weights: weightsOf(63.2, 59.9, 0.7), foods: foodsOf(log1), spices: [],
-    profiles: { active: 0, list: [{ name: "Ania" }, { name: "Tomek", log: log2, weights: weightsOf(82.3, 81.9, 0.8), foods: foodsOf(log2), goals: { k: 2500, p: 140, f: 30 }, weightGoal: 82, track: "kpf", mode: "keep" }] }
+    settings: { key: "", model: "gemini-3.8-flash", goals: { k: 1800, p: 85, f: 22 }, weightGoal: 59, track: "kpf", mode: "cut", people: 2 },
+    meals, log: log1, weights: weightsOf(63.2, 59.9, 0.7), foods: foodsOf([log1, log2]), spices: [],
+    profiles: { active: 0, list: [{ name: "Ania" }, { name: "Tomek", log: log2, weights: weightsOf(82.3, 81.9, 0.8), goals: { k: 2500, p: 140, f: 30 }, weightGoal: 82, track: "kpf", mode: "keep" }] }
   };
 }
 let S;
@@ -591,12 +593,19 @@ if (!S) S = DEMO ? demoData() : seed();
 const KCAL_RE = /(\d+(?:[.,]\d+)?)\s*(?:kcal|kalori\w*|cal)\b/i;
 const PROT_RE = /(\d+(?:[.,]\d+)?)\s*g?\s*(?:białk\w*|bialk\w*|B\b)/i;
 const FIB_RE = /(\d+(?:[.,]\d+)?)\s*g?\s*(?:błonnik\w*|blonnik\w*)/i;
-/* baza produktów spoza zamrażarki */
-function upsertFood(name, k, p, f, date) {
+/* Baza produktów spoza zamrażarki („Często jem”). Jest wspólna dla obu osób: nazwa i wartości raz,
+   a licznik x.c[osoba] i data ostatniego dodania x.l[osoba] osobno. 0 znaczy, że dodawała to tylko druga osoba. */
+const ACT = () => S.profiles.active;
+const TWO = () => S.settings.people === 2;
+const fCnt = x => (x.c && x.c[ACT()]) || 0, fLast = x => (x.l && x.l[ACT()]) || "", fAll = x => (x.c ? (x.c[0] || 0) + (x.c[1] || 0) : 0);
+/* kolejność „często jem”: najpierw moje najczęstsze i najświeższe, potem to, co dodała druga osoba */
+const foodCmp = (a, b) => fCnt(b) - fCnt(a) || fLast(b).localeCompare(fLast(a)) || fAll(b) - fAll(a);
+function foodUsed(x, date, u = ACT()) { x.c = x.c || [0, 0]; x.l = x.l || ["", ""]; x.c[u] = (x.c[u] || 0) + 1; if ((date || "") > (x.l[u] || "")) x.l[u] = date; }
+function upsertFood(name, k, p, f, date, u = ACT()) {
   if (!name) return; S.foods = S.foods || [];
   const key = name.trim().toLowerCase(); let x = S.foods.find(z => z.name.toLowerCase() === key);
-  if (!x) { x = { id: uid(), name: name.trim(), count: 0 }; S.foods.push(x); }
-  Object.assign(x, { k, p, f, last: date || todayIso() }); x.count++;
+  if (!x) { x = { id: uid(), name: name.trim(), c: [0, 0], l: ["", ""] }; S.foods.push(x); }
+  Object.assign(x, { k, p, f }); foodUsed(x, date || todayIso(), u);
 }
 /* rozbiera „owsianka z pastą pistacjową — 391 kcal, 25,7 g białka, 9,2 g błonnika” na nazwę i liczby */
 function parseFree(text) {
@@ -637,10 +646,10 @@ function parseFree(text) {
    Wspólne: zamrażarka, przepisy, przyprawy, klucz. Osobne: dziennik, waga, „Często jem”, odznaki, cele.
    Dane aktywnej osoby leżą tam, gdzie zawsze (S.log, S.weights…), drugiej w S.profiles.list[i].
    m.share to część osoby 1; osoba 2 ma resztę (100 − share), a przy 100% też całe pudełko. */
-const PER = ["log", "weights", "foods", "badgeDates"], PERSET = ["goals", "weightGoal", "track", "mode", "modeSince"];
+const PER = ["log", "weights", "badgeDates"], PERSET = ["goals", "weightGoal", "track", "mode", "modeSince"];
 function ensureProfiles() {
   if (S.profiles) return;
-  S.profiles = { active: 0, list: [{ name: "Użytkownik 1" }, { name: "Użytkownik 2", log: [], weights: {}, foods: [], goals: { ...S.settings.goals }, weightGoal: null, track: S.settings.track || "kp" }] };
+  S.profiles = { active: 0, list: [{ name: "Użytkownik 1" }, { name: "Użytkownik 2", log: [], weights: {}, goals: { ...S.settings.goals }, weightGoal: null, track: S.settings.track || "kp" }] };
 }
 /* Doprowadza dane do obecnego kształtu. Wołane po wczytaniu strony i po wczytaniu kopii,
    żeby starsza kopia przeszła te same poprawki co dane z przeglądarki. */
@@ -655,12 +664,28 @@ function migrate() {
   if (!S.spices) S.spices = [];
   /* naprawa wpisów, w których białko i błonnik zostały w nazwie */
   S.log.forEach(e => { if (!e.p && !e.f && (PROT_RE.test(e.name) || FIB_RE.test(e.name))) { const x = parseFree(e.name); if (x.p !== undefined) e.p = x.p; if (x.f !== undefined) e.f = x.f; if (x.k && !e.k) e.k = x.k; e.name = x.name || e.name; } });
-  if (!S.foods) { S.foods = []; [...S.log].sort((a, b) => a.date.localeCompare(b.date)).forEach(e => { if (!e.mealId && !/^Suma dnia/.test(e.name)) upsertFood(e.name, e.k, e.p, e.f, e.date); }); }
   ensureProfiles();
   if (!(S.profiles.active === 0 || S.profiles.active === 1)) S.profiles.active = 0;
+  const act = S.profiles.active, other = S.profiles.list[1 - act];
+  /* tryb jednej albo dwóch osób: bez wyboru zgadujemy po tym, czy druga osoba ma już jakieś dane */
+  if (S.settings.people !== 1 && S.settings.people !== 2) S.settings.people = act === 1 || (other.log || []).length || Object.keys(other.weights || {}).length ? 2 : 1;
+  if (act === 1) S.settings.people = 2;
+  if (!S.foods) { S.foods = []; [...S.log].sort((a, b) => a.date.localeCompare(b.date)).forEach(e => { if (!e.mealId && !/^Suma dnia/.test(e.name)) upsertFood(e.name, e.k, e.p, e.f, e.date); }); }
+  /* dawniej każda osoba miała własną bazę z jednym licznikiem: łączymy je po nazwie, wartości bierzemy z nowszego wpisu */
+  if (S.foods.some(x => !x.c) || S.profiles.list.some(p => p.foods)) {
+    const merged = new Map();
+    const put = (x, u) => { if (!x || !x.name || !String(x.name).trim()) return;
+      const key = String(x.name).trim().toLowerCase(), cnt = x.c ? x.c : [0, 0].map((_, i) => i === u ? x.count || 0 : 0), last = x.l ? x.l : ["", ""].map((_, i) => i === u ? x.last || "" : "");
+      const newest = [...last].sort().pop() || "";
+      let y = merged.get(key); if (!y) { y = { id: x.id || uid(), name: String(x.name).trim(), k: 0, p: 0, f: 0, c: [0, 0], l: ["", ""], d: null }; merged.set(key, y); }
+      [0, 1].forEach(i => { y.c[i] += cnt[i] || 0; if ((last[i] || "") > y.l[i]) y.l[i] = last[i] || ""; });
+      if (y.d === null || newest >= y.d) { y.d = newest; y.k = x.k || 0; y.p = x.p || 0; y.f = x.f || 0; } };
+    S.foods.forEach(x => put(x, act));
+    S.profiles.list.forEach((p, i) => { (p.foods || []).forEach(x => put(x, i)); delete p.foods; });
+    S.foods = [...merged.values()].map(({ d, ...y }) => y);
+  }
 }
 migrate();
-const ACT = () => S.profiles.active;
 const userName = i => (S.profiles.list[i].name || "").trim() || `Użytkownik ${i + 1}`;
 const flipShare = v => (v ?? 100) >= 100 ? 100 : 100 - (v ?? 100);
 /* część zapisana w posiłku ↔ część aktywnej osoby; działa w obie strony */
@@ -669,7 +694,7 @@ function switchUser(i) {
   if (i === ACT()) return;
   const P = S.profiles.list, cur = P[ACT()], nx = P[i];
   PER.forEach(k => { cur[k] = S[k]; S[k] = nx[k]; delete nx[k]; }); PERSET.forEach(k => { cur[k] = S.settings[k]; S.settings[k] = nx[k]; delete nx[k]; });
-  S.log = S.log || []; S.weights = S.weights || {}; S.foods = S.foods || [];
+  S.log = S.log || []; S.weights = S.weights || {};
   S.settings.goals = S.settings.goals || { ...cur.goals }; S.settings.track = S.settings.track || "kp";
   S.profiles.active = i;
   /* komunikaty i niedokończone wpisy należą do poprzedniej osoby */
@@ -691,6 +716,7 @@ function flipShareInputs() {
   });
 }
 function renderWho() {
+  $("#who").hidden = !TWO(); /* jedna osoba: bez przełącznika */
   $("#who").innerHTML = [0, 1].map(i => `<button type="button" data-who="${i}" aria-pressed="${i === ACT()}">${esc(userName(i))}</button>`).join("");
   $("#who").querySelectorAll("[data-who]").forEach(b => b.onclick = () => switchUser(+b.dataset.who));
 }
@@ -799,7 +825,8 @@ function eat(mealId, n, sharePct) {
   const pp = perPortion(m), s = Math.min(100, Math.max(1, num(sharePct ?? myShare(m)) || 100)) / 100, u = ACT(), have = m.stock || 0;
   const label = m.name + (n !== 1 ? `, ${f1(n)} pudełka` : "") + (s < 1 ? `, moja część ${r0(s * 100)}%` : "");
   const took = { v: 2, u, full: 0, part: 0 }; let short = 0;
-  if (s >= 1) { const got = Math.min(have, n); took.full = r2(got); m.stock = r2(have - got); short = n - got; }
+  /* całe pudełko albo tryb jednej osoby: schodzą całe pudełka, bez resztki dla kogoś, kto nie korzysta z aplikacji */
+  if (s >= 1 || !TWO()) { const got = Math.min(have, n); took.full = r2(got); m.stock = r2(have - got); short = n - got; }
   else {
     let need = n * s, real = 0;
     const fromWait = Math.min(waitingFor(m), need);
@@ -822,7 +849,11 @@ function uneat(e) { /* cofnięcie wpisu z zamrażarki */
   /* wpisy z poprzedniej wersji: zjedzona część = pudełka − odłożona reszta + wzięte z czekającej */
   const u = t.u ?? ACT(), full = t.v === 2 ? t.full : (!t.l && !t.o ? t.b : 0), part = t.v === 2 ? t.part : (t.b - t.l + t.o);
   if (full) meal.stock = r2((meal.stock || 0) + full);
-  if (part > 0.005) { meal.wait = meal.wait || {}; meal.wait[u] = r2((meal.wait[u] || 0) + part); settleWait(meal); }
+  if (part > 0.005) {
+    /* jedna osoba: zjedzona część wraca na stan jako pudełko, bo nikt nie odda drugiej części */
+    if (!TWO()) { const sh = (u === 0 ? (meal.share ?? 100) : flipShare(meal.share)) / 100; meal.stock = r2((meal.stock || 0) + (sh < 1 ? part / sh : part)); }
+    else { meal.wait = meal.wait || {}; meal.wait[u] = r2((meal.wait[u] || 0) + part); settleWait(meal); }
+  }
 }
 $("#quick-meal").onchange = () => { const m = S.meals.find(x => x.id === $("#quick-meal").value); if (m) $("#quick-meal-share").value = myShare(m); };
 $("#quick-meal-add").onclick = () => {
@@ -865,8 +896,8 @@ $("#free-add").onclick = async () => {
     btn.disabled = false;
   }
   const entry = { id: uid(), date: d0, name, k, p: num(p), f: num(f) };
-  if (ACT() === u0) { S.log.push(entry); upsertFood(name, k, num(p), num(f), d0); }
-  else { const pr = S.profiles.list[u0]; pr.log = pr.log || []; pr.log.push(entry); }
+  if (ACT() === u0) S.log.push(entry); else { const pr = S.profiles.list[u0]; pr.log = pr.log || []; pr.log.push(entry); }
+  upsertFood(name, k, num(p), num(f), d0, u0);
   ["#free-name", "#free-k", "#free-p", "#free-f"].forEach(s => $(s).value = ""); freePicked = null; hideFreeSugg();
   if (!$("#free-msg").classList.contains("err")) msg($("#free-msg"), `Dodano: ${name}, ${r0(k)} kcal, białko ${f1(num(p))} g, błonnik ${f1(num(f))} g.`);
   save(); render();
@@ -875,7 +906,7 @@ $("#free-add").onclick = async () => {
 let freePicked = null, freeZero = null;
 function showFreeSugg() {
   const q = $("#free-name").value.trim(), box = $("#free-sugg");
-  const list = q.length < 2 ? [] : (S.foods || []).filter(x => matches(x, q)).sort((a, b) => (b.count - a.count) || (b.last || "").localeCompare(a.last || "")).slice(0, 6);
+  const list = q.length < 2 ? [] : (S.foods || []).filter(x => matches(x, q)).sort(foodCmp).slice(0, 6);
   if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
   box.innerHTML = `<li class="hint">Z bazy, kliknij, żeby wziąć wartości. Enter dodaje to, co wpisane.</li>` +
     list.map(x => `<li><button type="button" data-sugg="${x.id}"><span>${hl(x.name, q)}</span> <small>${r0(x.k)} kcal</small></button></li>`).join("");
@@ -1215,6 +1246,7 @@ function printMany(meals) {
 }
 function labelParts(m, pp) {
   const s1 = m.share ?? 100; if (s1 >= 100) return `${r0(pp.k)} kcal · B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`;
+  if (!TWO()) return `Moja część ${s1}%: ${r0(pp.k * s1 / 100)} kcal · B ${f1(pp.p * s1 / 100)} · Bł ${f1(pp.f * s1 / 100)}<br>Całe: ${r0(pp.k)} kcal`;
   return `${esc(userName(0))} ${s1}%: ${r0(pp.k * s1 / 100)} kcal · ${esc(userName(1))} ${100 - s1}%: ${r0(pp.k * (100 - s1) / 100)} kcal<br>Całe: ${r0(pp.k)} kcal`;
 }
 function labelHtml(m) {
@@ -1327,7 +1359,7 @@ function openEdit(m) {
 }
 $("#ed-out").onclick = () => {
   const b = $("#ed-out"), m = edMeal; if (!m) return;
-  if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = "Na pewno? " + (m.stock > 0 ? "Zniknie u obu osób" : "Zniknie tylko u Ciebie"); return; }
+  if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = !TWO() ? "Na pewno?" : "Na pewno? " + (m.stock > 0 ? "Zniknie u obu osób" : "Zniknie tylko u Ciebie"); return; }
   if (m.stock > 0) { m.stock = 0; delete m.wait; }
   else if (m.wait) { delete m.wait[ACT()]; if (!Object.keys(m.wait).length) delete m.wait; }
   /* posiłek zostaje w bazie, żeby dało się go ugotować ponownie */
@@ -1765,8 +1797,18 @@ $("#w-copy").onclick = async () => {
 function fillSettings() {
   const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal; $("#g-track").value = s.track || "kp"; $("#g-mode").value = dietMode(); $("#mode-hint").textContent = MODE_HINT[dietMode()];
   $("#s-key").value = s.key; $("#s-model").value = s.model;
-  $("#u-name-0").value = userName(0); $("#u-name-1").value = userName(1); $("#goals-who").textContent = userName(ACT());
+  $("#u-name-0").value = userName(0); $("#u-name-1").value = userName(1); $("#goals-who").textContent = TWO() ? ": " + userName(ACT()) : "";
+  $("#u-people").value = TWO() ? "2" : "1"; document.querySelectorAll("[data-two]").forEach(el => el.hidden = !TWO());
+  $("#people-hint").textContent = TWO()
+    ? "Zamrażarka, przepisy i baza „Często jem” są wspólne. Dziennik, waga i cele każda osoba ma swoje. Gdy pudełko jest dzielone, np. 40% i 60%, druga osoba dostaje resztę tego samego pudełka."
+    : "Aplikacja jest ustawiona dla jednej osoby. Gdy dołączy druga, wybierz „dwie osoby”: na górze pojawi się przełącznik, a każda osoba będzie miała swój dziennik, wagę i cele.";
 }
+/* jedna albo dwie osoby: przy jednej zostaje osoba 1, dane osoby 2 nie są kasowane i wracają po ponownym włączeniu */
+$("#u-people").onchange = () => {
+  const two = $("#u-people").value === "2";
+  if (!two && ACT() === 1) switchUser(0);
+  S.settings.people = two ? 2 : 1; save(); fillSettings(); render();
+};
 [0, 1].forEach(i => $("#u-name-" + i).onchange = () => { S.profiles.list[i].name = $("#u-name-" + i).value.trim(); save(); fillSettings(); render(); });
 /* tryb: redukcja, utrzymanie albo masa; postęp liczy się od pierwszego ważenia po zmianie trybu */
 const MODE_HINT = {
@@ -1784,7 +1826,7 @@ $("#g-save").onclick = () => {
   if (p < 0 || f < 0) return bad("Białko i błonnik nie mogą być ujemne.");
   if (wRaw && (w < W_MIN || w > W_MAX)) return bad(`Cel wagi musi być między ${W_MIN} a ${W_MAX} kg. Zostaw pole puste, jeśli nie chcesz celu wagi.`);
   setMode($("#g-mode").value); S.settings.track = $("#g-track").value; S.settings.goals = { k, p, f }; S.settings.weightGoal = wRaw ? w : null;
-  save(); render(); msg($("#g-msg"), `Zapisano cele: ${userName(ACT())}.`);
+  save(); render(); msg($("#g-msg"), TWO() ? `Zapisano cele: ${userName(ACT())}.` : "Zapisano cele.");
 };
 $("#s-save").onclick = () => { S.settings.key = $("#s-key").value.trim(); S.settings.model = $("#s-model").value.trim() || "gemini-3.8-flash"; save(); msg($("#s-msg"), "Zapisano."); };
 $("#s-test").onclick = async () => {
@@ -1803,7 +1845,7 @@ $("#imp").onchange = async e => {
   catch (err) { return alert("To nie jest plik kopii FRZR."); }
   /* kopia zastępuje wszystko, także dane drugiej osoby, więc najpierw pytamy */
   const other = S.profiles.list[1 - ACT()], n = S.meals.length + S.log.length + Object.keys(S.weights).length + (other.log || []).length + Object.keys(other.weights || {}).length;
-  if (n && !confirm(`Wczytanie kopii zastąpi wszystkie obecne dane obu osób: posiłki, dziennik i wagi. Tego nie da się cofnąć.\n\nNajpierw warto pobrać kopię obecnych danych. Wczytać plik „${f.name}”?`)) return;
+  if (n && !confirm(`Wczytanie kopii zastąpi wszystkie obecne dane${TWO() ? " obu osób" : ""}: posiłki, dziennik i wagi. Tego nie da się cofnąć.\n\nNajpierw warto pobrać kopię obecnych danych. Wczytać plik „${f.name}”?`)) return;
   const prev = S;
   try { S = d; migrate(); draft = blankDraft(); faDraft = null; day = todayIso(); $("#day-date").value = day; save(); flipShareInputs(); fillSettings(); renderCook(); renderFaPreview(); render(); alert("Wczytano kopię."); }
   catch (err) { S = prev; save(); render(); alert("Ten plik jest uszkodzony i nie dało się go wczytać. Twoje dane zostały bez zmian."); }
@@ -1841,31 +1883,32 @@ $("#chat-imp-btn").onclick = () => {
 const FD_FIRST = 15; let fdAll = false;
 function renderFoods() {
   const foods = S.foods || [], q = $("#fav-search").value.trim();
-  const list = foods.filter(x => matches(x, q)).sort((a, b) => (b.count - a.count) || (b.last || "").localeCompare(a.last || "")).slice(0, q ? 30 : 14);
+  const list = foods.filter(x => matches(x, q)).sort(foodCmp).slice(0, q ? 30 : 14);
   $("#favs").innerHTML = list.length ? list.map(x => `<button class="chip" data-fav="${x.id}" title="Dodaj do dnia">${hl(x.name, q)} <small>${r0(x.k)} kcal</small></button>`).join("")
     : `<p class="muted" style="margin:0">${q ? "Nic nie pasuje." : "Tu pojawią się rzeczy, które dodajesz poniżej. Jedno kliknięcie dopisze je do dnia."}</p>`;
   $("#favs").querySelectorAll("[data-fav]").forEach(b => b.onclick = () => {
     const x = foods.find(z => z.id === b.dataset.fav); S.log.push({ id: uid(), date: day, name: x.name, k: x.k, p: x.p, f: x.f });
-    x.count++; x.last = day; save(); render(); msg($("#free-msg"), `Dodano: ${x.name}, ${r0(x.k)} kcal.`);
+    foodUsed(x, day); save(); render(); msg($("#free-msg"), `Dodano: ${x.name}, ${r0(x.k)} kcal.`);
   });
   /* Moje produkty: zwijana lista, kolejność do wyboru, na start 15 pozycji, reszta pod przyciskiem; szukanie pokazuje wszystkie trafienia */
   const rq = $("#rc-search").value.trim(), by = $("#fd-sort").value;
   const found = foods.filter(x => matches(x, rq)).sort((a, b) => by === "name" ? a.name.localeCompare(b.name, "pl")
-    : by === "last" ? (b.last || "").localeCompare(a.last || "") || b.count - a.count
-    : b.count - a.count || (b.last || "").localeCompare(a.last || ""));
+    : by === "last" ? fLast(b).localeCompare(fLast(a)) || foodCmp(a, b)
+    : foodCmp(a, b));
+  $("#fd-two").hidden = !TWO();
   const rows = rq || fdAll ? found : found.slice(0, FD_FIRST);
   $("#fd-count").textContent = foods.length ? (rq ? `${found.length} z ${foods.length}` : foods.length) : "";
   $("#fd-more").hidden = !!rq || found.length <= FD_FIRST;
   $("#fd-more").textContent = fdAll ? `Pokaż tylko pierwsze ${FD_FIRST}` : `Pokaż wszystkie (${found.length})`;
   $("#fd-table").innerHTML = foods.length ? `<thead><tr><th>Produkt</th><th class="n">kcal</th><th class="n">Białko g</th><th class="n">Błonnik g</th><th class="n">Razy</th><th class="n">Ostatnio</th><th></th></tr></thead><tbody>` +
-    (rows.map(x => `<tr><td><input data-fd="${x.id}" data-k="name" value="${esc(x.name)}" aria-label="Nazwa"></td><td class="n" data-l="kcal"><input class="num" data-fd="${x.id}" data-k="k" value="${r0(x.k)}" aria-label="kcal"></td><td class="n" data-l="białko"><input class="num" data-fd="${x.id}" data-k="p" value="${f1(x.p)}" aria-label="Białko"></td><td class="n" data-l="błonnik"><input class="num" data-fd="${x.id}" data-k="f" value="${f1(x.f)}" aria-label="Błonnik"></td><td class="n" data-l="razy">${x.count}</td><td class="n" data-l="ostatnio">${x.last ? dm(x.last) : ""}</td><td class="n"><button class="x" data-fd-del="${x.id}" title="Usuń z bazy">×</button></td></tr>`).join("") || `<tr><td class="muted" colspan="7">Brak wyników.</td></tr>`) + `</tbody>`
+    (rows.map(x => `<tr><td><input data-fd="${x.id}" data-k="name" value="${esc(x.name)}" aria-label="Nazwa"></td><td class="n" data-l="kcal"><input class="num" data-fd="${x.id}" data-k="k" value="${r0(x.k)}" aria-label="kcal"></td><td class="n" data-l="białko"><input class="num" data-fd="${x.id}" data-k="p" value="${f1(x.p)}" aria-label="Białko"></td><td class="n" data-l="błonnik"><input class="num" data-fd="${x.id}" data-k="f" value="${f1(x.f)}" aria-label="Błonnik"></td><td class="n" data-l="razy">${fCnt(x)}</td><td class="n" data-l="ostatnio">${fLast(x) ? dm(fLast(x)) : ""}</td><td class="n"><button class="x" data-fd-del="${x.id}" title="Usuń z bazy">×</button></td></tr>`).join("") || `<tr><td class="muted" colspan="7">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Baza jest pusta.</td></tr></tbody>`;
   $("#fd-table").querySelectorAll("input[data-fd]").forEach(inp => inp.onchange = () => {
     const x = foods.find(z => z.id === inp.dataset.fd), k = inp.dataset.k;
     if (k === "name") { if (inp.value.trim()) x.name = inp.value.trim(); } else x[k] = Math.max(0, num(inp.value));
     save(); render();
   });
-  $("#fd-table").querySelectorAll("[data-fd-del]").forEach(b => b.onclick = () => { if (b.dataset.sure) { S.foods = foods.filter(z => z.id !== b.dataset.fdDel); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } });
+  $("#fd-table").querySelectorAll("[data-fd-del]").forEach(b => b.onclick = () => { if (b.dataset.sure) { S.foods = foods.filter(z => z.id !== b.dataset.fdDel); save(); render(); } else { b.dataset.sure = 1; b.textContent = TWO() ? "Na pewno? Zniknie u obu osób" : "Na pewno?"; } });
 }
 $("#fav-search").oninput = () => renderFoods();
 $("#fd-sort").onchange = () => renderFoods();
