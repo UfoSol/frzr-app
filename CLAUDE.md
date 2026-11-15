@@ -40,6 +40,7 @@ Ten plik zbiera wymagania i zasady, według których agent (Claude Code) rozwija
   - po zapisie na inny dzień pole daty wraca na dziś,
   - usunięcie ważenia pyta „Na pewno?”.
 - Strona otwarta przez noc przechodzi na nowy dzień, żeby poranne wpisy nie trafiały do wczoraj.
+- W „Gotuję” zapis do zamrażarki, zapis przepisu bazowego i zapis w oknie „Edytuj” przepisu nie przepuszczają niepełnych wierszy: wiersz bez nazwy albo bez gramów blokuje zapis (komunikat wymienia wiersze). Wiersz z samymi zerami kcal, białka i błonnika (np. woda) wymaga drugiego kliknięcia tego samego przycisku. Przyprawy i „do smaku” mogą mieć 0 kcal bez pytania, wiersze z sumami nie są blokowane. (15.11)
 - Jedzenie bez kalorii zapisuje się dopiero po drugim kliknięciu. Wartości ujemne są odrzucane.
 - Cele w Ustawieniach są sprawdzane (kalorie 800 do 6000, cel wagi 25 do 300 kg albo puste pole) i potwierdzane komunikatem.
 - Wczytanie kopii pyta przed zastąpieniem danych obu osób. Uszkodzony plik zostawia dane bez zmian. Kopia przechodzi te same migracje co dane z przeglądarki (`migrate()`).
@@ -165,4 +166,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Gemini za wolny: wbudowana baza produktów, „Policz” zamiast „Policz z Gemini”, wskaźnik pracy z anulowaniem, „Dodaj” dla tekstu z kaloriami, pamięć wyników Gemini z czyszczeniem w Ustawieniach, przyprawy suche jako 0 kcal. |
 | 15.11 | Przycisk 50% przy części pudełka i ustawienie najczęstszego podziału (przy 50/50 albo 100% dwa przyciski zamiast trzech). |
 | 15.11 | Przyprawa ma kilka wariantów dania (kilka przepisów). W „Z przyprawy” lista przepisów z opcją „Nowy”, nowy przepis też z formularza przyprawy i z podglądu. Naprawa skakania strony na boki w Gotuję. |
+| 15.11 | Niepełny przepis (wiersz bez nazwy, bez gramów albo bez wartości) nie zapisuje się po cichu: blokada albo drugie kliknięcie. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |

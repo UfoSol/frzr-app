@@ -1897,10 +1897,31 @@ function renderCook(onlyFoot) {
   });
   $("#ck-table").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { draft.rows.splice(+b.dataset.rm, 1); renderCook(); });
 }
+/* Niepełne wiersze: bez nazwy albo gramów nie da się policzyć (blokada), a same zera wartości to zwykle pomyłka
+   (drugie kliknięcie tego samego przycisku zostawia je, np. dla wody). Przyprawy mogą mieć 0 kcal. */
+let ckWarn = null;
+const rowIsSpice = r => /przypraw/i.test((r.src || "") + " " + (r.name || "")) || !!(foodFind(String(r.name || "").replace(/\s*\(.*\)/, "")) || {}).spice;
+function draftOk() {
+  const bad = [], zero = [], el = $("#ck-msg2");
+  draft.rows.forEach((r, i) => {
+    if (r.abs) return;
+    const nm = String(r.name || "").trim();
+    if (!nm) bad.push(`wiersz ${i + 1} bez nazwy`);
+    else if (!(r.g > 0) && !/do smaku/i.test(r.qty || "")) bad.push(`„${nm}” bez gramów`);
+    else if (!r.k100 && !r.p100 && !r.f100 && !rowIsSpice(r)) zero.push(`„${nm}”`);
+  });
+  if (bad.length) { msg(el, `Nie da się policzyć: ${bad.join(", ")}. Uzupełnij tabelę w kroku 2 albo usuń te wiersze (×).`, true); return false; }
+  if (zero.length) {
+    const sig = JSON.stringify(draft.rows.map(r => [r.name, r.g, r.k100, r.p100, r.f100]));
+    if (ckWarn !== sig) { ckWarn = sig; msg(el, `Bez kalorii, białka i błonnika: ${zero.join(", ")}. Uzupełnij wartości na 100 g albo kliknij ten sam przycisk jeszcze raz, jeśli tak ma zostać (np. woda).`, true); return false; }
+  }
+  ckWarn = null; return true;
+}
 function saveDraft() {
   const name = $("#ck-name").value.trim(), portions = Math.max(1, num($("#ck-portions").value)), share = Math.min(100, Math.max(1, num($("#ck-share").value) || 100));
   if (!name) { msg($("#ck-msg2"), "Wpisz nazwę posiłku.", true); return null; }
   if (!draft.rows.length) { msg($("#ck-msg2"), "Dodaj składniki.", true); return null; }
+  if (!draftOk()) return null;
   const meal = { id: uid(), name, portions, share: myShareOf(share), stock: portions, date: todayIso(), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
   S.meals.unshift(meal);
   let extra = "";
@@ -1917,6 +1938,7 @@ $("#ck-name").addEventListener("input", () => { ckPending = null; });
 $("#ck-as-recipe").onclick = () => {
   const name = $("#ck-name").value.trim(); if (!name) return msg($("#ck-msg2"), "Wpisz nazwę przepisu.", true);
   if (!draft.rows.length) return msg($("#ck-msg2"), "Dodaj składniki.", true);
+  if (!draftOk()) return;
   const data = { name, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
   const ex = (draft.editing?.type === "recipe" && S.recipes.find(x => x.id === draft.editing.id)) || S.recipes.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (ex && ex.id !== draft.fromRecipe && !(draft.editing?.type === "recipe" && draft.editing.id === ex.id) && ckPending !== "r:" + ex.id) {
@@ -2080,6 +2102,8 @@ $("#pv-save").onclick = () => {
   const rows = pv.rows.filter(r => r.abs || String(r.name).trim() || r.g || r.k100 || r.p100 || r.f100);
   if (!rows.length) return bad("Dodaj co najmniej jeden składnik.");
   if (rows.some(r => !r.abs && !String(r.name).trim())) return bad("Wpisz nazwę składnika w każdym wierszu.");
+  const noG = rows.find(r => !r.abs && !(r.g > 0) && !/do smaku/i.test(r.qty || ""));
+  if (noG) return bad(`„${String(noG.name).trim()}” nie ma gramów. Podaj gramy albo usuń składnik.`);
   /* ilość tekstowa („150 g”) przestaje być prawdziwa po zmianie gramów, więc ją odświeżamy */
   const clean = rows.map(({ _g0, ...r }) => { r.name = String(r.name).trim(); if (!r.abs && r.g !== _g0) r.qty = r.g ? `${f1(r.g)} g` : ""; return r; });
   const portions = Math.max(1, num($("#pv-portions").value) || 1), share = Math.min(100, Math.max(1, num($("#pv-share").value) || 100));
