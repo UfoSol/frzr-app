@@ -107,6 +107,13 @@ Tryb jest osobny dla każdej osoby (27.10).
 - „Wszystkie posiłki” to zwijana lista, na start zwinięta. Jedno danie to jeden wiersz z ostatnią partią, a starsze partie o tej samej nazwie są pod przyciskiem „Partie”. Kolejność do wyboru: ostatnio gotowane, alfabetycznie, najczęściej gotowane. Wyszukiwanie rozwija listę. Na telefonie wiersz jest kartą. (14.11)
 - Zakładka „Przepisy”: trzy zwijane sekcje z licznikiem. „Moje produkty” są na start zwinięte, pokazują 15 pozycji i resztę pod przyciskiem, z kolejnością do wyboru: najczęściej dodawane, ostatnio dodawane, alfabetycznie. Wyszukiwanie rozwija sekcje i pokazuje wszystkie trafienia. Na telefonie produkt jest kartą. (15.11)
 - Długie listy nie są pokazywane w całości: mają zwijanie, wybór kolejności albo przycisk „pokaż więcej”. (15.11)
+- Etykiety (15.11):
+  - karty w zamrażarce nie mają własnego przycisku etykiet, jest jeden przycisk „Drukuj etykiety”,
+  - krok 1: tryb zaznaczania jak w galerii zdjęć, dotknięcie karty zaznacza, pasek z licznikiem, „Zaznacz wszystko”, „Dalej”, „Anuluj”,
+  - krok 2: okno z liczbą etykiet dla każdego posiłku (domyślnie tyle, ile pudełek), podglądem i przyciskiem „Drukuj”,
+  - wszystkie etykiety idą w jednym wydruku, jedna etykieta na stronę,
+  - drukarka etykiet ma 50 mm szerokości: rozmiar etykiety to ustawienie (`settings.label`, domyślnie 50 × 30 mm) zmieniane w oknie druku,
+  - „Dodaj i drukuj etykiety” przy nowym posiłku drukuje od razu, w tym samym formacie.
 - Tabela dni w Wadze pokazuje 45 dni, starsze pod przyciskiem „Pokaż starsze dni”. (14.11)
 - Wykresy kalorii, białka i błonnika (30 dni) w zwijanej sekcji pod wykresem wagi (27.10):
   - jedna oś na wykres,
@@ -134,4 +141,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 14.11 | Gałąź `porzadki-logiki`: przegląd logiki. Pytanie przed nietypową wagą, nadpisaniem dnia i wczytaniem kopii. Zamrażarka bez pudełek z powietrza. Lista posiłków pogrupowana i zwijana. Sprawdzanie celów i importu z czatu. |
 | 15.11 | „Moje produkty” zwijane, z kolejnością i pierwszymi 15 pozycjami. Liczniki i zwijanie przepisów i przypraw. |
 | 15.11 | Wspólna baza „Często jem” z osobnymi licznikami. Wybór trybu: jedna albo dwie osoby. |
+| 15.11 | Etykiety: zaznaczanie wielu posiłków i jeden wydruk, format pod drukarkę etykiet 50 mm. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |

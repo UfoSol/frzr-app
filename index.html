@@ -195,13 +195,32 @@ details.fold > summary h3{display:inline;margin:0 6px 0 4px}
 }
 details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;margin-top:14px}
 #print{display:none}
+/* Etykieta na drukarkę etykiet: jedna etykieta to jedna strona o rozmiarze z ustawień (domyślnie 50 × 30 mm).
+   Te same style rysują podgląd na ekranie i wydruk. */
+.label{width:var(--lw,50mm);height:var(--lh,30mm);box-sizing:border-box;padding:2mm;display:flex;gap:2mm;align-items:center;overflow:hidden;color:#000;background:#fff;font:7pt/1.25 Arial,sans-serif;text-align:left}
+.label img{width:var(--lq,16mm);height:var(--lq,16mm);flex:none;image-rendering:pixelated}
+.label > div{min-width:0;overflow-wrap:anywhere}
+.label b{font-size:8.5pt;line-height:1.15;margin-bottom:.6mm;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.label-prev{display:inline-block;border:1px dashed var(--muted);border-radius:2px;line-height:0;max-width:100%;overflow:auto}
+/* tryb zaznaczania kart do etykiet */
+.pickbar{position:sticky;top:0;z-index:6;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;box-shadow:0 4px 14px rgb(0 0 0/.12)}
+.pickbar b{margin-right:auto}
+.item.pickable{cursor:pointer;position:relative;user-select:none}
+.item.pickable:hover{border-color:var(--accent)}
+.item.pickable .tick{position:absolute;top:10px;right:10px;width:24px;height:24px;border-radius:50%;border:2px solid var(--muted);display:grid;place-items:center;color:transparent;font-weight:800;font-size:14px;background:var(--surface)}
+.item.pickable .count{margin-right:34px}
+.item.picked{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.item.picked .tick{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.lbl-rows{display:flex;flex-direction:column;margin:8px 0}
+.lbl-row{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+.lbl-row span{min-width:0;flex:1}
+.lbl-row .n{display:flex;gap:4px;align-items:center;flex:none}
+.lbl-row input{width:56px;text-align:center}
 @media print{
-  body{background:#fff}
+  body{background:#fff;margin:0}
   .wrap,.modal{display:none!important}
-  #print{display:grid!important;grid-template-columns:repeat(3,62mm);gap:4mm;padding:6mm}
-  .label{border:1px dashed #999;padding:3mm;display:flex;gap:3mm;align-items:center;break-inside:avoid;color:#000;font:10pt Arial,sans-serif}
-  .label img{width:22mm;height:22mm}
-  .label b{display:block;font-size:10.5pt}
+  #print{display:block!important}
+  .label{break-after:page;page-break-after:always}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -305,7 +324,11 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     </div>
     <input type="search" id="fz-search" placeholder="Szukaj w zamrażarce i historii" autocomplete="off" aria-label="Szukaj">
     <div>
-      <h2>W zamrażarce</h2>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0">W zamrażarce</h2>
+        <button class="btn ghost" id="lbl-start">Drukuj etykiety</button>
+      </div>
+      <div class="pickbar" id="pickbar" hidden></div>
       <div class="stock" id="stock"></div>
     </div>
     <details class="card fold" id="meals-box">
@@ -483,6 +506,25 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   </div>
 </div>
 
+<div class="modal" id="lbl-modal" hidden>
+  <div class="card" style="max-width:520px;max-height:90vh;overflow:auto">
+    <h3>Etykiety do druku</h3>
+    <p class="muted" style="margin:0 0 4px">Ustaw, ile etykiet wydrukować dla każdego posiłku. Wszystkie wyjdą w jednym wydruku, jedna etykieta na stronę.</p>
+    <div class="lbl-rows" id="lbl-rows"></div>
+    <div class="row" style="margin-top:10px">
+      <label>Szerokość mm<input type="number" id="lbl-w" min="20" max="110" step="1" style="width:90px"></label>
+      <label>Wysokość mm<input type="number" id="lbl-h" min="15" max="150" step="1" style="width:90px"></label>
+    </div>
+    <p class="muted" style="margin:8px 0 6px">Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.</p>
+    <div class="label-prev" id="lbl-prev"></div>
+    <div class="msg" id="lbl-msg" hidden style="margin-top:8px"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="lbl-print">Drukuj</button>
+      <button class="btn ghost" id="lbl-back">Wstecz</button>
+      <button class="btn ghost" id="lbl-cancel">Anuluj</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="ed-modal" hidden>
   <div class="card" style="max-width:520px">
     <h3>Edytuj posiłek</h3>
@@ -700,7 +742,7 @@ function switchUser(i) {
   /* komunikaty i niedokończone wpisy należą do poprzedniej osoby */
   document.querySelectorAll(".msg").forEach(el => msg(el, ""));
   ["#w-kg", "#free-name", "#free-k", "#free-p", "#free-f", "#fav-search"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
-  wReset(); $("#w-date").value = todayIso();
+  wReset(); $("#w-date").value = todayIso(); pick = null; pickN = {}; $("#lbl-modal").hidden = true;
   freePicked = null; hideFreeSugg();
   flipShareInputs();
   save(); fillSettings(); render();
@@ -1240,25 +1282,78 @@ function qrImg(text) {
   if (!window.qrcode) return "";
   const q = qrcode(0, "M"); q.addData(text); q.make(); return q.createDataURL(6, 2);
 }
-function printMany(meals) {
-  $("#print").innerHTML = meals.map(m => labelHtml(m).repeat(Math.max(1, Math.round(m.portions)))).join("");
+/* Rozmiar etykiety (mm) jest wspólnym ustawieniem. Kod QR ma najwyżej 16 mm i mieści się w wysokości i 1/3 szerokości. */
+const labelSize = () => { const l = S.settings.label || {}; return { w: Math.min(110, Math.max(20, num(l.w) || 50)), h: Math.min(150, Math.max(15, num(l.h) || 30)) }; };
+const labelVars = () => { const { w, h } = labelSize(); return `--lw:${w}mm;--lh:${h}mm;--lq:${Math.max(8, Math.min(16, h - 4, w * 0.34))}mm`; };
+/* jeden wydruk dla całego zestawu: list to [{ m, n }], każda etykieta na osobnej stronie w rozmiarze etykiety */
+function printLabelSet(list) {
+  const { w, h } = labelSize(); let st = $("#page-size");
+  if (!st) { st = document.createElement("style"); st.id = "page-size"; document.head.appendChild(st); }
+  st.textContent = `@page{size:${w}mm ${h}mm;margin:0}`;
+  $("#print").style.cssText = labelVars();
+  $("#print").innerHTML = list.map(({ m, n }) => labelHtml(m).repeat(Math.max(1, Math.round(n)))).join("");
   setTimeout(() => window.print(), 100);
 }
+function printMany(meals) { printLabelSet(meals.map(m => ({ m, n: m.portions }))); }
 function labelParts(m, pp) {
-  const s1 = m.share ?? 100; if (s1 >= 100) return `${r0(pp.k)} kcal · B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`;
-  if (!TWO()) return `Moja część ${s1}%: ${r0(pp.k * s1 / 100)} kcal · B ${f1(pp.p * s1 / 100)} · Bł ${f1(pp.f * s1 / 100)}<br>Całe: ${r0(pp.k)} kcal`;
-  return `${esc(userName(0))} ${s1}%: ${r0(pp.k * s1 / 100)} kcal · ${esc(userName(1))} ${100 - s1}%: ${r0(pp.k * (100 - s1) / 100)} kcal<br>Całe: ${r0(pp.k)} kcal`;
+  const s1 = m.share ?? 100; if (s1 >= 100) return `${r0(pp.k)} kcal<br>B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`;
+  if (!TWO()) return `Moja część ${s1}%: ${r0(pp.k * s1 / 100)} kcal<br>B ${f1(pp.p * s1 / 100)} g · Bł ${f1(pp.f * s1 / 100)} g<br>Całe: ${r0(pp.k)} kcal`;
+  return `${esc(userName(0))} ${s1}%: ${r0(pp.k * s1 / 100)} kcal<br>${esc(userName(1))} ${100 - s1}%: ${r0(pp.k * (100 - s1) / 100)} kcal<br>Całe: ${r0(pp.k)} kcal`;
 }
 function labelHtml(m) {
   const pp = perPortion(m);
-  return `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${labelParts(m, pp)}<br>${dm(m.date)}</div></div>`;
+  const qr = qrImg("MROZNIK:" + m.id); /* bez biblioteki QR (brak internetu) etykieta wychodzi z samym tekstem */
+  return `<div class="label">${qr ? `<img src="${qr}" alt="">` : ""}<div><b>${esc(m.name)}</b>${labelParts(m, pp)}<br>${dm(m.date)}</div></div>`;
 }
-function printLabels(m, n) {
-  const pp = perPortion(m);
-  const one = `<div class="label"><img src="${qrImg("MROZNIK:" + m.id)}" alt=""><div><b>${esc(m.name)}</b>${labelParts(m, pp)}<br>${dm(m.date)}</div></div>`;
-  $("#print").innerHTML = Array(Math.max(1, Math.round(n))).fill(one).join("");
-  setTimeout(() => window.print(), 100);
+function printLabels(m, n) { printLabelSet([{ m, n }]); }
+
+/* ---------- etykiety: zaznaczanie w zamrażarce jak w galerii zdjęć ----------
+   pick to null (zwykły widok) albo zbiór id zaznaczonych posiłków. Krok 1: zaznaczanie kart, krok 2: okno z liczbą etykiet i drukiem. */
+let pick = null, pickN = {};
+const pickable = () => { const fq = $("#fz-search").value.trim(); return S.meals.filter(m => (m.stock > 0 || waitingFor(m)) && matches(m, fq)); };
+function renderPickbar() {
+  const bar = $("#pickbar"); bar.hidden = !pick; $("#lbl-start").hidden = !!pick; if (!pick) return;
+  const all = pickable(), n = pick.size, allOn = all.length > 0 && all.every(m => pick.has(m.id));
+  bar.innerHTML = `<b>${n ? `Zaznaczone: ${n}` : "Zaznacz posiłki do etykiet"}</b>
+    <button class="btn ghost small" id="pick-all">${allOn ? "Odznacz wszystko" : "Zaznacz wszystko"}</button>
+    <button class="btn small" id="pick-next" ${n ? "" : "disabled"}>Dalej</button>
+    <button class="btn ghost small" id="pick-cancel">Anuluj</button>`;
+  $("#pick-all").onclick = () => { allOn ? all.forEach(m => pick.delete(m.id)) : all.forEach(m => pick.add(m.id)); renderFreezer(); };
+  $("#pick-next").onclick = () => openLabels();
+  $("#pick-cancel").onclick = () => endPick();
 }
+function endPick() { pick = null; pickN = {}; $("#lbl-modal").hidden = true; renderFreezer(); }
+$("#lbl-start").onclick = () => { pick = new Set(); pickN = {}; renderFreezer(); };
+const picked = () => S.meals.filter(m => pick && pick.has(m.id));
+function openLabels() {
+  const { w, h } = labelSize(); $("#lbl-w").value = w; $("#lbl-h").value = h; msg($("#lbl-msg"), "");
+  /* domyślnie tyle etykiet, ile pudełek na stanie */
+  picked().forEach(m => { if (!(pickN[m.id] >= 0)) pickN[m.id] = Math.max(1, Math.ceil(m.stock || 0)); });
+  renderLabels(); $("#lbl-modal").hidden = false;
+}
+function renderLabels() {
+  const list = picked(), total = list.reduce((a, m) => a + (pickN[m.id] || 0), 0);
+  $("#lbl-rows").innerHTML = list.map(m => `<div class="lbl-row"><span>${esc(m.name)} <small class="muted">${dm(m.date)}, na stanie ${f1(m.stock)}</small></span>
+    <div class="n"><button class="btn ghost small" data-ln="${m.id}" data-d="-1" aria-label="Mniej">−</button><input type="number" min="0" max="50" step="1" data-li="${m.id}" value="${pickN[m.id]}" aria-label="Liczba etykiet"><button class="btn ghost small" data-ln="${m.id}" data-d="1" aria-label="Więcej">+</button></div></div>`).join("");
+  $("#lbl-print").textContent = total ? `Drukuj ${total} ${total === 1 ? "etykietę" : total % 10 >= 2 && total % 10 <= 4 && (total % 100 < 12 || total % 100 > 14) ? "etykiety" : "etykiet"}` : "Drukuj";
+  $("#lbl-print").disabled = !total;
+  const first = list.find(m => pickN[m.id] > 0) || list[0];
+  $("#lbl-prev").style.cssText = labelVars(); $("#lbl-prev").innerHTML = first ? labelHtml(first) : "";
+  const set = (id, v) => { pickN[id] = Math.min(50, Math.max(0, Math.round(num(v)))); renderLabels(); };
+  $("#lbl-rows").querySelectorAll("[data-ln]").forEach(b => b.onclick = () => set(b.dataset.ln, (pickN[b.dataset.ln] || 0) + +b.dataset.d));
+  $("#lbl-rows").querySelectorAll("[data-li]").forEach(i => i.onchange = () => set(i.dataset.li, i.value));
+}
+["#lbl-w", "#lbl-h"].forEach(sel => $(sel).onchange = () => {
+  const w = num($("#lbl-w").value), h = num($("#lbl-h").value);
+  if (!(w >= 20 && w <= 110 && h >= 15 && h <= 150)) return msg($("#lbl-msg"), "Szerokość od 20 do 110 mm, wysokość od 15 do 150 mm.", true);
+  S.settings.label = { w, h }; save(); msg($("#lbl-msg"), ""); renderLabels();
+});
+$("#lbl-back").onclick = () => { $("#lbl-modal").hidden = true; };
+$("#lbl-cancel").onclick = () => endPick();
+$("#lbl-print").onclick = () => {
+  const list = picked().map(m => ({ m, n: pickN[m.id] || 0 })).filter(x => x.n > 0); if (!list.length) return;
+  printLabelSet(list); endPick();
+};
 
 /* ---------- ZAMRAŻARKA ---------- */
 /* ręczne dodanie do zamrażarki, bez Gemini */
@@ -1387,12 +1482,14 @@ $("#meals-sort").onchange = () => renderFreezer();
 function renderFreezer() {
   const fq = $("#fz-search").value.trim();
   const inStock = S.meals.filter(m => (m.stock > 0 || waitingFor(m)) && matches(m, fq));
-  $("#stock").innerHTML = inStock.length ? inStock.map(m => { const pp = perPortion(m); return `<div class="item">
+  renderPickbar();
+  $("#stock").innerHTML = inStock.length ? inStock.map(m => { const pp = perPortion(m), on = pick && pick.has(m.id); return `<div class="item${pick ? " pickable" + (on ? " picked" : "") : ""}"${pick ? ` data-pick="${m.id}" role="checkbox" aria-checked="${!!on}" tabindex="0"` : ""}>
+      ${pick ? `<span class="tick" aria-hidden="true">✓</span>` : ""}
       <div class="row" style="justify-content:space-between;align-items:baseline"><span class="name">${esc(m.name)}</span><span class="count">${f1(m.stock)}</span></div>
       ${waitingFor(m) ? `<div class="waiting">Czeka na Ciebie: ${r0(waitingFor(m) * 100)}% otwartego pudełka od ${esc(userName(1 - ACT()))}</div>` : ""}
       <div class="macro">${shareOf(m) < 1 ? `Moja część (${myShare(m)}%): <b>${r0(myPart(m).k)} kcal</b> · białko ${f1(myPart(m).p)} g · błonnik ${f1(myPart(m).f)} g<br>Całe pudełko: ${r0(pp.k)} kcal` : `Porcja: ${r0(pp.k)} kcal · białko ${f1(pp.p)} g · błonnik ${f1(pp.f)} g`}</div>
       <div class="macro">Ugotowane ${dm(m.date)}, ${m.portions} szt.</div>
-      <div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-lbl="${m.id}">Etykiety</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button></div></div>`; }).join("")
+      ${pick ? "" : `<div class="acts"><button class="btn small" data-eat="${m.id}">Zjedzone</button><button class="btn ghost small" data-minus="${m.id}">−1</button><button class="btn ghost small" data-plus="${m.id}">+1</button><button class="btn ghost small" data-edit="${m.id}">Edytuj</button></div>`}</div>`; }).join("")
     : `<p class="muted">${fq ? "Nic nie pasuje w zamrażarce." : "Pusto. Nowy posiłek dodasz w zakładce Gotuję."}</p>`;
   /* Wszystkie posiłki: jedno danie w jednym wierszu (partie o tej samej nazwie razem), starsze partie pod przyciskiem */
   const groups = new Map();
@@ -1419,7 +1516,9 @@ function renderFreezer() {
   on("data-eat", m => { day = todayIso(); $("#day-date").value = day; eat(m.id, 1); });
   on("data-minus", m => { m.stock = Math.max(0, r1(m.stock - 1)); save(); render(); });
   on("data-plus", m => { m.stock = r1(m.stock + 1); save(); render(); });
-  on("data-lbl", m => printLabels(m, m.stock));
+  /* w trybie etykiet cała karta jest polem wyboru: dotknięcie albo spacja zaznacza */
+  $("#stock").querySelectorAll("[data-pick]").forEach(c => { const t = () => { pick.has(c.dataset.pick) ? pick.delete(c.dataset.pick) : pick.add(c.dataset.pick); renderFreezer(); };
+    c.onclick = t; c.onkeydown = e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); t(); } }; });
   on("data-edit", m => openEdit(m));
   on("data-again", m => { const rc = S.recipes.find(x => x.name.toLowerCase() === m.name.toLowerCase()); loadIntoEditor(m, { fromRecipe: rc ? rc.id : null }); });
   on("data-delmeal", m => { const b = document.querySelector(`[data-delmeal="${m.id}"]`); if (b.dataset.sure) { S.meals = S.meals.filter(x => x !== m); save(); render(); } else { b.dataset.sure = 1; b.textContent = m.stock > 0 || m.wait ? "Na pewno? Zniknie też z zamrażarki" : "Na pewno?"; } });
