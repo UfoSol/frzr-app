@@ -118,7 +118,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Zakładka „Gotuję” to trzy ponumerowane kroki (15.11):
   - krok 1 „Składniki” z przełącznikiem trybu: opisowo (tekst i Gemini albo wklejone sumy), tabela (wiersze ręcznie i z kodu kreskowego), z przyprawy (skład, przypisany przepis i „Wczytaj przepis do tabeli”), z przepisu (lista i wyszukiwarka przepisów bazowych),
   - tryb pokazuje tylko swoje pola, a wyliczenie jest jedno, więc tryby można łączyć w jednym daniu,
-  - krok 2 „Danie i wyliczenie”: nazwa, pudełka, moja część, tabela z sumami, „Zacznij od nowa”,
+  - krok 2 „Danie i wyliczenie”: nazwa, pudełka, moja część, tabela z sumami, „Zacznij od nowa”, mnożnik porcji ze strzałkami góra/dół (×0,5 do ×10, bez pola do wpisywania) i przyciskiem „Powiększ porcje ×N” (albo „Zmniejsz porcje”), który mnoży gramy, np. do ugotowania podwójnej porcji z przepisu; liczba pudełek zostaje bez zmian, a komunikat o tym mówi,
   - krok 3 „Zapis”: zamrażarka na pierwszym planie, przepis bazowy (z przypisaniem do przyprawy) w zwijanej sekcji,
   - wybrany tryb jest zapamiętany (`settings.cookMode`), komunikat pojawia się w kroku, którego dotyczy.
 - Etykiety (15.11):
@@ -167,4 +167,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Przycisk 50% przy części pudełka i ustawienie najczęstszego podziału (przy 50/50 albo 100% dwa przyciski zamiast trzech). |
 | 15.11 | Przyprawa ma kilka wariantów dania (kilka przepisów). W „Z przyprawy” lista przepisów z opcją „Nowy”, nowy przepis też z formularza przyprawy i z podglądu. Naprawa skakania strony na boki w Gotuję. |
 | 15.11 | Niepełny przepis (wiersz bez nazwy, bez gramów albo bez wartości) nie zapisuje się po cichu: blokada albo drugie kliknięcie. |
+| 15.11 | Zamiast pola „Przeskaluj gramy ×” strzałki góra/dół i przycisk „Powiększ porcje ×N”. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |

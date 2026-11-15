@@ -447,9 +447,16 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <div class="row" style="gap:4px" id="ck-share-btns"></div>
       </div>
       <div class="row" id="ck-scale-row" style="justify-content:space-between;margin:12px 0 8px">
-        <p class="muted" style="margin:0;flex:1;min-width:200px">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same.</p>
-        <span class="row" style="gap:4px"><input type="number" id="ck-scale" value="1" step="0.25" min="0.1" style="width:70px" aria-label="Mnożnik"><button class="btn ghost small" id="ck-scale-go">Przeskaluj gramy ×</button></span>
+        <p class="muted" style="margin:0;flex:1;min-width:200px">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same. Gotujesz z przepisu, ale chcesz zrobić więcej (np. podwójną porcję)? Wybierz mnożnik strzałkami.</p>
+        <span class="row scale-box" style="gap:6px;align-items:center">
+          <span class="muted">Ile razy więcej?</span>
+          <button type="button" class="btn ghost small" id="ck-scale-dn" aria-label="Mniej" title="Mniej">▼</button>
+          <output id="ck-scale-v" aria-live="polite">×1</output>
+          <button type="button" class="btn ghost small" id="ck-scale-up" aria-label="Więcej" title="Więcej">▲</button>
+          <button class="btn ghost small" id="ck-scale-go" disabled>Powiększ porcje</button>
+        </span>
       </div>
+      <div class="msg" id="ck-scale-msg" hidden style="margin-bottom:8px"></div>
       <datalist id="ing-list"></datalist>
       <div class="tablebox"><table id="ck-table"></table></div>
     </div>
@@ -1677,7 +1684,7 @@ function loadIntoEditor(src, opts) {
   draft = { id: null, rows: src.rows.map(r => ({ ...r })), fromRecipe: opts.fromRecipe || null, editing: opts.editing || null };
   ckKind = "dish";
   $("#ck-name").value = src.name; $("#ck-portions").value = src.portions ?? 1; $("#ck-share").value = myShareOf(src.share); $("#ck-text").value = src.text || "";
-  msg($("#ck-msg"), ""); msg($("#ck-msg2"), "");
+  msg($("#ck-msg"), ""); msg($("#ck-msg2"), ""); msg($("#ck-scale-msg"), "");
   const from = opts.editing ? `Edytujesz przepis bazowy „${src.name}”. Zapisz przyciskiem w kroku 3.`
     : opts.spice ? `Wczytano przepis „${src.name}” przypisany do przyprawy „${opts.spice.name}”. Popraw gramy, usuń albo dodaj składniki, potem zapisz do zamrażarki.`
     : `Wczytano „${src.name}”. Popraw gramy, usuń albo dodaj składniki, potem zapisz do zamrażarki.`;
@@ -1809,12 +1816,25 @@ $("#ck-search").oninput = renderSearch;
 $("#ck-search").onkeydown = e => { if (e.key === "Enter") { const b = $("#ck-results button"); if (b) b.click(); } };
 $("#rc-search").oninput = () => { if ($("#rc-search").value.trim()) ["#rc-box", "#fd-box", "#sp-box"].forEach(b => $(b).open = true); renderRecipes(); renderFoods(); };
 $("#fz-search").oninput = () => { if ($("#fz-search").value.trim()) $("#meals-box").open = true; renderFreezer(); };
+/* mnożnik składników: strzałki góra/dół zamiast pola, a przycisk mówi, co zrobi */
+const SCALES = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+let scaleI = 1;
+function renderScale() {
+  const f = SCALES[scaleI], t = "×" + f.toLocaleString("pl-PL");
+  $("#ck-scale-v").textContent = t; $("#ck-scale-dn").disabled = scaleI === 0; $("#ck-scale-up").disabled = scaleI === SCALES.length - 1;
+  const go = $("#ck-scale-go"); go.disabled = f === 1; go.textContent = f > 1 ? `Powiększ porcje ${t}` : f < 1 ? `Zmniejsz porcje ${t}` : "Powiększ porcje";
+}
+$("#ck-scale-dn").onclick = () => { scaleI = Math.max(0, scaleI - 1); renderScale(); };
+$("#ck-scale-up").onclick = () => { scaleI = Math.min(SCALES.length - 1, scaleI + 1); renderScale(); };
 $("#ck-scale-go").onclick = () => {
-  const f = num($("#ck-scale").value); if (!(f > 0)) return;
+  const f = SCALES[scaleI]; if (f === 1) return;
   /* wiersz z samymi sumami („cały garnek”) nie ma gramów, więc mnożymy jego wartości */
   draft.rows.forEach(r => { r.g = r.g * f; if (r.abs) { r.k *= f; r.p *= f; r.f *= f; } });
-  $("#ck-scale").value = 1; renderCook();
+  scaleI = 1; renderScale(); renderCook();
+  const n = Math.max(1, num($("#ck-portions").value));
+  msg($("#ck-scale-msg"), `Wszystkie gramy ${f > 1 ? "powiększone" : "zmniejszone"} ${f.toLocaleString("pl-PL")} razy. Liczba pudełek zostaje ${n}, więc każde będzie ${f > 1 ? "większe" : "mniejsze"}. Jeśli wolisz więcej pudełek, zmień ją w polu „Pudełka”.`);
 };
+renderScale();
 /* wybór z listy bez gubienia poprzedniego wyboru, gdy opcja nadal istnieje */
 const keepSel = (sel, html) => { const old = sel.value; sel.innerHTML = html; if ([...sel.options].some(o => o.value === old)) sel.value = old; };
 function renderCookSelects() {
@@ -1870,7 +1890,7 @@ function renderCook(onlyFoot) {
     (shareOf(m) < 1 ? `<tr><td colspan="2">Moja część pudełka (${myShare(m)}%)</td><td></td><td class="n">${r0(mp.k)}</td><td></td><td class="n">${f1(mp.p)}</td><td></td><td class="n">${f1(mp.f)}</td><td></td></tr>` : "");
   const foot = dishFoot;
   if (onlyFoot && $("#ck-table tfoot")) { $("#ck-table tfoot").innerHTML = foot; return; }
-  $("#ck-scale-row").hidden = !draft.rows.length;
+  $("#ck-scale-row").hidden = !draft.rows.length; if (!draft.rows.length) msg($("#ck-scale-msg"), "");
   if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Tu pojawi się wyliczenie. Dodaj składniki w kroku 1.</td></tr></tbody>`; return; }
   $("#ck-table").innerHTML = `<thead><tr><th>Składnik</th><th>Ilość</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">kcal/100</th><th class="n">Białko</th><th class="n">B/100</th><th class="n">Błonnik</th><th class="n">Bł/100</th><th></th></tr></thead><tbody>` +
     draft.rows.map((r, i) => r.abs ? `<tr title="${esc(r.src)}">
