@@ -91,8 +91,10 @@ td input.num{width:72px;text-align:right}
 .msg{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
 .msg.err{color:var(--bad)}
 .msg.busy{display:block}
+.spice-ico{width:18px;height:18px;color:var(--ok);vertical-align:-4px;flex:none}
 .tip{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
-.info-i{width:18px;height:18px;border-radius:50%;border:0;padding:0;background:var(--accent);color:var(--accent-ink);font:700 12px/18px var(--body);text-align:center;cursor:pointer;flex:none}
+.info-i{position:relative;width:10px;height:10px;border-radius:50%;border:0;padding:0;background:var(--accent);color:var(--accent-ink);font:700 8px/10px var(--body);text-align:center;cursor:pointer;flex:none;margin:0 2px}
+.info-i::after{content:"";position:absolute;inset:-9px}
 .info-i:hover{filter:brightness(1.1)}
 .scale-in{display:inline-flex;align-items:center;gap:2px;color:var(--muted)}.scale-in input{width:64px;text-align:center;padding:5px 6px}
 .scale-arrows{display:inline-flex;flex-direction:column}.scale-arr{border:0;background:none;color:var(--muted);padding:0 6px;font-size:10px;line-height:1.15;cursor:pointer;border-radius:4px}
@@ -1718,7 +1720,8 @@ function hl(name, q) {
 }
 /* przyprawa = nazwa + skład (do podglądu) + przypisany przepis; bez wartości odżywczych */
 /* na liście przepisów liczy się tylko to, czy przepis ma przyprawę, a nie jak się ona nazywa */
-const spiceMark = r => spicesOf(r).length ? `<span class="spice-ico" role="img" aria-label="Ma przyprawę" title="Ma przyprawę">🧂</span>` : "";
+const SPICE_SVG = `<svg class="spice-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9.6c-.6 3.6 1 7.6 4.6 10 2.8 1.8 6.4 2.2 9.4 1.2-2.6-.6-4.8-2.4-6.6-5.2-1.5-2.3-2.4-4.3-3.6-5.4-1.1-1-2.6-1.2-3.8-.6Z"/><path d="M7.5 9.2C6.8 7.6 7.2 5.6 8.8 4.2"/><g fill="currentColor" stroke="none"><circle cx="14.6" cy="6.2" r="1.35"/><circle cx="18.6" cy="4.8" r="1.35"/><circle cx="19" cy="9" r="1.35"/></g></svg>`;
+const spiceMark = r => spicesOf(r).length ? `<span role="img" aria-label="Ma przyprawę" title="Ma przyprawę">${SPICE_SVG}</span>` : "";
 const spicesOf = r => S.spices.filter(sp => (sp.recipeIds || []).includes(r.id)).map(sp => sp.name);
 /* jedna przyprawa może mieć kilka wariantów dania (np. ten sam łosoś z ryżem albo z ziemniakami) */
 const recipesOf = sp => (sp.recipeIds || []).map(id => S.recipes.find(r => r.id === id)).filter(Boolean);
@@ -1750,7 +1753,7 @@ function useSpice(sp, recipeId) {
   const rs = recipesOf(sp), r = recipeId ? rs.find(x => x.id === recipeId) : rs.length === 1 ? rs[0] : null;
   if (!r) {
     showTab("gotuje"); setCookKind("dish");
-    return msg($("#ck-msg"), rs.length ? `Przyprawa „${sp.name}” ma kilka przepisów. Wybierz przepis w podglądzie przyprawy albo w trybie „Z przepisu” (przepisy z przyprawą mają ikonkę 🧂).` : `Przyprawa „${sp.name}” nie ma jeszcze przepisu. Dodaj go przyciskiem „Nowy przepis dla tej przyprawy” w podglądzie przyprawy.`, !rs.length);
+    return msg($("#ck-msg"), rs.length ? `Przyprawa „${sp.name}” ma kilka przepisów. Wybierz przepis w podglądzie przyprawy albo w trybie „Z przepisu” (przepisy z przyprawą mają zieloną ikonkę papryczki).` : `Przyprawa „${sp.name}” nie ma jeszcze przepisu. Dodaj go przyciskiem „Nowy przepis dla tej przyprawy” w podglądzie przyprawy.`, !rs.length);
   }
   loadIntoEditor(r, { fromRecipe: r.id, spice: sp });
 }
@@ -2000,7 +2003,7 @@ $("#ck-as-recipe").onclick = () => {
 function renderRecipes() {
   const q = $("#rc-search").value.trim(), cnt = (list) => list.length ? (q ? `${list.filter(x => matches(x, q)).length} z ${list.length}` : list.length) : "";
   $("#rc-count").textContent = cnt(S.recipes); $("#sp-count").textContent = cnt(S.spices);
-  $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th title="Czy przepis ma przyprawę" aria-label="Przyprawa">🧂</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
+  $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th title="Czy przepis ma przyprawę" aria-label="Przyprawa">${SPICE_SVG}</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
     ([...S.recipes].filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(r => { const mp = myPart(r), sp = spicesOf(r); return `<tr><td>${hl(r.name, q)} <span class="muted">${r.rows.length} skł.</span></td><td>${spiceMark(r)}</td><td class="n">${r.portions}</td><td class="n">${myShareOf(r.share)}%</td><td class="n">${r0(mp.k)}</td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td>
       <td class="n" style="white-space:nowrap"><button class="btn small" data-rc-cook="${r.id}">Gotuję</button> <button class="btn ghost small" data-rc-view="${r.id}">Podgląd</button> <button class="x" data-rc-del="${r.id}" title="Usuń przepis">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="8">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Brak przepisów. Wpisz składniki w zakładce Gotuję i zapisz je w kroku 3 jako przepis bazowy.</td></tr></tbody>`;
@@ -2059,7 +2062,7 @@ function renderPv() {
   }
   if (!edit) {
     const rows = it.rows;
-    $("#pv-meta").innerHTML = `${f1(it.portions)} szt. · moja część ${myShareOf(it.share)}%${spicesOf(it).length ? " · 🧂 ma przyprawę" : ""}`;
+    $("#pv-meta").innerHTML = `${f1(it.portions)} szt. · moja część ${myShareOf(it.share)}%${spicesOf(it).length ? ` · ${SPICE_SVG} ma przyprawę` : ""}`;
     tbl.innerHTML = `<thead><tr><th>Składnik</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">Białko</th><th class="n">Błonnik</th></tr></thead><tbody>` + rows.map(r => { const v = rowVal(r);
       return r.abs ? `<tr><td>${esc(r.name)}<small>sumy dla całego garnka</small></td><td class="n">${v.g ? f1(v.g) : ""}</td><td class="n">${r0(v.k)}</td><td class="n">${f1(v.p)}</td><td class="n">${f1(v.f)}</td></tr>`
         : `<tr><td>${esc(r.name)}${pvQty(r)}</td><td class="n">${f1(r.g)}</td><td class="n">${r0(v.k)}</td><td class="n">${f1(v.p)}</td><td class="n">${f1(v.f)}</td></tr>`; }).join("") + `</tbody>`;

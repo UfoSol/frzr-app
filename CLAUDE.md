@@ -118,7 +118,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Zakładka „Gotuję” to trzy ponumerowane kroki (15.11):
   - krok 1 „Składniki” z przełącznikiem trybu: opisowo (tekst i Gemini albo wklejone sumy), tabela (wiersze ręcznie i z kodu kreskowego), z przepisu (lista i wyszukiwarka przepisów bazowych); trybu „Z przyprawy” nie ma, bo dublował „Z przepisu” i podgląd przyprawy,
   - tryb pokazuje tylko swoje pola, a wyliczenie jest jedno, więc tryby można łączyć w jednym daniu,
-  - krok 2 „Danie i wyliczenie”: nazwa, pudełka, moja część, tabela z sumami, „Zacznij od nowa”, mnożnik porcji: pole, w które można wpisać dowolną liczbę (np. 1,24, od 0,1 do 20, Enter stosuje), z subtelnymi strzałkami skaczącymi po wygodnych wartościach (×0,5 do ×10), i przyciskiem „Powiększ porcje ×N” (albo „Zmniejsz porcje”), który mnoży gramy; zamiast długiego opisu przy „Ile razy więcej?” jest ikonka „i” (biała na zielonym kółku), której kliknięcie pokazuje objaśnienie („Użyj, jeśli chcesz przeskalować wielkość przygotowanego jedzenia…”), np. do ugotowania podwójnej porcji z przepisu; liczba pudełek zostaje bez zmian, a komunikat o tym mówi,
+  - krok 2 „Danie i wyliczenie”: nazwa, pudełka, moja część, tabela z sumami, „Zacznij od nowa”, mnożnik porcji: pole, w które można wpisać dowolną liczbę (np. 1,24, od 0,1 do 20, Enter stosuje), z subtelnymi strzałkami skaczącymi po wygodnych wartościach (×0,5 do ×10), i przyciskiem „Powiększ porcje ×N” (albo „Zmniejsz porcje”), który mnoży gramy; zamiast długiego opisu przy „Ile razy więcej?” jest mała ikonka „i” (biała na zielonym kółku, 10 px, z większym obszarem dotyku), której kliknięcie pokazuje objaśnienie („Użyj, jeśli chcesz przeskalować wielkość przygotowanego jedzenia…”), np. do ugotowania podwójnej porcji z przepisu; liczba pudełek zostaje bez zmian, a komunikat o tym mówi,
   - krok 3 „Zapis”: zamrażarka na pierwszym planie, przepis bazowy (z przypisaniem do przyprawy) w zwijanej sekcji,
   - wybrany tryb jest zapamiętany (`settings.cookMode`), komunikat pojawia się w kroku, którego dotyczy.
 - Praca na przepisie w „Gotuję” (15.11):
@@ -136,7 +136,7 @@ Tryb jest osobny dla każdej osoby (27.10).
   - drukarka etykiet ma 50 mm szerokości: rozmiar etykiety to ustawienie (`settings.label`, domyślnie 50 × 30 mm) zmieniane w oknie druku,
   - „Dodaj i drukuj etykiety” przy nowym posiłku drukuje od razu, w tym samym formacie.
 - Strona nie skacze na boki: pasek przewijania zawsze zajmuje miejsce (`scrollbar-gutter: stable`), bo przełączenie Danie / Samą przyprawę zmienia wysokość i pasek pojawiał się i znikał. (15.11)
-- Na liście przepisów (Przepisy i wyniki „Z przepisu”) przyprawę oznacza tylko ikonka 🧂 (przepis ją ma albo nie), bez nazwy przyprawy, bo ważne jest samo posiadanie. (15.11)
+- Na liście przepisów (Przepisy i wyniki „Z przepisu”) przyprawę oznacza tylko zielona wektorowa ikonka papryczki chilli z trzema kuleczkami pieprzu (przepis ją ma albo nie), bez nazwy przyprawy, bo ważne jest samo posiadanie. (15.11)
 - Tabela dni w Wadze pokazuje 45 dni, starsze pod przyciskiem „Pokaż starsze dni”. (14.11)
 - Wykresy kalorii, białka i błonnika (30 dni) w zwijanej sekcji pod wykresem wagi (27.10):
   - jedna oś na wykres,
@@ -180,4 +180,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Bez przycisku „Gotuję” na liście przypraw. Na liście przepisów ikonka przyprawy zamiast jej nazwy. |
 | 15.11 | Kolumna „Ilość” zawsze zgodna z gramami. Mnożnik porcji jako pole do wpisania (np. 1,24) z subtelnymi strzałkami. |
 | 15.11 | Bez trybu „Z przyprawy” w Gotuję. Przy mnożniku porcji ikonka „i” z objaśnieniem zamiast długiego opisu. |
+| 15.11 | Ikonka przyprawy: zielona papryczka chilli z trzema kuleczkami pieprzu (wektor). Ikonka „i” przy mnożniku o połowę mniejsza. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
