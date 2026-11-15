@@ -163,6 +163,23 @@ a.btn{display:inline-block;text-decoration:none;font:600 14px var(--body);border
 a.btn.ghost{background:transparent;color:var(--accent)}
 .demo-card{margin-bottom:12px}
 .pill:empty{display:none}
+/* okno podglądu przepisu i przyprawy: widok i edycja składników */
+#pv-table td small{display:block;font-size:12px;color:var(--muted)}
+/* przyciski okna zostają widoczne przy długim przepisie */
+.pv-actions{position:sticky;bottom:0;background:var(--surface);margin-top:12px;padding:10px 0 2px;border-top:1px solid var(--line)}
+#pv-table input{width:100%}
+#pv-table input.num{width:78px;text-align:right}
+#pv-table td.calc{white-space:nowrap}
+@media (max-width:560px){
+  #pv-table.edit thead{display:none}
+  #pv-table.edit tbody tr{display:grid;grid-template-columns:repeat(4,1fr);gap:6px 8px;padding:10px 0;border-bottom:1px solid var(--line);position:relative}
+  #pv-table.edit tbody td{border:0;padding:0;text-align:left}
+  #pv-table.edit tbody td:first-child{grid-column:1/-1;padding-right:34px}
+  #pv-table.edit tbody td[data-l]::before{content:attr(data-l);display:block;color:var(--muted);font-size:11px}
+  #pv-table.edit tbody td input.num{width:100%;text-align:left}
+  #pv-table.edit tbody td.calc{display:none}
+  #pv-table.edit tbody td.rm{position:absolute;right:0;top:10px}
+}
 /* zielona strzałka rozwijania partii w „Wszystkich posiłkach” */
 .chev{width:34px;height:34px;display:inline-grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--accent);cursor:pointer;flex:none;padding:0}
 .chev:hover{background:var(--frost)}
@@ -445,7 +462,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <input type="search" id="rc-search" placeholder="Szukaj przepisu, przyprawy albo składnika" autocomplete="off" aria-label="Szukaj">
     <details class="card fold" id="rc-box" open>
       <summary><h3>Moje przepisy</h3> <span class="pill" id="rc-count"></span></summary>
-      <p class="muted" style="margin:10px 0 8px">„Gotuję” wczytuje przepis z aktualnymi gramami. Nowy przepis zapiszesz w zakładce Gotuję, w kroku 3 pod „Zapisz na później”.</p>
+      <p class="muted" style="margin:10px 0 8px">„Gotuję” wczytuje przepis z aktualnymi gramami, a „Podgląd” pokazuje składniki i pozwala je poprawić. Nowy przepis zapiszesz w zakładce Gotuję, w kroku 3 pod „Zapisz na później”.</p>
       <div class="tablebox"><table id="rc-table"></table></div>
     </details>
     <details class="card fold" id="fd-box">
@@ -557,6 +574,33 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   </div>
 </div>
 
+<div class="modal" id="pv-modal" hidden>
+  <div class="card" style="max-width:720px;width:100%;max-height:92vh;overflow:auto" role="dialog" aria-labelledby="pv-title">
+    <div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:4px">
+      <h3 id="pv-title" style="margin:0"></h3>
+      <span class="pill" id="pv-kind"></span>
+    </div>
+    <p class="muted" id="pv-meta" style="margin:0 0 10px"></p>
+    <div class="row" id="pv-head" hidden style="margin-bottom:10px">
+      <label style="flex:2;min-width:180px">Nazwa<input id="pv-name"></label>
+      <label data-recipe-only>Pudełka / porcje<input type="number" id="pv-portions" min="1" step="1" style="width:90px"></label>
+      <label data-recipe-only>Moja część %<input type="number" id="pv-share" min="1" max="100" step="5" style="width:90px"></label>
+    </div>
+    <p class="muted" id="pv-note" hidden style="margin:0 0 8px"></p>
+    <div class="tablebox"><table id="pv-table"></table></div>
+    <div class="row" style="margin-top:8px"><button class="btn ghost small" id="pv-add" hidden>Dodaj składnik</button></div>
+    <p class="muted" id="pv-totals" style="margin:10px 0 0"></p>
+    <div class="msg" id="pv-msg" hidden style="margin-top:10px"></div>
+    <div class="row pv-actions">
+      <button class="btn" id="pv-edit">Edytuj</button>
+      <button class="btn" id="pv-use"></button>
+      <button class="btn ghost" id="pv-close">Zamknij</button>
+      <button class="btn" id="pv-save" hidden>Zapisz zmiany</button>
+      <button class="btn ghost" id="pv-cancel" hidden>Anuluj</button>
+      <button class="btn ghost small" id="pv-adv" hidden style="margin-left:auto" title="Policzenie składników przez Gemini, kod kreskowy i inne opcje">Więcej opcji w Gotuję</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="lbl-modal" hidden>
   <div class="card" style="max-width:520px;max-height:90vh;overflow:auto">
     <h3>Etykiety do druku</h3>
@@ -793,7 +837,7 @@ function switchUser(i) {
   /* komunikaty i niedokończone wpisy należą do poprzedniej osoby */
   document.querySelectorAll(".msg").forEach(el => msg(el, ""));
   ["#w-kg", "#free-name", "#free-k", "#free-p", "#free-f", "#fav-search"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
-  wReset(); $("#w-date").value = todayIso(); pick = null; pickN = {}; $("#lbl-modal").hidden = true;
+  wReset(); $("#w-date").value = todayIso(); pick = null; pickN = {}; $("#lbl-modal").hidden = true; closePreview();
   freePicked = null; hideFreeSugg();
   flipShareInputs();
   save(); fillSettings(); render();
@@ -1377,21 +1421,140 @@ function renderRecipes() {
   $("#rc-count").textContent = cnt(S.recipes); $("#sp-count").textContent = cnt(S.spices);
   $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th>Przyprawa</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
     ([...S.recipes].filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(r => { const x = { ...r, rows: refreshSpices(r.rows) }, mp = myPart(x), sp = spicesOf(r); return `<tr><td>${hl(r.name, q)} <span class="muted">${r.rows.length} skł.</span></td><td class="${sp.length ? "" : "muted"}">${sp.length ? esc(sp.join(", ")) : "bez przyprawy"}</td><td class="n">${r.portions}</td><td class="n">${myShareOf(r.share)}%</td><td class="n">${r0(mp.k)}</td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td>
-      <td class="n" style="white-space:nowrap"><button class="btn small" data-rc-cook="${r.id}">Gotuję</button> <button class="btn ghost small" data-rc-edit="${r.id}">Edytuj</button> <button class="x" data-rc-del="${r.id}" title="Usuń przepis">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="8">Brak wyników.</td></tr>`) + `</tbody>`
+      <td class="n" style="white-space:nowrap"><button class="btn small" data-rc-cook="${r.id}">Gotuję</button> <button class="btn ghost small" data-rc-view="${r.id}">Podgląd</button> <button class="x" data-rc-del="${r.id}" title="Usuń przepis">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="8">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Brak przepisów. Wpisz składniki w zakładce Gotuję i zapisz je w kroku 3 jako przepis bazowy.</td></tr></tbody>`;
   $("#sp-table").innerHTML = S.spices.length ? `<thead><tr><th>Przyprawa</th><th>Dania</th><th class="n">kcal/100 g</th><th class="n">Białko/100</th><th class="n">Błonnik/100</th><th></th></tr></thead><tbody>` +
     (S.spices.filter(s => matches(s, q)).map(s => { const d = dishesFor(s); return `<tr><td>${hl(s.name, q)} <span class="muted">${s.rows.map(r => esc(r.name)).join(", ")}</span></td><td class="${d.length ? "" : "muted"}">${d.length ? esc(d.map(x => x.name).join(", ")) : "jeszcze bez dania"}</td><td class="n">${r0(s.k100)}</td><td class="n">${f1(s.p100)}</td><td class="n">${f1(s.f100)}</td>
-      <td class="n" style="white-space:nowrap"><button class="btn small" data-sp-new="${s.id}">Nowe danie</button> <button class="btn ghost small" data-sp-edit="${s.id}">Edytuj</button> <button class="x" data-sp-del="${s.id}" title="Usuń przyprawę">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="6">Brak wyników.</td></tr>`) + `</tbody>`
+      <td class="n" style="white-space:nowrap"><button class="btn small" data-sp-new="${s.id}">Nowe danie</button> <button class="btn ghost small" data-sp-view="${s.id}">Podgląd</button> <button class="x" data-sp-del="${s.id}" title="Usuń przyprawę">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="6">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Brak przypraw. Kliknij „Nowa przyprawa” albo przełącz w zakładce Gotuję na „Samą przyprawę”.</td></tr></tbody>`;
   const on = (attr, list, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(list.find(x => x.id === b.getAttribute(attr)), b));
   on("data-rc-cook", S.recipes, r => loadIntoEditor(r, { fromRecipe: r.id }));
-  on("data-rc-edit", S.recipes, r => loadIntoEditor(r, { editing: { type: "recipe", id: r.id } }));
+  on("data-rc-view", S.recipes, r => openPreview("recipe", r.id));
   on("data-sp-new", S.spices, s => dishFromSpice(s));
-  on("data-sp-edit", S.spices, s => loadIntoEditor({ ...s, portions: 1, share: 100 }, { editing: { type: "spice", id: s.id } }));
+  on("data-sp-view", S.spices, x => openPreview("spice", x.id));
   const del = (list, key) => (x, b) => { if (b.dataset.sure) { S[key] = S[key].filter(y => y !== x); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } };
   on("data-rc-del", S.recipes, del(S.recipes, "recipes"));
   on("data-sp-del", S.spices, del(S.spices, "spices"));
 }
+/* ---------- podgląd przepisu i przyprawy ----------
+   Okno pokazuje składniki. Dopiero w nim jest „Edytuj”: wtedy można zmieniać nazwę, ilości, wartości na 100 g i liczbę pudełek,
+   dopisywać i usuwać składniki. Edycja dotyczy przepisu bazowego, a nie pudełek, które już są w zamrażarce. */
+let pv = null; /* { type: "recipe" | "spice", id, edit, rows, dirty, pending } */
+const pvItem = () => pv && (pv.type === "spice" ? S.spices : S.recipes).find(x => x.id === pv.id);
+function openPreview(type, id) { pv = { type, id, edit: false, rows: null, dirty: false, pending: null }; msg($("#pv-msg"), ""); renderPv(); $("#pv-modal").hidden = false; $("#pv-edit").focus(); }
+function closePreview() { pv = null; $("#pv-modal").hidden = true; }
+const pvQty = r => r.qty && String(r.qty).trim() !== `${f1(r.g)} g` && String(r.qty).trim() !== `${r.g} g` ? `<small>${esc(r.qty)}</small>` : "";
+/* opis liczb pod tabelą: z wierszy i, w edycji, z pól nagłówka na żywo */
+function pvTotals(rows, it) {
+  const t = mealTotals({ rows }), spice = pv.type === "spice";
+  if (spice) return t.g ? `Razem ${r0(t.g)} g: ${r0(t.k)} kcal · białko ${f1(t.p)} g · błonnik ${f1(t.f)} g.<br><b>Na 100 g mieszanki: ${r0(t.k / t.g * 100)} kcal · białko ${f1(t.p / t.g * 100)} g · błonnik ${f1(t.f / t.g * 100)} g.</b>` : "Dodaj gramy składników, a pokażę wartości na 100 g mieszanki.";
+  const portions = pv.edit ? Math.max(1, num($("#pv-portions").value) || 1) : (it.portions || 1), shareIn = pv.edit ? Math.min(100, Math.max(1, num($("#pv-share").value) || 100)) : myShareOf(it.share);
+  const m = { rows, portions, share: myShareOf(shareIn) }, pp = perPortion(m), mp = myPart(m);
+  return `Cały garnek${t.g ? ` (${r0(t.g)} g)` : ""}: ${r0(t.k)} kcal · białko ${f1(t.p)} g · błonnik ${f1(t.f)} g.<br>Pudełko (1 z ${f1(portions)}): ${r0(pp.k)} kcal.` + (shareIn < 100 ? `<br><b>Moja część (${shareIn}%): ${r0(mp.k)} kcal · białko ${f1(mp.p)} g · błonnik ${f1(mp.f)} g.</b>` : "");
+}
+function renderPv() {
+  const it = pvItem(); if (!it) return closePreview();
+  const spice = pv.type === "spice", edit = pv.edit, tbl = $("#pv-table");
+  $("#pv-title").textContent = edit ? (spice ? "Edytuj przyprawę" : "Edytuj przepis") : it.name;
+  $("#pv-kind").textContent = spice ? "Przyprawa" : "Przepis";
+  document.querySelectorAll("[data-recipe-only]").forEach(el => el.hidden = spice);
+  $("#pv-head").hidden = !edit; $("#pv-add").hidden = !edit; $("#pv-note").hidden = !edit;
+  ["#pv-edit", "#pv-use", "#pv-close"].forEach(b => $(b).hidden = edit); ["#pv-save", "#pv-cancel", "#pv-adv"].forEach(b => $(b).hidden = !edit);
+  $("#pv-use").textContent = spice ? "Nowe danie" : "Gotuję";
+  $("#pv-note").textContent = spice ? "Zmiana przyprawy odświeża wartości w przepisach, które jej używają." : "Zmiany dotyczą przepisu bazowego. Pudełka, które już są w zamrażarce, zostają bez zmian.";
+  tbl.className = edit ? "edit" : "";
+  if (!edit) {
+    const rows = refreshSpices(it.rows);
+    $("#pv-meta").innerHTML = spice ? `${r0(it.k100)} kcal · białko ${f1(it.p100)} g · błonnik ${f1(it.f100)} g na 100 g${it.g ? ` · mieszanka ${r0(it.g)} g` : ""}`
+      : `${it.portions} szt. · moja część ${myShareOf(it.share)}%${spicesOf(it).length ? " · przyprawa: " + esc(spicesOf(it).join(", ")) : ""}`;
+    tbl.innerHTML = `<thead><tr><th>Składnik</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">Białko</th><th class="n">Błonnik</th></tr></thead><tbody>` + rows.map(r => { const v = rowVal(r);
+      return r.abs ? `<tr><td>${esc(r.name)}<small>sumy dla całego garnka</small></td><td class="n">${v.g ? f1(v.g) : ""}</td><td class="n">${r0(v.k)}</td><td class="n">${f1(v.p)}</td><td class="n">${f1(v.f)}</td></tr>`
+        : `<tr><td>${esc(r.name)}${r.spiceId ? ' <span class="pill">przyprawa</span>' : ""}${pvQty(r)}</td><td class="n">${f1(r.g)}</td><td class="n">${r0(v.k)}</td><td class="n">${f1(v.p)}</td><td class="n">${f1(v.f)}</td></tr>`; }).join("") + `</tbody>`;
+    $("#pv-totals").innerHTML = pvTotals(rows, it);
+    return;
+  }
+  $("#pv-meta").textContent = "";
+  /* wiersz z samymi sumami ma wartości dla całego garnka, a nie na 100 g */
+  if (pv.rows.some(r => r.abs)) $("#pv-note").textContent += " Wiersz z sumami ma wartości dla całego garnka, a nie na 100 g.";
+  tbl.innerHTML = `<thead><tr><th>Składnik</th><th class="n">Gramy</th><th class="n">kcal / 100 g</th><th class="n">Białko / 100 g</th><th class="n">Błonnik / 100 g</th><th class="n">kcal</th><th></th></tr></thead><tbody>` +
+    pv.rows.map((r, i) => r.abs ? `<tr data-i="${i}"><td><input data-pv="name" value="${esc(r.name)}" aria-label="Nazwa"></td>
+        <td class="n" data-l="gramy"><input class="num" data-pv="g" value="${r.g ? f1(r.g) : ""}" placeholder="g" aria-label="Gramy"></td>
+        <td class="n" data-l="kcal razem"><input class="num" data-pv="k" value="${f1(r.k)}" aria-label="kcal razem"></td>
+        <td class="n" data-l="białko razem"><input class="num" data-pv="p" value="${f1(r.p)}" aria-label="Białko razem"></td>
+        <td class="n" data-l="błonnik razem"><input class="num" data-pv="f" value="${f1(r.f)}" aria-label="Błonnik razem"></td>
+        <td class="n calc" data-calc></td><td class="n rm"><button class="x" data-pv-rm="${i}" title="Usuń wiersz">×</button></td></tr>`
+      : r.spiceId ? `<tr data-i="${i}"><td>${esc(r.name)} <span class="pill">przyprawa</span></td>
+        <td class="n" data-l="gramy"><input class="num" data-pv="g" value="${f1(r.g)}" aria-label="Gramy"></td>
+        <td class="n" data-l="kcal/100">${r0(r.k100)}</td><td class="n" data-l="białko/100">${f1(r.p100)}</td><td class="n" data-l="błonnik/100">${f1(r.f100)}</td>
+        <td class="n calc" data-calc></td><td class="n rm"><button class="x" data-pv-rm="${i}" title="Usuń składnik">×</button></td></tr>`
+      : `<tr data-i="${i}"><td><input data-pv="name" list="ing-list" value="${esc(r.name)}" placeholder="Nazwa składnika" aria-label="Nazwa"></td>
+        <td class="n" data-l="gramy"><input class="num" data-pv="g" value="${r.g ? f1(r.g) : ""}" placeholder="g" aria-label="Gramy"></td>
+        <td class="n" data-l="kcal/100"><input class="num" data-pv="k100" value="${f1(r.k100)}" aria-label="kcal na 100 g"></td>
+        <td class="n" data-l="białko/100"><input class="num" data-pv="p100" value="${f1(r.p100)}" aria-label="Białko na 100 g"></td>
+        <td class="n" data-l="błonnik/100"><input class="num" data-pv="f100" value="${f1(r.f100)}" aria-label="Błonnik na 100 g"></td>
+        <td class="n calc" data-calc></td><td class="n rm"><button class="x" data-pv-rm="${i}" title="Usuń składnik">×</button></td></tr>`).join("") +
+    `</tbody>`;
+  pvRecalc();
+}
+/* przelicza kolumnę „kcal” i opis pod tabelą bez przebudowy pól, żeby nie gubić fokusu */
+function pvRecalc() {
+  if (!pv || !pv.edit) return;
+  document.querySelectorAll("#pv-table tbody tr[data-i]").forEach(tr => { const c = tr.querySelector("[data-calc]"); if (c) c.textContent = r0(rowVal(pv.rows[+tr.dataset.i]).k); });
+  $("#pv-totals").innerHTML = pvTotals(pv.rows, pvItem());
+}
+function startPvEdit() {
+  const it = pvItem(); pv.edit = true; pv.dirty = false; pv.pending = null;
+  pv.rows = refreshSpices(it.rows).map(r => ({ ...r, _g0: r.g }));
+  $("#pv-name").value = it.name; $("#pv-portions").value = it.portions ?? 1; $("#pv-share").value = myShareOf(it.share);
+  msg($("#pv-msg"), ""); renderPv(); $("#pv-name").focus();
+}
+/* zmiana czegokolwiek kasuje ostrzeżenie o niezapisanych zmianach */
+function pvTouch() { pv.dirty = true; if (pv.pending) { pv.pending = null; msg($("#pv-msg"), ""); } }
+$("#pv-table").addEventListener("input", e => {
+  const inp = e.target.closest("[data-pv]"); if (!inp || !pv || !pv.edit) return;
+  const tr = inp.closest("tr"), i = +tr.dataset.i, r = pv.rows[i], k = inp.dataset.pv; pvTouch();
+  r[k] = k === "name" ? inp.value : Math.max(0, num(inp.value));
+  /* nazwa znanego składnika uzupełnia jego wartości, jak w zakładce Gotuję */
+  if (k === "name" && !r.abs && !r.k100 && !r.p100 && !r.f100) {
+    const hit = ingredientLib().get(inp.value.trim().toLowerCase());
+    if (hit) { Object.assign(r, { k100: hit.k100, p100: hit.p100, f100: hit.f100, src: hit.src || "z poprzednich przepisów", spiceId: hit.spiceId }); renderPv(); const g = $(`#pv-table tr[data-i="${i}"] [data-pv="g"]`); if (g) g.focus(); return; }
+  }
+  pvRecalc();
+});
+$("#pv-table").addEventListener("click", e => { const b = e.target.closest("[data-pv-rm]"); if (!b || !pv || !pv.edit) return; pvTouch(); pv.rows.splice(+b.dataset.pvRm, 1); renderPv(); });
+["#pv-name", "#pv-portions", "#pv-share"].forEach(sel => $(sel).addEventListener("input", () => { if (pv && pv.edit) { pvTouch(); pvRecalc(); } }));
+$("#pv-add").onclick = () => { pvTouch(); pv.rows.push({ name: "", qty: "", g: 0, k100: 0, p100: 0, f100: 0, src: "ręcznie" }); renderPv(); const n = document.querySelectorAll('#pv-table [data-pv="name"]'); if (n.length) n[n.length - 1].focus(); };
+$("#pv-edit").onclick = () => startPvEdit();
+$("#pv-close").onclick = () => closePreview();
+document.addEventListener("keydown", e => { if (e.key === "Escape" && pv && !pv.edit) closePreview(); });
+$("#pv-use").onclick = () => { const it = pvItem(), spice = pv.type === "spice"; closePreview(); if (spice) dishFromSpice(it); else loadIntoEditor(it, { fromRecipe: it.id }); };
+/* drugie kliknięcie potwierdza odrzucenie niezapisanych zmian */
+const pvDiscard = (key, text) => { if (pv.dirty && pv.pending !== key) { pv.pending = key; msg($("#pv-msg"), text, true); return false; } return true; };
+$("#pv-cancel").onclick = () => { if (!pvDiscard("cancel", "Masz niezapisane zmiany. Kliknij „Anuluj” jeszcze raz, żeby je odrzucić.")) return; pv.edit = false; pv.rows = null; pv.dirty = false; pv.pending = null; msg($("#pv-msg"), ""); renderPv(); };
+$("#pv-adv").onclick = () => {
+  if (!pvDiscard("adv", "Niezapisane zmiany przepadną. Zapisz je albo kliknij „Więcej opcji w Gotuję” jeszcze raz.")) return;
+  const it = pvItem(), type = pv.type; closePreview();
+  loadIntoEditor(type === "spice" ? { ...it, portions: 1, share: 100 } : it, { editing: { type, id: it.id } });
+};
+$("#pv-save").onclick = () => {
+  const it = pvItem(), spice = pv.type === "spice", name = $("#pv-name").value.trim(), bad = t => msg($("#pv-msg"), t, true);
+  if (!name) return bad("Wpisz nazwę.");
+  if ((spice ? S.spices : S.recipes).some(x => x.id !== it.id && x.name.trim().toLowerCase() === name.toLowerCase())) return bad(`${spice ? "Przyprawa" : "Przepis"} „${name}” już istnieje. Wybierz inną nazwę.`);
+  const rows = pv.rows.filter(r => r.abs || String(r.name).trim() || r.g || r.k100 || r.p100 || r.f100);
+  if (!rows.length) return bad("Dodaj co najmniej jeden składnik.");
+  if (rows.some(r => !r.abs && !String(r.name).trim())) return bad("Wpisz nazwę składnika w każdym wierszu.");
+  /* ilość tekstowa („150 g”) przestaje być prawdziwa po zmianie gramów, więc ją odświeżamy */
+  const clean = rows.map(({ _g0, ...r }) => { r.name = String(r.name).trim(); if (!r.abs && r.g !== _g0) r.qty = r.g ? `${f1(r.g)} g` : ""; return r; });
+  if (spice) {
+    const t = mealTotals({ rows: clean }); if (!t.g) return bad("Dodaj gramy składników mieszanki.");
+    Object.assign(it, { name, rows: clean, k100: t.k / t.g * 100, p100: t.p / t.g * 100, f100: t.f / t.g * 100, g: t.g });
+  } else {
+    const portions = Math.max(1, num($("#pv-portions").value) || 1), share = Math.min(100, Math.max(1, num($("#pv-share").value) || 100));
+    Object.assign(it, { name, portions, share: myShareOf(share), rows: clean });
+  }
+  pv.edit = false; pv.rows = null; pv.dirty = false; pv.pending = null; save(); render(); renderPv();
+  msg($("#pv-msg"), spice ? `Zapisano przyprawę „${name}”.` : `Zapisano przepis „${name}”. Pudełka w zamrażarce zostają bez zmian.`);
+};
 $("#ck-save-print").onclick = () => { const m = saveDraft(); if (m) printLabels(m, m.portions); };
 
 /* ---------- etykiety ---------- */

@@ -106,6 +106,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Tabela dni pogrupowana tygodniami, kolumny w grupach „Waga” i „Jedzenie”, ze średnią kcal z 7 dni. (24.10)
 - „Wszystkie posiłki” to zwijana lista, na start zwinięta. Jedno danie to jeden wiersz z ostatnią partią, a starsze partie o tej samej nazwie rozwija zielona strzałka po prawej (bez przycisku z napisem, tylko gdy partii jest więcej niż jedna). Kolejność do wyboru: ostatnio gotowane, alfabetycznie, najczęściej gotowane. Wyszukiwanie rozwija listę. Na telefonie wiersz jest kartą. (14.11)
 - Zakładka „Przepisy”: trzy zwijane sekcje z licznikiem. „Moje produkty” są na start zwinięte, pokazują 15 pozycji i resztę pod przyciskiem, z kolejnością do wyboru: najczęściej dodawane, ostatnio dodawane, alfabetycznie. Wyszukiwanie rozwija sekcje i pokazuje wszystkie trafienia. Na telefonie produkt jest kartą. (15.11)
+- Przepisy i przyprawy na liście mają „Podgląd” zamiast „Edytuj”. Podgląd to okno ze wszystkimi składnikami (gramy, kcal, białko, błonnik, oznaczone przyprawy) i sumami. Dopiero w oknie jest „Edytuj”: wtedy można zmieniać nazwę, gramy, wartości na 100 g, liczbę pudełek i część, dopisywać składniki (znany składnik uzupełnia wartości) i je usuwać, z przeliczaniem na żywo. Zapis nie nadpisuje innego przepisu o tej samej nazwie, a odrzucenie niezapisanych zmian wymaga drugiego kliknięcia. Zmiana dotyczy przepisu bazowego, nie pudełek w zamrażarce. „Więcej opcji w Gotuję” otwiera pełny edytor z Gemini i kodem kreskowym. (15.11)
 - Długie listy nie są pokazywane w całości: mają zwijanie, wybór kolejności albo przycisk „pokaż więcej”. (15.11)
 - Zakładka „Gotuję” ma na górze wybór „Przygotowuję: Danie / Samą przyprawę” (15.11). Sama przyprawa to mieszanka liczona na 100 g: ma tylko tryby opisowo i tabela, wyliczenie pokazuje „Razem” i „Na 100 g mieszanki”, nie ma pudełek, części ani zamrażarki, a zapis to „Zapisz przyprawę”. Zastąpienie przyprawy albo przepisu o tej samej nazwie wymaga drugiego kliknięcia. „Nowa przyprawa” jest też w zakładce Przepisy.
 - Zakładka „Gotuję” to trzy ponumerowane kroki (15.11):
@@ -151,4 +152,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Etykiety: zaznaczanie wielu posiłków i jeden wydruk, format pod drukarkę etykiet 50 mm. |
 | 15.11 | „Gotuję” w trzech krokach z wyborem trybu: opisowo, tabela, z przyprawy, z przepisu. |
 | 15.11 | „Gotuję”: osobny tryb samej przyprawy. „Wszystkie posiłki”: zielona strzałka zamiast przycisku „Partie”. |
+| 15.11 | Przepisy i przyprawy: „Podgląd” ze składnikami, a „Edytuj” dopiero w oknie podglądu. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
