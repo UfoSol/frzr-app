@@ -162,12 +162,25 @@ svg text{fill:var(--muted);font:11px var(--body)}
 a.btn{display:inline-block;text-decoration:none;font:600 14px var(--body);border-radius:6px;padding:8px 14px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink)}
 a.btn.ghost{background:transparent;color:var(--accent)}
 .demo-card{margin-bottom:12px}
+.pill:empty{display:none}
 details.fold > summary{cursor:pointer}
 details.fold > summary h3{display:inline;margin:0 6px 0 4px}
 #meals-table td small{display:block;font-size:12px;color:var(--muted);font-weight:400}
 #meals-table tr.mb td{background:var(--bg);font-size:13px}
 #meals-table tr.mb td:first-child{padding-left:22px}
 #meals-table .acts{display:flex;gap:4px;flex-wrap:nowrap;align-items:center;justify-content:flex-end;margin:0}
+/* telefon: produkt jako karta z polami pod nazwą */
+@media (max-width:560px){
+  #fd-table thead{display:none}
+  #fd-table tbody tr{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 8px;padding:10px 0;border-bottom:1px solid var(--line);position:relative}
+  #fd-table tbody td{border:0;padding:0;text-align:left;font-size:13px}
+  #fd-table tbody td:first-child{grid-column:1/-1;padding-right:34px}
+  #fd-table tbody td[data-l]::before{content:attr(data-l);display:block;color:var(--muted);font-size:11px}
+  #fd-table tbody td[data-l] input.num{width:100%;text-align:left}
+  #fd-table tbody td[data-l="razy"]::before,#fd-table tbody td[data-l="ostatnio"]::before{display:inline;content:attr(data-l) " "}
+  #fd-table tbody td[data-l="razy"],#fd-table tbody td[data-l="ostatnio"]{color:var(--muted);font-size:12px}
+  #fd-table tbody td:last-child{position:absolute;right:0;top:12px}
+}
 /* telefon: wiersz jako karta, nazwa na całą szerokość, wartości z podpisami, przyciski w jednym rzędzie */
 @media (max-width:560px){
   #meals-table thead{display:none}
@@ -357,21 +370,25 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   <!-- PRZEPISY -->
   <section class="panel" id="tab-przepisy" hidden>
     <input type="search" id="rc-search" placeholder="Szukaj przepisu, przyprawy albo składnika" autocomplete="off" aria-label="Szukaj">
-    <div class="card">
-      <h3>Moje przepisy</h3>
-      <p class="muted" style="margin:0 0 8px">„Gotuję” wczytuje przepis z aktualnymi gramami. Nowy przepis zapiszesz w zakładce Gotuję przyciskiem „Zapisz jako przepis bazowy”.</p>
+    <details class="card fold" id="rc-box" open>
+      <summary><h3>Moje przepisy</h3> <span class="pill" id="rc-count"></span></summary>
+      <p class="muted" style="margin:10px 0 8px">„Gotuję” wczytuje przepis z aktualnymi gramami. Nowy przepis zapiszesz w zakładce Gotuję przyciskiem „Zapisz jako przepis bazowy”.</p>
       <div class="tablebox"><table id="rc-table"></table></div>
-    </div>
-    <div class="card">
-      <h3>Moje produkty</h3>
-      <p class="muted" style="margin:0 0 8px">Wszystko, co dodajesz w „Dodaj coś spoza zamrażarki”, trafia tutaj. Wartości możesz poprawić, zmiana działa przy następnym dodaniu.</p>
+    </details>
+    <details class="card fold" id="fd-box">
+      <summary><h3>Moje produkty</h3> <span class="pill" id="fd-count"></span></summary>
+      <div class="row" style="justify-content:space-between;margin:10px 0 8px">
+        <p class="muted" style="margin:0;flex:1;min-width:200px">Wszystko, co dodajesz w „Dodaj coś spoza zamrażarki”, trafia tutaj. Wartości możesz poprawić, zmiana działa przy następnym dodaniu.</p>
+        <label>Kolejność<select id="fd-sort"><option value="count">najczęściej dodawane</option><option value="last">ostatnio dodawane</option><option value="name">alfabetycznie</option></select></label>
+      </div>
       <div class="tablebox"><table id="fd-table"></table></div>
-    </div>
-    <div class="card">
-      <h3>Moje przyprawy</h3>
-      <p class="muted" style="margin:0 0 8px">Mieszankę tworzysz w zakładce Gotuję: wpisz jej skład i kliknij „Zapisz jako moją przyprawę”. Wartości liczą się na 100 g gotowej mieszanki.</p>
+      <button class="btn ghost small" id="fd-more" hidden style="margin-top:8px"></button>
+    </details>
+    <details class="card fold" id="sp-box" open>
+      <summary><h3>Moje przyprawy</h3> <span class="pill" id="sp-count"></span></summary>
+      <p class="muted" style="margin:10px 0 8px">Mieszankę tworzysz w zakładce Gotuję: wpisz jej skład i kliknij „Zapisz jako moją przyprawę”. Wartości liczą się na 100 g gotowej mieszanki.</p>
       <div class="tablebox"><table id="sp-table"></table></div>
-    </div>
+    </details>
   </section>
 
   <!-- WAGA -->
@@ -1058,7 +1075,7 @@ function renderSearch() {
 }
 $("#ck-search").oninput = renderSearch;
 $("#ck-search").onkeydown = e => { if (e.key === "Enter") { const b = $("#ck-results button"); if (b) b.click(); } };
-$("#rc-search").oninput = () => { renderRecipes(); renderFoods(); };
+$("#rc-search").oninput = () => { if ($("#rc-search").value.trim()) ["#rc-box", "#fd-box", "#sp-box"].forEach(b => $(b).open = true); renderRecipes(); renderFoods(); };
 $("#fz-search").oninput = () => { if ($("#fz-search").value.trim()) $("#meals-box").open = true; renderFreezer(); };
 $("#ck-spice-add").onclick = () => {
   const s = S.spices.find(x => x.id === $("#ck-spice").value), g = num($("#ck-spice-g").value);
@@ -1166,7 +1183,8 @@ $("#ck-as-spice").onclick = () => {
   msg($("#ck-msg2"), `Zapisano przyprawę „${name}”: ${r0(data.k100)} kcal na 100 g. Dodasz ją do potraw z listy „Dodaj przyprawę”.`);
 };
 function renderRecipes() {
-  const q = $("#rc-search").value.trim();
+  const q = $("#rc-search").value.trim(), cnt = (list) => list.length ? (q ? `${list.filter(x => matches(x, q)).length} z ${list.length}` : list.length) : "";
+  $("#rc-count").textContent = cnt(S.recipes); $("#sp-count").textContent = cnt(S.spices);
   $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th>Przyprawa</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
     ([...S.recipes].filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(r => { const x = { ...r, rows: refreshSpices(r.rows) }, mp = myPart(x), sp = spicesOf(r); return `<tr><td>${hl(r.name, q)} <span class="muted">${r.rows.length} skł.</span></td><td class="${sp.length ? "" : "muted"}">${sp.length ? esc(sp.join(", ")) : "bez przyprawy"}</td><td class="n">${r.portions}</td><td class="n">${myShareOf(r.share)}%</td><td class="n">${r0(mp.k)}</td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td>
       <td class="n" style="white-space:nowrap"><button class="btn small" data-rc-cook="${r.id}">Gotuję</button> <button class="btn ghost small" data-rc-edit="${r.id}">Edytuj</button> <button class="x" data-rc-del="${r.id}" title="Usuń przepis">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="8">Brak wyników.</td></tr>`) + `</tbody>`
@@ -1820,6 +1838,7 @@ $("#chat-imp-btn").onclick = () => {
   msg($("#chat-imp-msg"), `Zaimportowano: ${w} pomiarów wagi, ${k} sum dziennych.` + (changed.length ? ` Zmienione wagi: ${changed.join(", ")}.` : "") + (skipped ? ` Pominięte linie: ${skipped} (zła data, waga poza zakresem albo nie ten format).` : ""), !w && !k);
 };
 
+const FD_FIRST = 15; let fdAll = false;
 function renderFoods() {
   const foods = S.foods || [], q = $("#fav-search").value.trim();
   const list = foods.filter(x => matches(x, q)).sort((a, b) => (b.count - a.count) || (b.last || "").localeCompare(a.last || "")).slice(0, q ? 30 : 14);
@@ -1829,10 +1848,17 @@ function renderFoods() {
     const x = foods.find(z => z.id === b.dataset.fav); S.log.push({ id: uid(), date: day, name: x.name, k: x.k, p: x.p, f: x.f });
     x.count++; x.last = day; save(); render(); msg($("#free-msg"), `Dodano: ${x.name}, ${r0(x.k)} kcal.`);
   });
-  const rq = $("#rc-search").value.trim();
-  const rows = foods.filter(x => matches(x, rq)).sort((a, b) => a.name.localeCompare(b.name, "pl"));
-  $("#fd-table").innerHTML = foods.length ? `<thead><tr><th>Produkt</th><th class="n">kcal</th><th class="n">Białko g</th><th class="n">Błonnik g</th><th class="n">Razy</th><th></th></tr></thead><tbody>` +
-    (rows.map(x => `<tr><td><input data-fd="${x.id}" data-k="name" value="${esc(x.name)}"></td><td class="n"><input class="num" data-fd="${x.id}" data-k="k" value="${r0(x.k)}"></td><td class="n"><input class="num" data-fd="${x.id}" data-k="p" value="${f1(x.p)}"></td><td class="n"><input class="num" data-fd="${x.id}" data-k="f" value="${f1(x.f)}"></td><td class="n">${x.count}</td><td class="n"><button class="x" data-fd-del="${x.id}" title="Usuń z bazy">×</button></td></tr>`).join("") || `<tr><td class="muted" colspan="6">Brak wyników.</td></tr>`) + `</tbody>`
+  /* Moje produkty: zwijana lista, kolejność do wyboru, na start 15 pozycji, reszta pod przyciskiem; szukanie pokazuje wszystkie trafienia */
+  const rq = $("#rc-search").value.trim(), by = $("#fd-sort").value;
+  const found = foods.filter(x => matches(x, rq)).sort((a, b) => by === "name" ? a.name.localeCompare(b.name, "pl")
+    : by === "last" ? (b.last || "").localeCompare(a.last || "") || b.count - a.count
+    : b.count - a.count || (b.last || "").localeCompare(a.last || ""));
+  const rows = rq || fdAll ? found : found.slice(0, FD_FIRST);
+  $("#fd-count").textContent = foods.length ? (rq ? `${found.length} z ${foods.length}` : foods.length) : "";
+  $("#fd-more").hidden = !!rq || found.length <= FD_FIRST;
+  $("#fd-more").textContent = fdAll ? `Pokaż tylko pierwsze ${FD_FIRST}` : `Pokaż wszystkie (${found.length})`;
+  $("#fd-table").innerHTML = foods.length ? `<thead><tr><th>Produkt</th><th class="n">kcal</th><th class="n">Białko g</th><th class="n">Błonnik g</th><th class="n">Razy</th><th class="n">Ostatnio</th><th></th></tr></thead><tbody>` +
+    (rows.map(x => `<tr><td><input data-fd="${x.id}" data-k="name" value="${esc(x.name)}" aria-label="Nazwa"></td><td class="n" data-l="kcal"><input class="num" data-fd="${x.id}" data-k="k" value="${r0(x.k)}" aria-label="kcal"></td><td class="n" data-l="białko"><input class="num" data-fd="${x.id}" data-k="p" value="${f1(x.p)}" aria-label="Białko"></td><td class="n" data-l="błonnik"><input class="num" data-fd="${x.id}" data-k="f" value="${f1(x.f)}" aria-label="Błonnik"></td><td class="n" data-l="razy">${x.count}</td><td class="n" data-l="ostatnio">${x.last ? dm(x.last) : ""}</td><td class="n"><button class="x" data-fd-del="${x.id}" title="Usuń z bazy">×</button></td></tr>`).join("") || `<tr><td class="muted" colspan="7">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Baza jest pusta.</td></tr></tbody>`;
   $("#fd-table").querySelectorAll("input[data-fd]").forEach(inp => inp.onchange = () => {
     const x = foods.find(z => z.id === inp.dataset.fd), k = inp.dataset.k;
@@ -1842,6 +1868,8 @@ function renderFoods() {
   $("#fd-table").querySelectorAll("[data-fd-del]").forEach(b => b.onclick = () => { if (b.dataset.sure) { S.foods = foods.filter(z => z.id !== b.dataset.fdDel); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Na pewno?"; } });
 }
 $("#fav-search").oninput = () => renderFoods();
+$("#fd-sort").onchange = () => renderFoods();
+$("#fd-more").onclick = () => { fdAll = !fdAll; renderFoods(); };
 function render() { renderWho(); renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }
 flipShareInputs();
 $("#demo-bar").hidden = !DEMO;
