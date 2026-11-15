@@ -1720,6 +1720,8 @@ function hl(name, q) {
   return out;
 }
 /* przyprawa = nazwa + skład (do podglądu) + przypisany przepis; bez wartości odżywczych */
+/* na liście przepisów liczy się tylko to, czy przepis ma przyprawę, a nie jak się ona nazywa */
+const spiceMark = r => spicesOf(r).length ? `<span class="spice-ico" role="img" aria-label="Ma przyprawę" title="Ma przyprawę">🧂</span>` : "";
 const spicesOf = r => S.spices.filter(sp => (sp.recipeIds || []).includes(r.id)).map(sp => sp.name);
 /* jedna przyprawa może mieć kilka wariantów dania (np. ten sam łosoś z ryżem albo z ziemniakami) */
 const recipesOf = sp => (sp.recipeIds || []).map(id => S.recipes.find(r => r.id === id)).filter(Boolean);
@@ -1825,7 +1827,7 @@ function renderSearch() {
   const q = $("#ck-search").value.trim(), box = $("#ck-results");
   if (!S.recipes.length) { box.innerHTML = `<p class="muted" style="margin:6px 0 0">Nie masz jeszcze przepisów. Dodaj składniki w trybie „Opisowo” albo „Tabela”, a w kroku 3 rozwiń „Zapisz na później” i wybierz „Zapisz jako przepis bazowy”.</p>`; return; }
   const found = S.recipes.filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")), all = found.slice(0, 12);
-  box.innerHTML = all.length ? all.map(r => `<div class="res"><div class="t">${hl(r.name, q)}<small>${spicesOf(r).length ? "Przyprawa: " + esc(spicesOf(r).join(", ")) : "Bez przyprawy"} · ${r.portions} szt. · moja część ${r0(myPart(r).k)} kcal</small></div><button class="btn small" data-s-rc="${r.id}">Gotuję</button></div>`).join("")
+  box.innerHTML = all.length ? all.map(r => `<div class="res"><div class="t">${hl(r.name, q)}<small>${spiceMark(r)}${spicesOf(r).length ? " " : ""}${r.portions} szt. · moja część ${r0(myPart(r).k)} kcal</small></div><button class="btn small" data-s-rc="${r.id}">Gotuję</button></div>`).join("")
       + (found.length > all.length ? `<p class="muted" style="margin:6px 0 0">Pokazuję 12 z ${found.length}. Wpisz nazwę albo składnik, żeby zawęzić.</p>` : "")
     : `<p class="muted" style="margin:6px 0 0">Nic nie pasuje.</p>`;
   box.querySelectorAll("[data-s-rc]").forEach(b => b.onclick = () => { const r = S.recipes.find(x => x.id === b.dataset.sRc); $("#ck-search").value = ""; loadIntoEditor(r, { fromRecipe: r.id }); });
@@ -2012,18 +2014,17 @@ $("#ck-as-recipe").onclick = () => {
 function renderRecipes() {
   const q = $("#rc-search").value.trim(), cnt = (list) => list.length ? (q ? `${list.filter(x => matches(x, q)).length} z ${list.length}` : list.length) : "";
   $("#rc-count").textContent = cnt(S.recipes); $("#sp-count").textContent = cnt(S.spices);
-  $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th>Przyprawa</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
-    ([...S.recipes].filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(r => { const mp = myPart(r), sp = spicesOf(r); return `<tr><td>${hl(r.name, q)} <span class="muted">${r.rows.length} skł.</span></td><td class="${sp.length ? "" : "muted"}">${sp.length ? esc(sp.join(", ")) : "bez przyprawy"}</td><td class="n">${r.portions}</td><td class="n">${myShareOf(r.share)}%</td><td class="n">${r0(mp.k)}</td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td>
+  $("#rc-table").innerHTML = S.recipes.length ? `<thead><tr><th>Przepis</th><th title="Czy przepis ma przyprawę" aria-label="Przyprawa">🧂</th><th class="n">Szt.</th><th class="n">Moja część</th><th class="n">kcal (moje)</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
+    ([...S.recipes].filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(r => { const mp = myPart(r), sp = spicesOf(r); return `<tr><td>${hl(r.name, q)} <span class="muted">${r.rows.length} skł.</span></td><td>${spiceMark(r)}</td><td class="n">${r.portions}</td><td class="n">${myShareOf(r.share)}%</td><td class="n">${r0(mp.k)}</td><td class="n">${f1(mp.p)}</td><td class="n">${f1(mp.f)}</td>
       <td class="n" style="white-space:nowrap"><button class="btn small" data-rc-cook="${r.id}">Gotuję</button> <button class="btn ghost small" data-rc-view="${r.id}">Podgląd</button> <button class="x" data-rc-del="${r.id}" title="Usuń przepis">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="8">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Brak przepisów. Wpisz składniki w zakładce Gotuję i zapisz je w kroku 3 jako przepis bazowy.</td></tr></tbody>`;
   $("#sp-table").innerHTML = S.spices.length ? `<thead><tr><th>Przyprawa</th><th>Skład</th><th>Warianty (przepisy)</th><th></th></tr></thead><tbody>` +
     (S.spices.filter(sp => matches(spiceHay(sp), q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(sp => { const rs = recipesOf(sp); return `<tr><td>${hl(sp.name, q)}</td><td class="${sp.comp.length ? "" : "muted"}">${sp.comp.length ? esc(sp.comp.join(", ")) : "bez składu"}</td><td class="${rs.length ? "" : "muted"}">${rs.length ? esc(rs.map(x => x.name).join(", ")) : "bez przepisu"}</td>
-      <td class="n" style="white-space:nowrap">${rs.length ? `<button class="btn small" data-sp-new="${sp.id}">Gotuję</button> ` : ""}<button class="btn ghost small" data-sp-view="${sp.id}">Podgląd</button> <button class="x" data-sp-del="${sp.id}" title="Usuń przyprawę">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="4">Brak wyników.</td></tr>`) + `</tbody>`
+      <td class="n" style="white-space:nowrap"><button class="btn ghost small" data-sp-view="${sp.id}">Podgląd</button> <button class="x" data-sp-del="${sp.id}" title="Usuń przyprawę">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="4">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Brak przypraw. Kliknij „Nowa przyprawa” albo przełącz w zakładce Gotuję na „Samą przyprawę”.</td></tr></tbody>`;
   const on = (attr, list, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(list.find(x => x.id === b.getAttribute(attr)), b));
   on("data-rc-cook", S.recipes, r => loadIntoEditor(r, { fromRecipe: r.id }));
   on("data-rc-view", S.recipes, r => openPreview("recipe", r.id));
-  on("data-sp-new", S.spices, sp => useSpice(sp));
   on("data-sp-view", S.spices, x => openPreview("spice", x.id));
   const del = (list, key) => (x, b) => {
     if (b.dataset.sure) { S[key] = S[key].filter(y => y !== x); S.spices.forEach(sp => { sp.recipeIds = (sp.recipeIds || []).filter(id => S.recipes.some(r => r.id === id)); }); save(); render(); }
@@ -2072,7 +2073,7 @@ function renderPv() {
   }
   if (!edit) {
     const rows = it.rows;
-    $("#pv-meta").innerHTML = `${f1(it.portions)} szt. · moja część ${myShareOf(it.share)}%${spicesOf(it).length ? " · przyprawa: " + esc(spicesOf(it).join(", ")) : ""}`;
+    $("#pv-meta").innerHTML = `${f1(it.portions)} szt. · moja część ${myShareOf(it.share)}%${spicesOf(it).length ? " · 🧂 ma przyprawę" : ""}`;
     tbl.innerHTML = `<thead><tr><th>Składnik</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">Białko</th><th class="n">Błonnik</th></tr></thead><tbody>` + rows.map(r => { const v = rowVal(r);
       return r.abs ? `<tr><td>${esc(r.name)}<small>sumy dla całego garnka</small></td><td class="n">${v.g ? f1(v.g) : ""}</td><td class="n">${r0(v.k)}</td><td class="n">${f1(v.p)}</td><td class="n">${f1(v.f)}</td></tr>`
         : `<tr><td>${esc(r.name)}${pvQty(r)}</td><td class="n">${f1(r.g)}</td><td class="n">${r0(v.k)}</td><td class="n">${f1(v.p)}</td><td class="n">${f1(v.f)}</td></tr>`; }).join("") + `</tbody>`;
