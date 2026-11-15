@@ -136,6 +136,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Nowa osoba zaczyna bez cudzych danych: bez posiłków, wag i celu wagi. (22.10)
 - Pod adresem `?demo` aplikacja pokazuje zmyślone dane dwóch osób i niczego nie czyta ani nie zapisuje w przeglądarce. Prawdziwe dane muszą zostać nietknięte. (2.11)
 - Na pustej aplikacji karta zachęty z przyciskiem „Pokaż na przykładowych danych”. (2.11)
+- „Wyjdź z przykładu” wraca na tę samą stronę bez `?demo` (adres liczony z bieżącego, także dla pliku z dysku o dowolnej nazwie), a nie do katalogu. (15.11)
 
 ## Historia wymagań
 

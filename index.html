@@ -264,7 +264,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <div class="who" id="who" role="group" aria-label="Kto je"></div>
     <span class="muted" id="save-state"></span>
   </header>
-  <div class="demo-bar" id="demo-bar" hidden>Przykładowe dane: możesz wszystko klikać, nic się nie zapisuje, a prawdziwe dane w tej przeglądarce zostają nietknięte. <a href="./">Wyjdź z przykładu</a></div>
+  <div class="demo-bar" id="demo-bar" hidden>Przykładowe dane: możesz wszystko klikać, nic się nie zapisuje, a prawdziwe dane w tej przeglądarce zostają nietknięte. <a href="?" id="demo-exit">Wyjdź z przykładu</a></div>
   <nav role="tablist">
     <button data-tab="dzis" aria-selected="true">Dziś</button>
     <button data-tab="zamrazarka">Zamrażarka</button>
@@ -2329,6 +2329,8 @@ $("#fd-more").onclick = () => { fdAll = !fdAll; renderFoods(); };
 function render() { renderWho(); renderFoods(); renderToday(); renderFreezer(); renderWeight(); renderRecipes(); renderCookSelects(); }
 flipShareInputs();
 $("#demo-bar").hidden = !DEMO;
+/* wyjście z przykładu wraca na tę samą stronę bez ?demo, a nie do katalogu, w którym leży plik */
+$("#demo-exit").href = location.href.split(/[?#]/)[0];
 if (DEMO) { $("#demo-link").hidden = true; document.title = "FRZR: przykład"; }
 /* zachęta tylko przy pustej aplikacji */
 $("#demo-card").hidden = DEMO || S.log.length > 0 || S.meals.length > 0 || Object.keys(S.weights).length > 0;
