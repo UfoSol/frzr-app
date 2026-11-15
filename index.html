@@ -352,7 +352,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Błonnik g<input type="number" id="fa-f" step="0.1" style="width:90px"></label>
         <label>Pudełka<input type="number" id="fa-n" value="2" min="1" step="1" style="width:80px"></label>
         <label>Moja część %<input type="number" id="fa-share" value="40" min="1" max="100" step="5" style="width:90px"></label>
-        <div class="row" style="gap:4px"><button class="btn ghost small" data-fa-share="40">40%</button><button class="btn ghost small" data-fa-share="100">100%</button></div>
+        <div class="row" style="gap:4px" id="fa-share-btns"></div>
       </div>
       <p class="muted" style="margin:8px 0 0">„Dodaj do zamrażarki” zapisuje wpisane sumy bez liczenia. „Policz” liczy składniki (najpierw z wbudowanej bazy, Gemini tylko dla reszty), a każda wersja staje się osobną pozycją. Przepis to cała partia dzielona na podaną liczbę pudełek: dla pojedynczej pizzy ustaw 1 pudełko i 100%.</p>
       <div class="row" style="margin-top:10px">
@@ -437,7 +437,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label style="flex:2;min-width:180px">Nazwa posiłku<input id="ck-name" placeholder="np. Ciasto na hot dogi"></label>
         <label>Pudełka / porcje<input type="number" id="ck-portions" value="2" min="1" step="1" style="width:90px"></label>
         <label>Moja część pudełka %<input type="number" id="ck-share" value="40" min="1" max="100" step="5" style="width:110px"></label>
-        <div class="row" style="gap:4px"><button class="btn ghost small" data-share="40">40%</button><button class="btn ghost small" data-share="100">100%</button></div>
+        <div class="row" style="gap:4px" id="ck-share-btns"></div>
       </div>
       <div class="row" id="ck-scale-row" style="justify-content:space-between;margin:12px 0 8px">
         <p class="muted" style="margin:0;flex:1;min-width:200px">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same.</p>
@@ -531,7 +531,12 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Kto korzysta<select id="u-people"><option value="1">jedna osoba</option><option value="2">dwie osoby</option></select></label>
         <label data-two>Osoba 1<input id="u-name-0" style="width:160px"></label>
         <label data-two>Osoba 2<input id="u-name-1" style="width:160px"></label>
+        <label data-two>Najczęściej dzielone pudełko (Osoba 1 / Osoba 2)<select id="u-split">
+          <option value="30">30% / 70%</option><option value="40">40% / 60%</option><option value="50">50% / 50%</option>
+          <option value="60">60% / 40%</option><option value="70">70% / 30%</option><option value="100">całe pudełko dla jednej osoby</option>
+        </select></label>
       </div>
+      <p class="muted" data-two style="margin:-6px 0 14px">Ten podział jest podpowiadany przy gotowaniu i dodawaniu do zamrażarki, obok przycisków 50% i 100%.</p>
       <h3>Cele<span id="goals-who"></span></h3>
       <div class="row">
         <label>kcal<input type="number" id="g-k" style="width:90px"></label>
@@ -889,12 +894,15 @@ function switchUser(i) {
 }
 /* pola „moja część” ustawiane wprost dla aktywnej osoby: osoba 1 domyślnie 40%, osoba 2 60%.
    Nie odwracamy bieżących wartości, bo przy rozjechaniu się pól zamieniłyby się miejscami. */
-const DEFAULT_SHARE = 40;
+/* najczęstszy podział to ustawienie (settings.split = część osoby 1, domyślnie 40); przy jednej osobie całe pudełko */
+const defShare = () => TWO() ? (S.settings.split ?? 40) : 100;
 function flipShareInputs() {
-  ["#ck-share", "#fa-share"].forEach(sel => $(sel).value = myShareOf(DEFAULT_SHARE));
-  document.querySelectorAll("[data-share],[data-fa-share]").forEach(b => {
-    const k = b.dataset.share !== undefined ? "share" : "faShare", v = b.dataset.base === "100" || num(b.dataset[k]) >= 100 ? 100 : myShareOf(DEFAULT_SHARE);
-    b.dataset.base = v >= 100 ? "100" : "split"; b.dataset[k] = v; b.textContent = v + "%";
+  const v = myShareOf(defShare());
+  ["#ck-share", "#fa-share"].forEach(sel => $(sel).value = v);
+  /* przyciski: podział z ustawień, 50% i 100%, bez powtórzeń */
+  const vals = [...new Set([v, 50, 100])].sort((x, y) => x - y);
+  [["#ck-share-btns", "data-share"], ["#fa-share-btns", "data-fa-share"]].forEach(([sel, at]) => {
+    $(sel).innerHTML = vals.map(x => `<button type="button" class="btn ghost small" ${at}="${x}">${x}%</button>`).join("");
   });
 }
 function renderWho() {
@@ -1797,10 +1805,10 @@ $("#ck-add-text").onclick = () => {
   msg($("#ck-msg"), `Dodano ${rows.length} ${plSk(rows.length)} z wpisanymi kaloriami, bez liczenia.` + (skipped.length ? ` Bez kalorii (zostały w polu, kliknij „Policz”): ${skipped.join(", ")}.` : ""), !!skipped.length); renderCook();
 };
 $("#ck-row").onclick = () => { draft.rows.push({ name: "", qty: "", g: 0, k100: 0, p100: 0, f100: 0, src: "ręcznie" }); renderCook(); };
-$("#ck-clear").onclick = () => { draft = blankDraft(); msg($("#ck-from"), ""); msg($("#ck-msg2"), ""); $("#ck-name").value = ""; $("#ck-portions").value = 2; $("#ck-share").value = myShareOf(40); $("#ck-text").value = ""; msg($("#ck-msg"), ""); renderCook(); };
+$("#ck-clear").onclick = () => { draft = blankDraft(); msg($("#ck-from"), ""); msg($("#ck-msg2"), ""); $("#ck-name").value = ""; $("#ck-portions").value = 2; $("#ck-share").value = myShareOf(defShare()); $("#ck-text").value = ""; msg($("#ck-msg"), ""); renderCook(); };
 $("#ck-portions").oninput = () => renderCook(true);
 $("#ck-share").oninput = () => renderCook(true);
-document.querySelectorAll("[data-share]").forEach(b => b.onclick = () => { $("#ck-share").value = b.dataset.share; renderCook(true); });
+$("#ck-share-btns").onclick = e => { const b = e.target.closest("[data-share]"); if (b) { $("#ck-share").value = b.dataset.share; renderCook(true); } };
 
 function renderCook(onlyFoot) {
   if (!onlyFoot) renderCookSelects();
@@ -2153,7 +2161,7 @@ async function freezerAddAI(raw) {
 }
 $("#fa-n").addEventListener("input", renderFaPreview);
 $("#fa-share").addEventListener("input", renderFaPreview);
-document.querySelectorAll("[data-fa-share]").forEach(b => b.onclick = () => { $("#fa-share").value = b.dataset.faShare; renderFaPreview(); });
+$("#fa-share-btns").onclick = e => { const b = e.target.closest("[data-fa-share]"); if (b) { $("#fa-share").value = b.dataset.faShare; renderFaPreview(); } };
 /* przelicznik z wybranego zakresu na cały garnek */
 const scopeMult = (scope, n, share) => scope === "box" ? n : scope === "mine" ? n * 100 / Math.max(1, share) : 1;
 function freezerAdd() {
@@ -2653,7 +2661,7 @@ function fillSettings() {
   $("#s-key").value = s.key; $("#s-model").value = s.model;
   const nc = Object.keys(S.calcCache || {}).length; $("#cache-info").textContent = nc ? `Zapamiętane: ${nc}` : "Nic nie jest zapamiętane."; $("#cache-clear").disabled = !nc; msg($("#cache-msg"), ""); cacheAsk = false; $("#cache-clear").textContent = "Wyczyść zapamiętane z Gemini";
   $("#u-name-0").value = userName(0); $("#u-name-1").value = userName(1); $("#goals-who").textContent = TWO() ? ": " + userName(ACT()) : "";
-  $("#u-people").value = TWO() ? "2" : "1"; document.querySelectorAll("[data-two]").forEach(el => el.hidden = !TWO());
+  $("#u-people").value = TWO() ? "2" : "1"; $("#u-split").value = String(S.settings.split ?? 40); document.querySelectorAll("[data-two]").forEach(el => el.hidden = !TWO());
   $("#people-hint").textContent = TWO()
     ? "Zamrażarka, przepisy i baza „Często jem” są wspólne. Dziennik, waga i cele każda osoba ma swoje. Gdy pudełko jest dzielone, np. 40% i 60%, druga osoba dostaje resztę tego samego pudełka."
     : "Aplikacja jest ustawiona dla jednej osoby. Gdy dołączy druga, wybierz „dwie osoby”: na górze pojawi się przełącznik, a każda osoba będzie miała swój dziennik, wagę i cele.";
@@ -2662,8 +2670,9 @@ function fillSettings() {
 $("#u-people").onchange = () => {
   const two = $("#u-people").value === "2";
   if (!two && ACT() === 1) switchUser(0);
-  S.settings.people = two ? 2 : 1; save(); fillSettings(); render();
+  S.settings.people = two ? 2 : 1; save(); flipShareInputs(); fillSettings(); render();
 };
+$("#u-split").onchange = () => { S.settings.split = +$("#u-split").value; save(); flipShareInputs(); renderCook(true); renderFaPreview(); };
 [0, 1].forEach(i => $("#u-name-" + i).onchange = () => { S.profiles.list[i].name = $("#u-name-" + i).value.trim(); save(); fillSettings(); render(); });
 /* tryb: redukcja, utrzymanie albo masa; postęp liczy się od pierwszego ważenia po zmianie trybu */
 const MODE_HINT = {

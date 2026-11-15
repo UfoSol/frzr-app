@@ -95,6 +95,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Ustawienie „Kto korzysta”: jedna osoba albo dwie (`settings.people`). Przy jednej nie ma przełącznika ani imion, a dzielone pudełko schodzi ze stanu w całości, bez resztki czekającej na kogoś, kto nie korzysta z aplikacji. Dane osoby 2 nie są kasowane i wracają po ponownym włączeniu. Nowa osoba zaczyna w trybie jednej osoby. (15.11)
 - `meal.share` to część osoby 1. Osoba 2 ma resztę (40% → 60%), a przy 100% też całe pudełko. Domyślne części ustawiane wprost dla aktywnej osoby, nigdy przez odwracanie bieżącej wartości pola. (24.10)
 - Dzielone pudełko schodzi ze stanu raz, a reszta czeka na drugą osobę (`meal.wait[osoba]`). Usuwanie wpisów w dowolnej kolejności musi wracać do tego samego stanu. Części obu osób, które razem tworzą pudełko, wracają na stan. (26.10)
+- Najczęstszy podział pudełka to ustawienie przy dwóch osobach (`settings.split`: 30/70, 40/60, 50/50, 60/40, 70/30 albo całe pudełko, domyślnie 40/60). Przyciski części w „Gotuję” i w zamrażarce pokazują ten podział (dla aktywnej osoby), 50% i 100%, bez powtórzeń, więc przy 50/50 albo 100% są dwa przyciski zamiast trzech. Przy jednej osobie ustawienia nie widać, a przyciski to 50% i 100%. (15.11)
 - Przełączenie osoby czyści komunikaty i niedokończone wpisy poprzedniej. (24.10)
 - Ze stanu schodzi najwyżej tyle pudełek, ile jest. Wpis w dzienniku pamięta, co naprawdę zeszło ze stanu, więc zjedzenie czegoś, czego nie ma, i cofnięcie takiego wpisu nie tworzy pudełek ani resztek. Brak na stanie jest opisany w komunikacie. (14.11)
 - Każdy element zamrażarki da się usunąć w oknie „Edytuj” (nie na karcie, żeby karty nie były zaśmiecone), z potwierdzeniem „Na pewno?”. Resztka czekająca tylko na jedną osobę (np. po pudełku, którego już nie ma) znika tylko u niej. Pełne pudełko schodzi ze stanu u obu osób. Posiłek zostaje w bazie, żeby dało się go ugotować ponownie. (13.11)
@@ -161,4 +162,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Przepisy i przyprawy: „Podgląd” ze składnikami, a „Edytuj” dopiero w oknie podglądu. |
 | 15.11 | Przyprawy bez kalorii: nazwa, skład do podglądu i przypisany przepis, którym wypełnia się tabelę przy gotowaniu. |
 | 15.11 | Gemini za wolny: wbudowana baza produktów, „Policz” zamiast „Policz z Gemini”, wskaźnik pracy z anulowaniem, „Dodaj” dla tekstu z kaloriami, pamięć wyników Gemini z czyszczeniem w Ustawieniach, przyprawy suche jako 0 kcal. |
+| 15.11 | Przycisk 50% przy części pudełka i ustawienie najczęstszego podziału (przy 50/50 albo 100% dwa przyciski zamiast trzech). |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
