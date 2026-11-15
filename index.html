@@ -163,6 +163,11 @@ a.btn{display:inline-block;text-decoration:none;font:600 14px var(--body);border
 a.btn.ghost{background:transparent;color:var(--accent)}
 .demo-card{margin-bottom:12px}
 .pill:empty{display:none}
+/* przełącznik trybu, np. w zakładce Gotuję */
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:2px;background:var(--bg);gap:2px}
+.seg button{border:0;background:none;border-radius:8px;padding:6px 12px;font:600 13px var(--body);color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+@media (max-width:560px){.seg{display:grid;grid-template-columns:1fr 1fr;width:100%}.seg button{padding:8px 6px}}
 details.fold > summary{cursor:pointer}
 details.fold > summary h3{display:inline;margin:0 6px 0 4px}
 #meals-table td small{display:block;font-size:12px;color:var(--muted);font-weight:400}
@@ -344,49 +349,77 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   <!-- GOTUJĘ -->
   <section class="panel" id="tab-gotuje" hidden>
     <div class="card" id="ck-start">
-      <div class="row">
-        <label style="flex:1">Zacznij od przepisu albo przyprawy<input type="search" id="ck-search" placeholder="Szukaj po nazwie albo składniku, np. curry, kurczak" autocomplete="off"></label>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0">1. Składniki</h3>
+        <div class="seg" id="ck-modes" role="group" aria-label="Sposób dodawania składników">
+          <button type="button" data-ck-mode="opis">Opisowo</button>
+          <button type="button" data-ck-mode="tabela">Tabela</button>
+          <button type="button" data-ck-mode="przyprawa">Z przyprawy</button>
+          <button type="button" data-ck-mode="przepis">Z przepisu</button>
+        </div>
       </div>
-      <div class="results" id="ck-results"></div>
-      <div class="msg" id="ck-from" hidden></div>
+      <p class="muted" id="ck-mode-hint" style="margin:0 0 10px"></p>
+      <div data-ck-panel="opis">
+        <label>Składniki, jak piszesz do czatu
+          <textarea id="ck-text" placeholder="150 g mąki pełnoziarnistej, 250 g zwykłej mąki, 29 g oliwy, łyżeczka suchych drożdży, 125 g mleka, łyżeczka miodu"></textarea>
+        </label>
+        <div class="row" style="margin-top:8px"><button class="btn" id="ck-ai">Policz z Gemini</button></div>
+      </div>
+      <div data-ck-panel="tabela" hidden>
+        <div class="row">
+          <button class="btn" id="ck-row">Dodaj wiersz</button>
+          <button class="btn ghost" id="ck-ean">Dodaj z kodu kreskowego</button>
+        </div>
+      </div>
+      <div data-ck-panel="przyprawa" hidden>
+        <div class="row" id="ck-spice-row">
+          <label style="flex:1;min-width:160px">Moja przyprawa<select id="ck-spice"></select></label>
+          <label>Gramy<input type="number" id="ck-spice-g" min="0" step="1" style="width:90px"></label>
+          <button class="btn" id="ck-spice-add">Dodaj do dania</button>
+        </div>
+        <div class="results" id="ck-spice-dishes"></div>
+      </div>
+      <div data-ck-panel="przepis" hidden>
+        <input type="search" id="ck-search" placeholder="Szukaj po nazwie albo składniku, np. curry, kurczak" autocomplete="off" aria-label="Szukaj przepisu">
+        <div class="results" id="ck-results"></div>
+      </div>
+      <div class="msg" id="ck-msg" hidden style="margin-top:10px"></div>
+      <div class="msg" id="ck-from" hidden style="margin-top:10px"></div>
     </div>
     <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0">2. Danie i wyliczenie</h3>
+        <button class="btn ghost small" id="ck-clear">Zacznij od nowa</button>
+      </div>
       <div class="row">
-        <label style="flex:2">Nazwa posiłku<input id="ck-name" placeholder="np. Ciasto na hot dogi"></label>
+        <label style="flex:2;min-width:180px">Nazwa posiłku<input id="ck-name" placeholder="np. Ciasto na hot dogi"></label>
         <label>Pudełka / porcje<input type="number" id="ck-portions" value="2" min="1" step="1" style="width:90px"></label>
         <label>Moja część pudełka %<input type="number" id="ck-share" value="40" min="1" max="100" step="5" style="width:110px"></label>
         <div class="row" style="gap:4px"><button class="btn ghost small" data-share="40">40%</button><button class="btn ghost small" data-share="100">100%</button></div>
       </div>
-      <label style="margin-top:10px">Składniki, jak piszesz do czatu
-        <textarea id="ck-text" placeholder="150 g mąki pełnoziarnistej, 250 g zwykłej mąki, 29 g oliwy, łyżeczka suchych drożdży, 125 g mleka, łyżeczka miodu"></textarea>
-      </label>
-      <div class="row" style="margin-top:8px">
-        <button class="btn" id="ck-ai">Policz z Gemini</button>
-        <button class="btn ghost" id="ck-row">Dodaj wiersz ręcznie</button>
-        <button class="btn ghost" id="ck-ean">Dodaj z kodu kreskowego</button>
-        <span class="row" style="gap:4px"><select id="ck-spice" aria-label="Moja przyprawa"></select><input type="number" id="ck-spice-g" placeholder="g" style="width:64px" aria-label="Gramy przyprawy"><button class="btn ghost" id="ck-spice-add">Dodaj przyprawę</button></span>
-        <button class="btn ghost" id="ck-clear">Wyczyść</button>
-      </div>
-      <div class="msg" id="ck-msg" hidden></div>
-    </div>
-    <div class="card">
-      <h3>Wyliczenie</h3>
-      <div class="row" style="justify-content:space-between;margin-bottom:8px">
-        <p class="muted" style="margin:0">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same. Składnik wpisany ręcznie dostaje wartości z poprzednich przepisów.</p>
+      <div class="row" id="ck-scale-row" style="justify-content:space-between;margin:12px 0 8px">
+        <p class="muted" style="margin:0;flex:1;min-width:200px">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same.</p>
         <span class="row" style="gap:4px"><input type="number" id="ck-scale" value="1" step="0.25" min="0.1" style="width:70px" aria-label="Mnożnik"><button class="btn ghost small" id="ck-scale-go">Przeskaluj gramy ×</button></span>
       </div>
       <datalist id="ing-list"></datalist>
       <div class="tablebox"><table id="ck-table"></table></div>
-      <div class="row" style="margin-top:12px">
+    </div>
+    <div class="card">
+      <h3>3. Zapis</h3>
+      <div class="row">
         <button class="btn" id="ck-save">Zapisz do zamrażarki</button>
         <button class="btn ghost" id="ck-save-print">Zapisz i drukuj etykiety</button>
       </div>
       <label class="muted" id="ck-upd-wrap" style="flex-direction:row;align-items:center;gap:6px;margin-top:10px" hidden><input type="checkbox" id="ck-upd"> Zaktualizuj też przepis bazowy o dzisiejsze zmiany</label>
-      <div class="row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
-        <button class="btn ghost" id="ck-as-recipe">Zapisz jako przepis bazowy</button>
-        <button class="btn ghost" id="ck-as-spice">Zapisz jako moją przyprawę</button>
-      </div>
-      <div class="msg" id="ck-msg2" hidden></div>
+      <details class="wg-more" id="ck-later">
+        <summary>Zapisz na później: przepis bazowy albo moja przyprawa</summary>
+        <p class="muted" style="margin:8px 0">Przepis bazowy wczytasz następnym razem w trybie „Z przepisu”. Przyprawa to mieszanka liczona na 100 g, którą dodajesz do dań w trybie „Z przyprawy”. Żaden z tych zapisów nie dodaje nic do zamrażarki.</p>
+        <div class="row">
+          <button class="btn ghost" id="ck-as-recipe">Zapisz jako przepis bazowy</button>
+          <button class="btn ghost" id="ck-as-spice">Zapisz jako moją przyprawę</button>
+        </div>
+      </details>
+      <div class="msg" id="ck-msg2" hidden style="margin-top:10px"></div>
     </div>
   </section>
 
@@ -1108,6 +1141,7 @@ function loadIntoEditor(src, opts) {
   msg($("#ck-msg"), ""); msg($("#ck-msg2"), "");
   const from = opts.editing ? `Edytujesz ${opts.editing.type === "spice" ? "przyprawę" : "przepis bazowy"} „${src.name}”. Zapisz przyciskiem na dole.` : `Wczytano „${src.name}”. Popraw gramy, usuń albo dodaj składniki, potem zapisz do zamrażarki.`;
   msg($("#ck-from"), from);
+  $("#ck-later").open = !!opts.editing;
   renderCook(); showTab("gotuje");
 }
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l");
@@ -1129,22 +1163,45 @@ function dishFromSpice(s) {
   draft = { id: null, rows: [{ name: s.name, qty: "", g: lastG, k100: s.k100, p100: s.p100, f100: s.f100, src: "moja przyprawa", spiceId: s.id }], fromRecipe: null, editing: null };
   $("#ck-name").value = s.name.replace(/,?\s*(moja )?mieszanka/i, "").trim(); $("#ck-portions").value = 2; $("#ck-share").value = myShareOf(40); $("#ck-text").value = "";
   msg($("#ck-from"), `Nowe danie z przyprawą „${s.name}”. ${lastG ? "" : "Wpisz gramy przyprawy, "}dodaj resztę składników i zapisz jako przepis bazowy, żeby następnym razem był gotowy.`);
-  $("#ck-search").value = ""; $("#ck-results").innerHTML = ""; renderCook(); showTab("gotuje");
+  $("#ck-search").value = ""; $("#ck-spice").value = s.id; if (ckMode === "przepis") setCookMode("opis"); renderCook(); showTab("gotuje");
   const g = $('#ck-table input[data-k="g"]'); if (g && !lastG) g.focus();
 }
+/* ---------- tryb dodawania składników: opisowo, tabela, z przyprawy, z przepisu ----------
+   Tryb wybiera tylko, które pole wejściowe widać. Wyliczenie jest jedno, więc tryby można łączyć w jednym daniu. */
+const CK_MODES = {
+  opis: "Wpisz składniki z ilościami tak, jak piszesz do czatu, a Gemini policzy wartości. Możesz też wkleić same sumy garnka, np. „1635 kcal, 106 g białka, 38 g błonnika”.",
+  tabela: "Dodawaj składniki po jednym: nazwa, gramy i wartości na 100 g. Składnik znany z wcześniejszych przepisów uzupełni się sam po wpisaniu nazwy.",
+  przyprawa: "Dodaj do dania swoją mieszankę przypraw. Resztę składników dopiszesz w trybie „Opisowo” albo „Tabela”.",
+  przepis: "Wczytaj zapisany przepis bazowy. Potem popraw gramy w wyliczeniu i zapisz do zamrażarki."
+};
+let ckMode = CK_MODES[S.settings.cookMode] ? S.settings.cookMode : "opis";
+function setCookMode(m) { if (!CK_MODES[m]) return; ckMode = m; if (S.settings.cookMode !== m) { S.settings.cookMode = m; save(); } renderCookMode(); }
+function renderCookMode() {
+  document.querySelectorAll("[data-ck-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ckMode === ckMode));
+  document.querySelectorAll("[data-ck-panel]").forEach(el => el.hidden = el.dataset.ckPanel !== ckMode);
+  $("#ck-mode-hint").textContent = CK_MODES[ckMode];
+  if (ckMode === "przepis") renderSearch();
+  if (ckMode === "przyprawa") renderSpicePanel();
+}
+document.querySelectorAll("[data-ck-mode]").forEach(b => b.onclick = () => { msg($("#ck-msg"), ""); setCookMode(b.dataset.ckMode); });
+/* panel przyprawy: wybór mieszanki, gramy i dania, które już jej używają */
+function renderSpicePanel() {
+  const box = $("#ck-spice-dishes"); $("#ck-spice-row").hidden = !S.spices.length;
+  if (!S.spices.length) { box.innerHTML = `<p class="muted" style="margin:0">Nie masz jeszcze żadnej przyprawy. Wpisz skład mieszanki w trybie „Opisowo” albo „Tabela”, a w kroku 3 wybierz „Zapisz jako moją przyprawę”.</p>`; return; }
+  const s = S.spices.find(x => x.id === $("#ck-spice").value) || S.spices[0], d = dishesFor(s);
+  box.innerHTML = `<div class="res"><div class="t">${esc(s.name)}<small>${r0(s.k100)} kcal na 100 g · ${d.length ? "przepisy z tą przyprawą:" : "jeszcze bez przepisu"}</small></div>
+    <span class="row" style="gap:4px">${d.map(x => `<button class="btn ghost small" data-s-rc="${x.id}">${esc(x.name)}</button>`).join("")}</span></div>`;
+  box.querySelectorAll("[data-s-rc]").forEach(b => b.onclick = () => { const r = S.recipes.find(x => x.id === b.dataset.sRc); loadIntoEditor(r, { fromRecipe: r.id }); });
+}
+$("#ck-spice").onchange = () => renderSpicePanel();
 function renderSearch() {
   const q = $("#ck-search").value.trim(), box = $("#ck-results");
-  if (!q) { box.innerHTML = ""; return; }
-  const rc = S.recipes.filter(r => matches(r, q)).map(r => ({ kind: "Przepis", r }));
-  const sp = S.spices.filter(s => matches(s, q)).map(s => ({ kind: "Przyprawa", s }));
-  const all = [...rc, ...sp].slice(0, 10);
-  box.innerHTML = all.length ? all.map(x => x.r
-    ? `<div class="res"><div class="t"><span class="kind">Przepis</span>${hl(x.r.name, q)}<small>${spicesOf(x.r).length ? "Przyprawa: " + esc(spicesOf(x.r).join(", ")) : "Bez przyprawy"} · moja część ${r0(myPart({ ...x.r, rows: refreshSpices(x.r.rows) }).k)} kcal</small></div><button class="btn small" data-s-rc="${x.r.id}">Gotuję</button></div>`
-    : `<div class="res"><div class="t"><span class="kind">Przyprawa</span>${hl(x.s.name, q)}<small>${dishesFor(x.s).length ? "Dania: " + esc(dishesFor(x.s).map(d => d.name).join(", ")) : "Jeszcze bez dania"}</small></div>
-       <span class="row" style="gap:4px">${dishesFor(x.s).map(d => `<button class="btn small" data-s-rc="${d.id}">${esc(d.name)}</button>`).join("")}<button class="btn ghost small" data-s-new="${x.s.id}">Nowe danie</button></span></div>`).join("")
-    : `<p class="muted" style="margin:6px 0 0">Nic nie pasuje. Wpisz składniki poniżej i zapisz jako przepis bazowy.</p>`;
-  box.querySelectorAll("[data-s-rc]").forEach(b => b.onclick = () => { const r = S.recipes.find(x => x.id === b.dataset.sRc); $("#ck-search").value = ""; renderSearch(); loadIntoEditor(r, { fromRecipe: r.id }); });
-  box.querySelectorAll("[data-s-new]").forEach(b => b.onclick = () => dishFromSpice(S.spices.find(x => x.id === b.dataset.sNew)));
+  if (!S.recipes.length) { box.innerHTML = `<p class="muted" style="margin:6px 0 0">Nie masz jeszcze przepisów. Dodaj składniki w trybie „Opisowo” albo „Tabela”, a w kroku 3 wybierz „Zapisz jako przepis bazowy”.</p>`; return; }
+  const found = S.recipes.filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")), all = found.slice(0, 12);
+  box.innerHTML = all.length ? all.map(r => `<div class="res"><div class="t">${hl(r.name, q)}<small>${spicesOf(r).length ? "Przyprawa: " + esc(spicesOf(r).join(", ")) : "Bez przyprawy"} · ${r.portions} szt. · moja część ${r0(myPart({ ...r, rows: refreshSpices(r.rows) }).k)} kcal</small></div><button class="btn small" data-s-rc="${r.id}">Gotuję</button></div>`).join("")
+      + (found.length > all.length ? `<p class="muted" style="margin:6px 0 0">Pokazuję 12 z ${found.length}. Wpisz nazwę albo składnik, żeby zawęzić.</p>` : "")
+    : `<p class="muted" style="margin:6px 0 0">Nic nie pasuje.</p>`;
+  box.querySelectorAll("[data-s-rc]").forEach(b => b.onclick = () => { const r = S.recipes.find(x => x.id === b.dataset.sRc); $("#ck-search").value = ""; loadIntoEditor(r, { fromRecipe: r.id }); });
 }
 $("#ck-search").oninput = renderSearch;
 $("#ck-search").onkeydown = e => { if (e.key === "Enter") { const b = $("#ck-results button"); if (b) b.click(); } };
@@ -1156,6 +1213,7 @@ $("#ck-spice-add").onclick = () => {
   if (!g) return msg($("#ck-msg"), "Wpisz gramy przyprawy.", true);
   draft.rows.push({ name: s.name, qty: g + " g", g, k100: s.k100, p100: s.p100, f100: s.f100, src: "moja przyprawa", spiceId: s.id });
   $("#ck-spice-g").value = ""; renderCook();
+  msg($("#ck-msg"), `Dodano przyprawę „${s.name}”, ${f1(g)} g. Resztę składników dopisz w trybie „Opisowo” albo „Tabela”.`);
 };
 $("#ck-scale-go").onclick = () => {
   const f = num($("#ck-scale").value); if (!(f > 0)) return;
@@ -1169,6 +1227,7 @@ function renderCookSelects() {
   if (keepS) $("#ck-spice").value = keepS;
   $("#ing-list").innerHTML = [...ingredientLib().values()].map(r => `<option value="${esc(r.name)}"></option>`).join("");
   $("#ck-upd-wrap").hidden = !draft.fromRecipe;
+  renderCookMode();
 }
 $("#ck-ai").onclick = async () => {
   const txt = $("#ck-text").value.trim(); if (!txt) return msg($("#ck-msg"), "Wpisz składniki.", true);
@@ -1197,7 +1256,8 @@ function renderCook(onlyFoot) {
     <tr><td colspan="2">Pudełko (1 z ${m.portions}${t.g ? `, ok. ${r0(t.g / m.portions)} g` : ""})</td><td></td><td class="n">${r0(pp.k)}</td><td></td><td class="n">${f1(pp.p)}</td><td></td><td class="n">${f1(pp.f)}</td><td></td></tr>` +
     (shareOf(m) < 1 ? `<tr><td colspan="2">Moja część pudełka (${myShare(m)}%)</td><td></td><td class="n">${r0(mp.k)}</td><td></td><td class="n">${f1(mp.p)}</td><td></td><td class="n">${f1(mp.f)}</td><td></td></tr>` : "");
   if (onlyFoot && $("#ck-table tfoot")) { $("#ck-table tfoot").innerHTML = foot; return; }
-  if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Wpisz składniki i kliknij „Policz z Gemini”, albo dodaj wiersze ręcznie.</td></tr></tbody>`; return; }
+  $("#ck-scale-row").hidden = !draft.rows.length;
+  if (!draft.rows.length) { $("#ck-table").innerHTML = `<tbody><tr><td class="muted">Tu pojawi się wyliczenie. Dodaj składniki w kroku 1.</td></tr></tbody>`; return; }
   $("#ck-table").innerHTML = `<thead><tr><th>Składnik</th><th>Ilość</th><th class="n">Gramy</th><th class="n">kcal</th><th class="n">kcal/100</th><th class="n">Białko</th><th class="n">B/100</th><th class="n">Błonnik</th><th class="n">Bł/100</th><th></th></tr></thead><tbody>` +
     draft.rows.map((r, i) => r.abs ? `<tr title="${esc(r.src)}">
       <td><input data-i="${i}" data-k="name" value="${esc(r.name)}"></td><td class="muted">${esc(r.qty)}</td>
@@ -1225,15 +1285,15 @@ function renderCook(onlyFoot) {
 }
 function saveDraft() {
   const name = $("#ck-name").value.trim(), portions = Math.max(1, num($("#ck-portions").value)), share = Math.min(100, Math.max(1, num($("#ck-share").value) || 100));
-  if (!name) { msg($("#ck-msg"), "Wpisz nazwę posiłku.", true); return null; }
-  if (!draft.rows.length) { msg($("#ck-msg"), "Dodaj składniki.", true); return null; }
+  if (!name) { msg($("#ck-msg2"), "Wpisz nazwę posiłku.", true); return null; }
+  if (!draft.rows.length) { msg($("#ck-msg2"), "Dodaj składniki.", true); return null; }
   const meal = { id: uid(), name, portions, share: myShareOf(share), stock: portions, date: todayIso(), rows: draft.rows.map(r => ({ ...r })), text: $("#ck-text").value };
   S.meals.unshift(meal);
   let extra = "";
   if (draft.fromRecipe && $("#ck-upd").checked) { const rc = S.recipes.find(x => x.id === draft.fromRecipe); if (rc) { Object.assign(rc, { rows: meal.rows.map(r => ({ ...r })), portions, share: meal.share, text: meal.text }); extra = " Przepis bazowy zaktualizowany."; } }
-  $("#ck-upd").checked = false; msg($("#ck-from"), "");
+  $("#ck-upd").checked = false; msg($("#ck-from"), ""); msg($("#ck-msg"), "");
   save();
-  msg($("#ck-msg"), `Zapisano: ${name}, ${portions} szt. po ${r0(perPortion(meal).k)} kcal` + (share < 100 ? `, Twoja część ${share}%: ${r0(myPart(meal).k)} kcal.` : ".") + extra);
+  msg($("#ck-msg2"), `Zapisano: ${name}, ${portions} szt. po ${r0(perPortion(meal).k)} kcal` + (share < 100 ? `, Twoja część ${share}%: ${r0(myPart(meal).k)} kcal.` : ".") + extra);
   draft = blankDraft(); renderCook(); return meal;
 }
 $("#ck-save").onclick = () => saveDraft();
@@ -1244,7 +1304,7 @@ $("#ck-as-recipe").onclick = () => {
   const ex = (draft.editing?.type === "recipe" && S.recipes.find(x => x.id === draft.editing.id)) || S.recipes.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (ex) Object.assign(ex, data); else S.recipes.push({ id: uid(), ...data });
   if (!draft.fromRecipe) draft.fromRecipe = (ex || S.recipes[S.recipes.length - 1]).id;
-  draft.editing = null; save(); renderCook(); msg($("#ck-msg2"), ex ? `Zaktualizowano przepis „${name}”.` : `Zapisano przepis „${name}”. Znajdziesz go w „Zacznij od przepisu”.`);
+  draft.editing = null; save(); renderCook(); msg($("#ck-msg2"), ex ? `Zaktualizowano przepis „${name}”.` : `Zapisano przepis „${name}”. Wczytasz go w trybie „Z przepisu”.`);
 };
 $("#ck-as-spice").onclick = () => {
   const name = $("#ck-name").value.trim(); if (!name) return msg($("#ck-msg2"), "Wpisz nazwę przyprawy.", true);
@@ -1253,7 +1313,7 @@ $("#ck-as-spice").onclick = () => {
   const ex = (draft.editing?.type === "spice" && S.spices.find(x => x.id === draft.editing.id)) || S.spices.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (ex) Object.assign(ex, data); else S.spices.push({ id: uid(), ...data });
   save(); draft = blankDraft(); $("#ck-name").value = ""; $("#ck-text").value = ""; msg($("#ck-from"), ""); renderCook();
-  msg($("#ck-msg2"), `Zapisano przyprawę „${name}”: ${r0(data.k100)} kcal na 100 g. Dodasz ją do potraw z listy „Dodaj przyprawę”.`);
+  msg($("#ck-msg2"), `Zapisano przyprawę „${name}”: ${r0(data.k100)} kcal na 100 g. Dodasz ją do dań w trybie „Z przyprawy”.`);
 };
 function renderRecipes() {
   const q = $("#rc-search").value.trim(), cnt = (list) => list.length ? (q ? `${list.filter(x => matches(x, q)).length} z ${list.length}` : list.length) : "";

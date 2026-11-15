@@ -107,6 +107,12 @@ Tryb jest osobny dla każdej osoby (27.10).
 - „Wszystkie posiłki” to zwijana lista, na start zwinięta. Jedno danie to jeden wiersz z ostatnią partią, a starsze partie o tej samej nazwie są pod przyciskiem „Partie”. Kolejność do wyboru: ostatnio gotowane, alfabetycznie, najczęściej gotowane. Wyszukiwanie rozwija listę. Na telefonie wiersz jest kartą. (14.11)
 - Zakładka „Przepisy”: trzy zwijane sekcje z licznikiem. „Moje produkty” są na start zwinięte, pokazują 15 pozycji i resztę pod przyciskiem, z kolejnością do wyboru: najczęściej dodawane, ostatnio dodawane, alfabetycznie. Wyszukiwanie rozwija sekcje i pokazuje wszystkie trafienia. Na telefonie produkt jest kartą. (15.11)
 - Długie listy nie są pokazywane w całości: mają zwijanie, wybór kolejności albo przycisk „pokaż więcej”. (15.11)
+- Zakładka „Gotuję” to trzy ponumerowane kroki (15.11):
+  - krok 1 „Składniki” z przełącznikiem trybu: opisowo (tekst i Gemini albo wklejone sumy), tabela (wiersze ręcznie i z kodu kreskowego), z przyprawy (moja mieszanka, gramy, przepisy z tą przyprawą), z przepisu (lista i wyszukiwarka przepisów bazowych),
+  - tryb pokazuje tylko swoje pola, a wyliczenie jest jedno, więc tryby można łączyć w jednym daniu,
+  - krok 2 „Danie i wyliczenie”: nazwa, pudełka, moja część, tabela z sumami, „Zacznij od nowa”,
+  - krok 3 „Zapis”: zamrażarka na pierwszym planie, przepis bazowy i przyprawa w zwijanej sekcji,
+  - wybrany tryb jest zapamiętany (`settings.cookMode`), komunikat pojawia się w kroku, którego dotyczy.
 - Etykiety (15.11):
   - karty w zamrażarce nie mają własnego przycisku etykiet, jest jeden przycisk „Drukuj etykiety”,
   - krok 1: tryb zaznaczania jak w galerii zdjęć, dotknięcie karty zaznacza, pasek z licznikiem, „Zaznacz wszystko”, „Dalej”, „Anuluj”,
@@ -142,4 +148,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | „Moje produkty” zwijane, z kolejnością i pierwszymi 15 pozycjami. Liczniki i zwijanie przepisów i przypraw. |
 | 15.11 | Wspólna baza „Często jem” z osobnymi licznikami. Wybór trybu: jedna albo dwie osoby. |
 | 15.11 | Etykiety: zaznaczanie wielu posiłków i jeden wydruk, format pod drukarkę etykiet 50 mm. |
+| 15.11 | „Gotuję” w trzech krokach z wyborem trybu: opisowo, tabela, z przyprawy, z przepisu. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
