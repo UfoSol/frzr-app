@@ -91,6 +91,9 @@ td input.num{width:72px;text-align:right}
 .msg{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
 .msg.err{color:var(--bad)}
 .msg.busy{display:block}
+.scale-in{display:inline-flex;align-items:center;gap:2px;color:var(--muted)}.scale-in input{width:64px;text-align:center;padding:5px 6px}
+.scale-arrows{display:inline-flex;flex-direction:column}.scale-arr{border:0;background:none;color:var(--muted);padding:0 6px;font-size:10px;line-height:1.15;cursor:pointer;border-radius:4px}
+.scale-arr:hover:not(:disabled){color:var(--accent);background:var(--frost)}.scale-arr:disabled{opacity:.3;cursor:default}
 .ck-bar{background:var(--frost);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:14px}
 .rp-wrap{margin-top:10px}.rp-t{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
 .rp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
@@ -454,11 +457,10 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       </div>
       <div class="row" id="ck-scale-row" style="justify-content:space-between;margin:12px 0 8px">
         <p class="muted" style="margin:0;flex:1;min-width:200px">Gramy i wartości na 100 g można poprawić, sumy przeliczą się same. Gotujesz z przepisu, ale chcesz zrobić więcej (np. podwójną porcję)? Wybierz mnożnik strzałkami.</p>
-        <span class="row scale-box" style="gap:6px;align-items:center">
+        <span class="row scale-box" style="gap:4px;align-items:center">
           <span class="muted">Ile razy więcej?</span>
-          <button type="button" class="btn ghost small" id="ck-scale-dn" aria-label="Mniej" title="Mniej">▼</button>
-          <output id="ck-scale-v" aria-live="polite">×1</output>
-          <button type="button" class="btn ghost small" id="ck-scale-up" aria-label="Więcej" title="Więcej">▲</button>
+          <span class="scale-in">×<input id="ck-scale" type="text" inputmode="decimal" value="1" autocomplete="off" aria-label="Mnożnik porcji"></span>
+          <span class="scale-arrows"><button type="button" class="scale-arr" id="ck-scale-up" aria-label="Więcej" title="Więcej">▲</button><button type="button" class="scale-arr" id="ck-scale-dn" aria-label="Mniej" title="Mniej">▼</button></span>
           <button class="btn ghost small" id="ck-scale-go" disabled>Powiększ porcje</button>
         </span>
       </div>
@@ -1836,23 +1838,27 @@ $("#ck-search").oninput = renderSearch;
 $("#ck-search").onkeydown = e => { if (e.key === "Enter") { const b = $("#ck-results button"); if (b) b.click(); } };
 $("#rc-search").oninput = () => { if ($("#rc-search").value.trim()) ["#rc-box", "#fd-box", "#sp-box"].forEach(b => $(b).open = true); renderRecipes(); renderFoods(); };
 $("#fz-search").oninput = () => { if ($("#fz-search").value.trim()) $("#meals-box").open = true; renderFreezer(); };
-/* mnożnik składników: strzałki góra/dół zamiast pola, a przycisk mówi, co zrobi */
+/* mnożnik: pole do wpisania (np. 1,24) i subtelne strzałki, które skaczą po wygodnych wartościach */
 const SCALES = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
-let scaleI = 1;
+const scaleF = () => { const f = num($("#ck-scale").value); return f >= 0.1 && f <= 20 ? f : 0; };
+const fmtF = f => String(Math.round(f * 1000) / 1000).replace(".", ",");
 function renderScale() {
-  const f = SCALES[scaleI], t = "×" + f.toLocaleString("pl-PL");
-  $("#ck-scale-v").textContent = t; $("#ck-scale-dn").disabled = scaleI === 0; $("#ck-scale-up").disabled = scaleI === SCALES.length - 1;
-  const go = $("#ck-scale-go"); go.disabled = f === 1; go.textContent = f > 1 ? `Powiększ porcje ${t}` : f < 1 ? `Zmniejsz porcje ${t}` : "Powiększ porcje";
+  const f = scaleF(), same = !f || Math.abs(f - 1) < 1e-9, t = f ? "×" + fmtF(f) : "";
+  $("#ck-scale-dn").disabled = !!f && f <= SCALES[0]; $("#ck-scale-up").disabled = !!f && f >= SCALES[SCALES.length - 1];
+  const go = $("#ck-scale-go"); go.disabled = same; go.textContent = same ? "Powiększ porcje" : f > 1 ? `Powiększ porcje ${t}` : `Zmniejsz porcje ${t}`;
+  $("#ck-scale").setAttribute("aria-invalid", String(!f && $("#ck-scale").value.trim() !== ""));
 }
-$("#ck-scale-dn").onclick = () => { scaleI = Math.max(0, scaleI - 1); renderScale(); };
-$("#ck-scale-up").onclick = () => { scaleI = Math.min(SCALES.length - 1, scaleI + 1); renderScale(); };
+$("#ck-scale").oninput = renderScale;
+$("#ck-scale").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("#ck-scale-go").click(); } };
+$("#ck-scale-dn").onclick = () => { const f = scaleF() || 1, v = [...SCALES].reverse().find(x => x < f - 1e-9); if (v !== undefined) $("#ck-scale").value = fmtF(v); renderScale(); };
+$("#ck-scale-up").onclick = () => { const f = scaleF() || 1, v = SCALES.find(x => x > f + 1e-9); if (v !== undefined) $("#ck-scale").value = fmtF(v); renderScale(); };
 $("#ck-scale-go").onclick = () => {
-  const f = SCALES[scaleI]; if (f === 1) return;
+  const f = scaleF(); if (!f || Math.abs(f - 1) < 1e-9) return;
   /* wiersz z samymi sumami („cały garnek”) nie ma gramów, więc mnożymy jego wartości */
   draft.rows.forEach(r => { r.g = r.g * f; if (r.abs) { r.k *= f; r.p *= f; r.f *= f; } });
-  scaleI = 1; renderScale(); renderCook();
+  $("#ck-scale").value = "1"; renderScale(); renderCook();
   const n = Math.max(1, num($("#ck-portions").value));
-  msg($("#ck-scale-msg"), `Wszystkie gramy ${f > 1 ? "powiększone" : "zmniejszone"} ${f.toLocaleString("pl-PL")} razy. Liczba pudełek zostaje ${n}, więc każde będzie ${f > 1 ? "większe" : "mniejsze"}. Jeśli wolisz więcej pudełek, zmień ją w polu „Pudełka”.`);
+  msg($("#ck-scale-msg"), `Wszystkie gramy ${f > 1 ? "powiększone" : "zmniejszone"} ${fmtF(f)} razy. Liczba pudełek zostaje ${n}, więc każde będzie ${f > 1 ? "większe" : "mniejsze"}. Jeśli wolisz więcej pudełek, zmień ją w polu „Pudełka”.`);
 };
 renderScale();
 /* wybór z listy bez gubienia poprzedniego wyboru, gdy opcja nadal istnieje */
@@ -1916,6 +1922,8 @@ $("#ck-portions").oninput = () => renderCook(true);
 $("#ck-share").oninput = () => renderCook(true);
 $("#ck-share-btns").onclick = e => { const b = e.target.closest("[data-share]"); if (b) { $("#ck-share").value = b.dataset.share; renderCook(true); } };
 
+/* kolumna „Ilość”: zwykłe gramy zawsze zgodne z aktualnymi gramami (także po zmianie i skalowaniu), a miara domowa (łyżeczka) zostaje */
+const qtyOf = r => r.abs ? (r.qty || "") : (r.qty && !/^[\d.,\s]+g$/i.test(String(r.qty).trim()) ? r.qty : (r.g > 0 ? `${f1(r.g)} g` : ""));
 function renderCook(onlyFoot) {
   if (!onlyFoot) renderCookSelects();
   const m = { rows: draft.rows, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))) };
@@ -1936,7 +1944,7 @@ function renderCook(onlyFoot) {
       <td colspan="2"><input class="num" data-i="${i}" data-k="p" value="${f1(r.p)}" aria-label="Białko"></td>
       <td colspan="2"><input class="num" data-i="${i}" data-k="f" value="${f1(r.f)}" aria-label="Błonnik"></td>
       <td class="n"><button class="x" data-rm="${i}" title="Usuń">×</button></td></tr>` : `<tr title="${esc(r.src)}">
-      <td><input data-i="${i}" data-k="name" list="ing-list" value="${esc(r.name)}"></td><td class="muted">${esc(r.qty)}</td>
+      <td><input data-i="${i}" data-k="name" list="ing-list" value="${esc(r.name)}"></td><td class="muted" data-out="q${i}">${esc(qtyOf(r))}</td>
       <td class="n"><input class="num" data-i="${i}" data-k="g" value="${f1(r.g)}"></td><td class="n" data-out="k${i}">${r0(r.g * r.k100 / 100)}</td>
       <td class="n"><input class="num" data-i="${i}" data-k="k100" value="${f1(r.k100)}"></td><td class="n" data-out="p${i}">${f1(r.g * r.p100 / 100)}</td>
       <td class="n"><input class="num" data-i="${i}" data-k="p100" value="${f1(r.p100)}"></td><td class="n" data-out="f${i}">${f1(r.g * r.f100 / 100)}</td>
@@ -1950,6 +1958,7 @@ function renderCook(onlyFoot) {
     /* nazwa znanego składnika (z Twoich przepisów albo z wbudowanej bazy) uzupełnia wartości w tym samym wierszu, bez przeskakiwania kursora */
     if (["k100", "p100", "f100"].includes(k) && AUTO_SRC.has(r.src)) r.src = "ręcznie";
     if (k === "name" && canAutofill(r)) { const hit = knownIngredient(inp.value); if (hit) { Object.assign(r, hit); ["k100", "p100", "f100"].forEach(kk => { const el = $(`#ck-table input[data-i="${i}"][data-k="${kk}"]`); if (el) el.value = f1(r[kk]); }); } }
+    $(`[data-out="q${i}"]`).textContent = qtyOf(r);
     $(`[data-out="k${i}"]`).textContent = r0(r.g * r.k100 / 100); $(`[data-out="p${i}"]`).textContent = f1(r.g * r.p100 / 100); $(`[data-out="f${i}"]`).textContent = f1(r.g * r.f100 / 100);
     renderCook(true);
   });
@@ -1980,7 +1989,7 @@ function saveDraft() {
   if (!name) { msg($("#ck-msg2"), "Wpisz nazwę posiłku.", true); return null; }
   if (!draft.rows.length) { msg($("#ck-msg2"), "Dodaj składniki.", true); return null; }
   if (!draftOk()) return null;
-  const meal = { id: uid(), name, portions, share: myShareOf(share), stock: portions, date: todayIso(), rows: draft.rows.map(r => ({ ...r })), text: draft.text };
+  const meal = { id: uid(), name, portions, share: myShareOf(share), stock: portions, date: todayIso(), rows: draft.rows.map(r => r.abs ? { ...r } : { ...r, qty: qtyOf(r) }), text: draft.text };
   S.meals.unshift(meal);
   let extra = "";
   if (draft.fromRecipe && $("#ck-upd").checked) { const rc = S.recipes.find(x => x.id === draft.fromRecipe); if (rc) { Object.assign(rc, { rows: meal.rows.map(r => ({ ...r })), portions, share: meal.share, text: meal.text }); extra = " Przepis bazowy zaktualizowany."; } }
@@ -1997,7 +2006,7 @@ $("#ck-as-recipe").onclick = () => {
   const name = $("#ck-name").value.trim(); if (!name) return msg($("#ck-msg2"), "Wpisz nazwę przepisu.", true);
   if (!draft.rows.length) return msg($("#ck-msg2"), "Dodaj składniki.", true);
   if (!draftOk()) return;
-  const data = { name, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))), rows: draft.rows.map(r => ({ ...r })), text: draft.text };
+  const data = { name, portions: Math.max(1, num($("#ck-portions").value)), share: myShareOf(Math.min(100, Math.max(1, num($("#ck-share").value) || 100))), rows: draft.rows.map(r => r.abs ? { ...r } : { ...r, qty: qtyOf(r) }), text: draft.text };
   const ex = (draft.editing?.type === "recipe" && S.recipes.find(x => x.id === draft.editing.id)) || S.recipes.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (ex && ex.id !== draft.fromRecipe && !(draft.editing?.type === "recipe" && draft.editing.id === ex.id) && ckPending !== "r:" + ex.id) {
     ckPending = "r:" + ex.id; return msg($("#ck-msg2"), `Przepis „${ex.name}” już istnieje. Kliknij „Zapisz jako przepis bazowy” jeszcze raz, żeby go zastąpić, albo zmień nazwę.`, true);

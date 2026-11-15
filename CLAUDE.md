@@ -118,7 +118,7 @@ Tryb jest osobny dla każdej osoby (27.10).
 - Zakładka „Gotuję” to trzy ponumerowane kroki (15.11):
   - krok 1 „Składniki” z przełącznikiem trybu: opisowo (tekst i Gemini albo wklejone sumy), tabela (wiersze ręcznie i z kodu kreskowego), z przyprawy (skład, przypisany przepis i „Wczytaj przepis do tabeli”), z przepisu (lista i wyszukiwarka przepisów bazowych),
   - tryb pokazuje tylko swoje pola, a wyliczenie jest jedno, więc tryby można łączyć w jednym daniu,
-  - krok 2 „Danie i wyliczenie”: nazwa, pudełka, moja część, tabela z sumami, „Zacznij od nowa”, mnożnik porcji ze strzałkami góra/dół (×0,5 do ×10, bez pola do wpisywania) i przyciskiem „Powiększ porcje ×N” (albo „Zmniejsz porcje”), który mnoży gramy, np. do ugotowania podwójnej porcji z przepisu; liczba pudełek zostaje bez zmian, a komunikat o tym mówi,
+  - krok 2 „Danie i wyliczenie”: nazwa, pudełka, moja część, tabela z sumami, „Zacznij od nowa”, mnożnik porcji: pole, w które można wpisać dowolną liczbę (np. 1,24, od 0,1 do 20, Enter stosuje), z subtelnymi strzałkami skaczącymi po wygodnych wartościach (×0,5 do ×10), i przyciskiem „Powiększ porcje ×N” (albo „Zmniejsz porcje”), który mnoży gramy, np. do ugotowania podwójnej porcji z przepisu; liczba pudełek zostaje bez zmian, a komunikat o tym mówi,
   - krok 3 „Zapis”: zamrażarka na pierwszym planie, przepis bazowy (z przypisaniem do przyprawy) w zwijanej sekcji,
   - wybrany tryb jest zapamiętany (`settings.cookMode`), komunikat pojawia się w kroku, którego dotyczy.
 - Praca na przepisie w „Gotuję” (15.11):
@@ -126,6 +126,7 @@ Tryb jest osobny dla każdej osoby (27.10).
   - przy pracy na przepisie (edycja, wczytany przepis, nowy przepis dla przyprawy) u góry kroku 2 jest pasek z opisem sytuacji i przyciskiem „Zapisz zmiany w przepisie” (albo „Zapisz przepis”) oraz „Zakończ i zacznij od nowa”, a komunikat zapisu pojawia się w pasku; zmiana nazwy przed zapisem tworzy nowy przepis, czyli kolejny wariant przyprawy,
   - po wczytaniu przepisu pole „Opisowo” jest puste, a opis przepisu trzyma szkic (`draft.text`) i dopisuje do niego to, co dodano z pola, więc „Policz” nie dubluje składników, a zapisany posiłek i przepis zachowują opis,
   - wczytanie przepisu przewija do kroku 2,
+  - kolumna „Ilość” w tabeli pokazuje zawsze aktualne gramy (także dla ręcznie dodanego składnika, po zmianie gramów i po skalowaniu), a miara domowa, np. „1 łyżeczka”, zostaje; zapis do zamrażarki i przepisu zapisuje aktualną ilość,
   - nazwa składnika w tabeli i w oknie „Edytuj” uzupełnia kcal, białko i błonnik na 100 g najpierw z Twoich przepisów, potem z wbudowanej bazy (np. ryż, kasza bulgur), bez przeskakiwania kursora; uzupełnienie automatyczne zmienia się razem z nazwą, a ręcznie poprawione wartości zostają. Lista podpowiedzi nazw zawiera produkty z bazy.
 - Etykiety (15.11):
   - karty w zamrażarce nie mają własnego przycisku etykiet, jest jeden przycisk „Drukuj etykiety”,
@@ -177,4 +178,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Zamiast pola „Przeskaluj gramy ×” strzałki góra/dół i przycisk „Powiększ porcje ×N”. |
 | 15.11 | Przegląd logiki dodawania przepisów: pasek zapisu przy pracy na przepisie, „+ Dodaj wiersz” w każdym trybie, brak dublowania składników po wczytaniu przepisu, podpowiadanie wartości z bazy w tabeli i w Edytuj. |
 | 15.11 | Bez przycisku „Gotuję” na liście przypraw. Na liście przepisów ikonka przyprawy zamiast jej nazwy. |
+| 15.11 | Kolumna „Ilość” zawsze zgodna z gramami. Mnożnik porcji jako pole do wpisania (np. 1,24) z subtelnymi strzałkami. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
