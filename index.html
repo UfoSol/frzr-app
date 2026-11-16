@@ -693,8 +693,8 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <label>Drukuj przez<select id="lbl-via"><option value="browser">okno przeglądarki</option><option value="m02s">Phomemo M02S (Bluetooth)</option></select></label>
       <button class="btn ghost small" id="lbl-connect" hidden>Połącz z M02S</button>
     </div>
-    <div class="row" style="margin-top:6px;align-items:flex-end"><label>Wiele etykiet<select id="lbl-flow"><option value="auto">po kolei, z przerwą</option><option value="click">po każdej czekaj na kliknięcie</option></select></label></div>
-    <p class="muted" id="lbl-via-info" hidden style="margin:6px 0 0"></p>
+    <div class="row" style="margin-top:6px;align-items:flex-end"><label><span>Wiele etykiet <button type="button" class="info-i" id="lbl-flow-info" aria-label="Co to jest?" aria-expanded="false" aria-controls="lbl-via-info" title="Co to jest?">i</button></span><select id="lbl-flow"><option value="auto">po kolei, z przerwą</option><option value="click">po każdej czekaj na kliknięcie</option></select></label></div>
+    <div class="tip" id="lbl-via-info" hidden style="margin-top:6px"></div>
     <p class="muted" id="lbl-hint" style="margin:8px 0 6px">Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.</p>
     <div class="label-prev" id="lbl-prev"></div>
     <div class="msg" id="lbl-msg" hidden style="margin-top:8px"></div>
@@ -2360,7 +2360,7 @@ function m02sUi() {
     : m02sPort ? "Port drukarki wybrany. Czy drukarka odpowiada, okaże się przy pierwszym wydruku." : "Nie wybrano portu drukarki.";
   $("#pr-state").textContent = st; $("#pr-connect").textContent = m02sPort ? "Wybierz inny port" : "Połącz z M02S";
   const via = $("#lbl-via"); if (via) { via.value = sup ? (S.settings.printer || "browser") : "browser"; via.disabled = !sup; }
-  $("#lbl-via-info").hidden = !(sup && on); $("#lbl-connect").hidden = !(sup && on && !m02sPort);
+  if (!(sup && on)) $("#lbl-via-info").hidden = true; $("#lbl-connect").hidden = !(sup && on && !m02sPort);
   const cfg = m02sCfg();
   $("#lbl-via-info").textContent = cfg.flow === "click" ? "Po każdej etykiecie program czeka na kliknięcie „Następna etykieta”, żeby zdążyć oderwać papier." : `Jedna etykieta trwa ok. ${Math.round((M02S.waitInit + M02S.waitImage + M02S.waitFeed) / 1000)} s. Etykiety idą kolejno, z przerwą.`;
   $("#pr-flow").value = cfg.flow; $("#pr-before").value = cfg.before; $("#pr-after").value = cfg.after; $("#pr-feed").value = cfg.feed;
@@ -2439,7 +2439,7 @@ function renderLabels() {
   if (m02sActive()) {
     /* na M02S widać dokładnie to, co poleci do drukarki (czarno-biały obraz), żeby ocenić czytelność kodu QR */
     $("#lbl-prev").style.cssText = ""; $("#lbl-prev").innerHTML = first ? `<img src="${m02sPreview(first)}" alt="Podgląd etykiety dla M02S" style="width:100%;max-width:420px;display:block">` : "";
-    $("#lbl-hint").textContent = "Podgląd pierwszej etykiety dokładnie tak, jak trafi do drukarki (czarno-biały obraz). Po wydruku zeskanuj kod QR skanerem FRZR.";
+    $("#lbl-hint").textContent = "Podgląd";
   } else {
     $("#lbl-prev").style.cssText = labelVars(); $("#lbl-prev").innerHTML = first ? labelHtml(first) : "";
     $("#lbl-hint").textContent = "Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.";
@@ -2457,6 +2457,7 @@ $("#lbl-back").onclick = () => { $("#lbl-modal").hidden = true; };
 /* sposób druku: to samo ustawienie w oknie etykiet i w Ustawieniach */
 function setPrinter(v) { S.settings.printer = v === "m02s" ? "m02s" : "browser"; save(); m02sUi(); if (!$("#lbl-modal").hidden) renderLabels(); }
 $("#lbl-via").onchange = () => setPrinter($("#lbl-via").value);
+$("#lbl-flow-info").onclick = () => { const t = $("#lbl-via-info"); t.hidden = !t.hidden; $("#lbl-flow-info").setAttribute("aria-expanded", String(!t.hidden)); };
 $("#pr-mode").onchange = () => setPrinter($("#pr-mode").value);
 function setM02s(key, v) { S.settings.m02s = { ...(S.settings.m02s || {}), [key]: v }; save(); m02sUi(); if (!$("#lbl-modal").hidden) renderLabels(); }
 ["#pr-flow", "#lbl-flow"].forEach(sel => $(sel).onchange = () => setM02s("flow", $(sel).value));
