@@ -665,6 +665,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <div class="scan-head"><h3>Skanuj kod</h3><button class="btn ghost small" id="scan-close-x" aria-label="Zamknij skaner">Zamknij ✕</button></div>
     <p class="muted" style="margin:0 0 8px">Kod QR z etykiety pudełka albo kod kreskowy produktu. Trzymaj telefon ok. 10 do 20 cm od kodu, a dotknięcie obrazu ustawia ostrość.</p>
     <div id="reader"></div>
+    <p class="muted" id="scan-zoom-hint" hidden style="margin:8px 0 0">Ta kamera nie ma przybliżania (zwykle mają je tylko telefony i niektóre kamery zewnętrzne). Zbliż kod do kamery na ok. 10 do 20 cm.</p>
     <div class="row" id="scan-zoom-row" hidden style="margin-top:8px;align-items:center"><span class="muted">Przybliżenie</span><input type="range" id="scan-zoom" style="flex:1" aria-label="Przybliżenie"></div>
     <div class="card" id="scan-prod" hidden style="margin:10px 0 0;padding:12px">
       <b id="sc-n"></b>
@@ -1284,21 +1285,25 @@ async function scanOpen() {
   const fm = SCAN_FORMATS();
   /* natywny detektor kodów (jeśli jest) i wyższa rozdzielczość pomagają, gdy ostrość jest słaba */
   scanner = new Html5Qrcode("reader", { formatsToSupport: fm.length ? fm : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
+  /* na komputerze wyższa rozdzielczość (kody na etykiecie są małe), a prośba o zoom włącza w Chrome zbliżanie kamerom, które je mają (wymaga zgody „PTZ”) */
+  const desk = !(window.matchMedia && matchMedia("(pointer:coarse)").matches), cfg = zoom => ({
+    fps: 12, qrbox: (vw, vh) => ({ width: Math.floor(vw * 0.85), height: Math.floor(Math.min(vh * 0.7, vw * 0.55)) }),
+    videoConstraints: { facingMode: "environment", width: { ideal: desk ? 1920 : 1280 }, height: { ideal: desk ? 1080 : 720 }, ...(zoom ? { zoom: true } : {}) }
+  });
   try {
-    await scanner.start({ facingMode: "environment" }, {
-      fps: 12, qrbox: (vw, vh) => ({ width: Math.floor(vw * 0.85), height: Math.floor(Math.min(vh * 0.7, vw * 0.55)) }),
-      videoConstraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-    }, scanText);
+    try { await scanner.start({ facingMode: "environment" }, cfg(true), scanText); }
+    catch (e1) { scanner = new Html5Qrcode("reader", { formatsToSupport: fm.length ? fm : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false }); await scanner.start({ facingMode: "environment" }, cfg(false), scanText); } /* kamera nie przyjęła prośby o zoom: jeszcze raz bez niej */
     await scanTune();
   } catch (e) { msg($("#scan-msg"), "Brak dostępu do kamery: " + e, true); }
 }
 /* ostrość ciągła i zbliżenie, jeśli kamera je ma; nie każda przeglądarka na to pozwala, wtedy skaner działa jak dotąd */
 async function scanTune() {
-  scanCaps = {}; $("#scan-zoom-row").hidden = true;
+  scanCaps = {}; $("#scan-zoom-row").hidden = true; $("#scan-zoom-hint").hidden = true;
   try {
     const c = scanner.getRunningTrackCapabilities() || {}; scanCaps = c;
     if (c.focusMode && c.focusMode.includes("continuous")) await scanner.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] });
     if (c.zoom && c.zoom.max > c.zoom.min) { const z = $("#scan-zoom"); z.min = c.zoom.min; z.max = c.zoom.max; z.step = c.zoom.step || 0.1; z.value = c.zoom.min; $("#scan-zoom-row").hidden = false; }
+    else if (!(window.matchMedia && matchMedia("(pointer:coarse)").matches)) $("#scan-zoom-hint").hidden = false; /* kamera w komputerze zwykle nie ma przybliżania */
   } catch (e) { /* kamera bez tych funkcji */ }
 }
 $("#scan-zoom").oninput = () => { if (scanner) scanner.applyVideoConstraints({ advanced: [{ zoom: +$("#scan-zoom").value }] }).catch(() => {}); };
