@@ -881,8 +881,11 @@ function upsertFood(name, k, p, f, date, u = ACT()) {
 function parseFree(text) {
   const out = {}, clean = s => s.replace(/\s+/g, " ").replace(/[\s,;:\-–—|]+$/, "").replace(/^[\s,;:\-–—|]+/, "").trim();
   /* wiersz skopiowany z tabeli: nazwa, kcal, białko, błonnik w kolejnych kolumnach */
+  text = String(text).replace(/[\u00a0\u202f]/g, " "); /* twarde spacje z kopiowania */
   const cells = text.split(/\t+|\s*\|\s*/).map(c => c.trim()).filter(Boolean);
-  if (cells.length >= 2 && cells.slice(1).every(c => /^\d+(?:[.,]\d+)?\s*(?:kcal|kalori\w*|g)?$/i.test(c))) {
+  /* gdy kalorie są już w pierwszej komórce („nazwa 177 kcal” i dalej białko, błonnik), to nie jest wiersz tabeli z kolumną kcal: tabulatory traktujemy jak spacje */
+  if (cells.length >= 2 && KCAL_RE.test(cells[0])) text = text.replace(/\t+/g, " ");
+  else if (cells.length >= 2 && cells.slice(1).every(c => /^\d+(?:[.,]\d+)?\s*(?:kcal|kalori\w*|g)?$/i.test(c))) {
     const n = cells.slice(1).map(num); out.name = clean(cells[0]); out.k = n[0]; if (n.length > 1) out.p = n[1]; if (n.length > 2) out.f = n[2]; return out;
   }
   /* nazwa to wszystko przed kaloriami, reszta to liczby */
