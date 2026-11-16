@@ -146,6 +146,7 @@ Tryb jest osobny dla każdej osoby (27.10).
   - tryb wielu etykiet (`settings.m02s.flow`, w Ustawieniach i w oknie etykiet): „po kolei, z przerwą” (domyślny: etykiety idą same, z opóźnieniami sekwencji) albo „po każdej czekaj na kliknięcie” (po każdej etykiecie oprócz ostatniej pasek pokazuje „Następna etykieta” i „Zakończ”, port zostaje otwarty na czas czekania),
   - kolejka: etykiety idą kolejno, nigdy równolegle, bez automatycznych ponowień; po błędzie albo przekroczeniu limitu zapisu (10 s) kolejka staje, a komunikat podaje, ile wysłano, i ostrzega przed duplikatami; „Zatrzymaj po tej etykiecie” przerywa kolejkę; komunikat końcowy mówi tylko, że wysyłanie się skończyło, a nie że papier wyszedł,
   - nie testowano na prawdziwej drukarce (tylko atrapa portu); ewentualne skrócenie opóźnień i dopełnienia za etykietą dopiero po sprawdzeniu na sprzęcie.
+- Wyłączony przycisk (np. „Powiększ porcje” przy ×1) ma zwykły kursor-strzałkę i przygaszony wygląd, bez klepsydry, bo z perspektywy użytkownika wyglądała jak błąd; prace w toku pokazuje osobny wskaźnik z kółkiem. (16.11)
 - Strona nie skacze na boki: pasek przewijania zawsze zajmuje miejsce (`scrollbar-gutter: stable`), bo przełączenie Danie / Samą przyprawę zmienia wysokość i pasek pojawiał się i znikał. (15.11)
 - Na liście przepisów (Przepisy i wyniki „Z przepisu”) przyprawę oznacza tylko zielona wektorowa ikonka papryczki chilli z trzema kuleczkami pieprzu (przepis ją ma albo nie), bez nazwy przyprawy, bo ważne jest samo posiadanie. (15.11)
 - Tabela dni w Wadze pokazuje 45 dni, starsze pod przyciskiem „Pokaż starsze dni”. (14.11)
@@ -197,4 +198,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 16.11 | Po teście na drukarce: marginesy M02S o połowę mniejsze (przycinanie pustych brzegów, ustawialne odstępy) i tryb „po każdej etykiecie czekaj na kliknięcie” obok trybu z przerwą. |
 | 16.11 | Skaner: lepsza ostrość i rozdzielczość, czytanie także kodów kreskowych produktów (zjem czekoladę), QR na etykiecie z danymi porcji (działa na telefonie bez danych), bez przycisku kodu kreskowego w Gotuję → Tabela. |
 | 16.11 | Skaner zamyka się po udanym skanie, a potwierdzenie jest na stronie „Dziś”. |
+| 16.11 | Bez klepsydry nad wyłączonymi przyciskami. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |
