@@ -630,9 +630,9 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Odstęp przed etykietą (mm)<input type="number" id="pr-before" min="0" max="20" step="0.5" style="width:90px"></label>
         <label>Odstęp po etykiecie (mm)<input type="number" id="pr-after" min="0" max="40" step="0.5" style="width:90px"></label>
         <label>Przesuw papieru na końcu (linie)<input type="number" id="pr-feed" min="0" max="10" step="1" style="width:90px"></label>
-        <label>Przerwa między częściami długiej etykiety (s)<input type="number" id="pr-block" min="0" max="20" step="0.5" style="width:90px"></label>
+        <label>Tempo wysyłania długiej etykiety (wiersze na s)<input type="number" id="pr-rate" min="10" max="1000" step="10" style="width:90px"></label>
       </div>
-      <p class="muted" style="margin:6px 0 0">Odstępy są przybliżone (ok. 12 punktów na milimetr). Puste miejsce na etykiecie jest przycinane, a tu ustawiasz, ile papieru zostaje przed i po niej. Papier musi wyjechać poza krawędź do odrywania, więc odstęp po etykiecie nie powinien być za mały. Tryb „po każdej czekaj na kliknięcie” pozwala odrywać etykiety jedna po drugiej.</p>
+      <p class="muted" style="margin:6px 0 0">Odstępy są przybliżone (ok. 12 punktów na milimetr). Puste miejsce na etykiecie jest przycinane, a tu ustawiasz, ile papieru zostaje przed i po niej. Papier musi wyjechać poza krawędź do odrywania, więc odstęp po etykiecie nie powinien być za mały. Tryb „po każdej czekaj na kliknięcie” pozwala odrywać etykiety jedna po drugiej. Tempo wysyłania dotyczy tylko długich etykiet (np. przypraw): jeśli na wydruku są paski w trakcie tekstu, zwiększ tempo, a jeśli brakuje końca etykiety, zmniejsz.</p>
       <p class="muted" id="pr-state" style="margin:8px 0 0"></p>
       <p class="muted" style="margin:6px 0 0">W oknie wyboru portu wskaż port wychodzący drukarki, np. „M02S 'JL_SPP' (COM4)”, a nie przychodzący (COM3). Numer COM jest inny na każdym komputerze. Zamknij inne programy, które używają drukarki. Próbną etykietę zeskanuj skanerem FRZR: komunikat „Tego kodu nie ma w bazie” oznacza, że kod QR się czyta.</p>
     </div>
@@ -1773,22 +1773,28 @@ function calcRemember(segs, rows) {
 async function calcRows(text, ui) {
   const segs = foodSplit(text), res = segs.map(s => foodResolve(s));
   const need = segs.filter((s, i) => !res[i]);
-  let ai = [], missing = [];
+  let ai = [], missing = [], aiError = "";
   if (need.length) {
     if (!S.settings.key) missing = need;
     else {
       ui && ui.stage(`W bazie brakuje: ${need.length} ${plSk(need.length)}. Pytam Gemini…`);
-      ai = await geminiRows(need.join("\n"), ui);
-      calcRemember(need, ai);
+      try { ai = await geminiRows(need.join("\n"), ui); calcRemember(need, ai); }
+      catch (e) { if (e && e.reason) throw e; missing = need; ai = []; aiError = e.message || "Gemini nie odpowiedział."; } /* zwykły błąd: to, co jest w bazie, i tak dodajemy, a resztę da się uzupełnić w tabeli */
     }
   }
   const rows = []; let a = 0;
   segs.forEach((s, i) => { if (res[i]) rows.push(res[i]); else if (!missing.includes(s) && ai.length === need.length) rows.push(ai[a++]); });
   if (need.length && ai.length && ai.length !== need.length) rows.push(...ai);
-  return { rows, local: res.filter(Boolean).length, ai: ai.length, missing };
+  return { rows, local: res.filter(Boolean).length, ai: ai.length, missing, aiError };
 }
 const calcSummary = r => `Dodano ${r.rows.length} ${plSk(r.rows.length)}` + (r.rows.length ? (r.ai ? `: ${r.local} z bazy, ${r.ai} z Gemini.` : ": wszystkie z bazy, bez Gemini.") : ".");
-const calcMissing = r => r.missing.length ? ` Nie ma w bazie: ${r.missing.join(", ")}. Wpisz klucz Gemini w Ustawieniach albo dodaj to ręcznie w tabeli.` : "";
+const calcMissing = r => r.missing.length ? ` Nie ma w bazie: ${r.missing.join(", ")}. ` + (r.aiError ? `Gemini nie odpowiedział (${r.aiError.replace(/\.$/, "")}), więc to trzeba uzupełnić ręcznie.` : "Wpisz klucz Gemini w Ustawieniach albo dodaj to ręcznie w tabeli.") : "";
+/* brakujący składnik jako wiersz do uzupełnienia w tabeli: nazwa i gramy (g, dag, kg, a ml i l jak gramy), reszta zera */
+function calcPlaceholder(seg) {
+  const sc = foodScan(seg), mul = { g: 1, dag: 10, kg: 1000, ml: 1, lt: 1000 }[sc.u], q = sc.q ?? 1;
+  const name = String(seg).replace(/^\s*[\d.,/]+\s*(?:g|gr|gram\w*|dag|dkg|kg|ml|l|litr\w*|łyż\w*|szt\.?|sztuk\w*|szklank\w*)?\s+/i, "").replace(/^(?:z|ze)\s+/i, "").trim() || String(seg).trim();
+  return { name: name.charAt(0).toUpperCase() + name.slice(1), qty: sc.q === null ? "" : foodQtyTxt(sc), g: mul ? Math.round(q * mul * 10) / 10 : 0, k100: 0, p100: 0, f100: 0, src: "do uzupełnienia" };
+}
 /* przepis z „Baza:”, „Wersja N:”: lokalnie, a gdy czegoś brakuje, całość idzie do Gemini */
 async function calcVersions(raw, ui) {
   const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean), secs = []; let title = "", cur = null;
@@ -2027,8 +2033,8 @@ $("#ck-ai").onclick = async () => {
   try {
     const r = await calcRows(txt, ui); ui.end();
     if (!r.rows.length) return msg($("#ck-msg"), "Nie znalazłem tych składników w bazie." + calcMissing(r), true);
-    draft.rows.push(...r.rows); ckNote(foodSplit(txt).filter(x => !r.missing.includes(x)).join(", ")); $("#ck-text").value = r.missing.length ? r.missing.join(", ") : "";
-    msg($("#ck-msg"), calcSummary(r) + calcMissing(r) + " Sprawdź gramy przy miarach typu łyżka.", !!r.missing.length); renderCook();
+    draft.rows.push(...r.rows, ...r.missing.map(calcPlaceholder)); ckNote(foodSplit(txt).join(", ")); $("#ck-text").value = ""; /* brakujące wchodzą do tabeli jako puste wiersze do uzupełnienia */
+    msg($("#ck-msg"), calcSummary(r) + calcMissing(r) + (r.missing.length ? " Brakujące są w tabeli jako wiersze z samą nazwą i gramami: uzupełnij kcal, białko i błonnik na 100 g albo zmień nazwę, a baza podpowie wartości." : "") + " Sprawdź gramy przy miarach typu łyżka.", !!r.missing.length); renderCook();
   } catch (e) { calcFail(ui, $("#ck-msg"), e); }
   b.disabled = false;
 };
@@ -2382,12 +2388,12 @@ function printLabels(m, n) { printLabelSet([{ m, n }]); }
    Sekwencja i opóźnienia są tym, co sprawdzono ręcznie w Pythonie (inicjalizacja, 1 s, obraz, 5 s, 3 linie, 2 s, bez resetu).
    Protokół i podział obrazu odtworzono według biblioteki phomemo_m02s (Copyright (c) 2021 Alethea Katherine Flowers, licencja MIT,
    pełny tekst na końcu tego pliku). Etykiety idą kolejno, nigdy równolegle, i bez automatycznych ponowień, żeby nie robić duplikatów. */
-const M02S = { width: 576, padTop: 5, chunk: 255, baud: 9600, waitInit: 1000, waitImage: 5000, waitFeed: 2000, waitBlock: 3000, longRows: 510, writeTimeout: 10000, pxMm: 12 };
+const M02S = { width: 576, padTop: 5, chunk: 255, baud: 9600, waitInit: 1000, waitImage: 5000, waitFeed: 2000, rate: 120, sliceRows: 16, tailLong: 3000, longRows: 510, writeTimeout: 10000, pxMm: 12 };
 /* ustawienia druku: odstęp przed i po etykiecie w mm (przybliżone, ok. 12 punktów na mm), przesuw papieru na końcu w liniach
    i tryb wielu etykiet: auto (po kolei, z przerwą) albo click (po każdej czeka na kliknięcie) */
 const m02sCfg = () => {
   const c = S.settings.m02s || {}, cl = (v, lo, hi, d) => { v = num(v); return isFinite(v) && String(v) !== "" ? Math.min(hi, Math.max(lo, v)) : d; };
-  return { flow: c.flow === "click" ? "click" : "auto", before: c.before === undefined ? 2 : cl(c.before, 0, 20, 2), after: c.after === undefined ? 6 : cl(c.after, 0, 40, 6), feed: c.feed === undefined ? 3 : Math.round(cl(c.feed, 0, 10, 3)), block: c.block === undefined ? M02S.waitBlock / 1000 : cl(c.block, 0, 20, M02S.waitBlock / 1000) };
+  return { flow: c.flow === "click" ? "click" : "auto", before: c.before === undefined ? 2 : cl(c.before, 0, 20, 2), after: c.after === undefined ? 6 : cl(c.after, 0, 40, 6), feed: c.feed === undefined ? 3 : Math.round(cl(c.feed, 0, 10, 3)), rate: c.rate === undefined ? M02S.rate : cl(c.rate, 10, 1000, M02S.rate) };
 };
 const m02sSupported = () => !!navigator.serial;
 const m02sActive = () => m02sSupported() && S.settings.printer === "m02s";
@@ -2418,15 +2424,18 @@ function m02sBlock(bits, w, y0, rows) {
 function m02sPlan(img, opt = {}) {
   const w = img.width, h = img.height;
   if (w % 8) throw new Error("Szerokość obrazu musi być wielokrotnością 8.");
-  const wb = Math.round(m02sCfg().block * 1000), long = h > M02S.longRows; /* przerwa między blokami długiej etykiety (ustawienie) */
+  const long = h > M02S.longRows, pace = Math.round(M02S.sliceRows / m02sCfg().rate * 1000); /* długa etykieta: wysyłka równym tempem (wiersze na sekundę, ustawienie) */
   const bits = m02sBits(img), steps = [{ bytes: Uint8Array.of(0x1B, 0x40) }, { wait: M02S.waitInit }];
   steps.push({ bytes: m02sBlock(new Uint8Array(w * M02S.padTop), w, 0, M02S.padTop) }); /* puste wiersze na początku */
   if (opt.fill255) for (let c = 0; c <= Math.floor(h / M02S.chunk); c++) steps.push({ bytes: m02sBlock(bits, w, c * M02S.chunk, M02S.chunk) }); /* dokładnie jak w bibliotece */
   else for (let y = 0; y < h; y += M02S.chunk) { /* tylko prawdziwe wiersze, bez pustego dopełnienia */
-    if (y && h > M02S.longRows) steps.push({ wait: wb }); /* długa etykieta: przerwa między blokami, żeby bufor drukarki nadążył (bajty bez zmian) */
-    steps.push({ bytes: m02sBlock(bits, w, y, Math.min(M02S.chunk, h - y)) });
+    const blk = m02sBlock(bits, w, y, Math.min(M02S.chunk, h - y));
+    if (!long) { steps.push({ bytes: blk }); continue; }
+    /* długa etykieta: ten sam strumień bajtów, ale cienkimi kawałkami i bez długich przerw: bufor drukarki ani się nie przepełnia, ani nie pustoszeje (puste miejsce w trakcie wydruku robi paski) */
+    const cut = M02S.sliceRows * (w / 8);
+    for (let o = 0; o < blk.length; o += cut) { steps.push({ bytes: blk.subarray(o, Math.min(blk.length, o + cut)) }); steps.push({ wait: pace }); }
   }
-  steps.push({ bytes: Uint8Array.of(0x1D, 0x56, 0x01) }, { wait: M02S.waitImage + (long ? 2 * wb : 0) }); /* długa etykieta: drukarka jeszcze drukuje to, co ma w buforze, więc czekamy dłużej, zanim zamkniemy port */
+  steps.push({ bytes: Uint8Array.of(0x1D, 0x56, 0x01) }, { wait: M02S.waitImage + (long ? M02S.tailLong : 0) }); /* długa etykieta: drukarka jeszcze drukuje to, co ma w buforze, więc czekamy dłużej, zanim zamkniemy port */
   const feed = opt.feed ?? m02sCfg().feed;
   if (feed > 0) steps.push({ bytes: Uint8Array.of(0x1B, 0x64, feed) });
   steps.push({ wait: M02S.waitFeed });
@@ -2528,7 +2537,7 @@ function m02sUi() {
   if (!(sup && on)) $("#lbl-via-info").hidden = true; $("#lbl-connect").hidden = !(sup && on && !m02sPort);
   const cfg = m02sCfg();
   $("#lbl-via-info").textContent = cfg.flow === "click" ? "Po każdej etykiecie program czeka na kliknięcie „Następna etykieta”, żeby zdążyć oderwać papier." : `Jedna etykieta trwa ok. ${Math.round((M02S.waitInit + M02S.waitImage + M02S.waitFeed) / 1000)} s. Etykiety idą kolejno, z przerwą.`;
-  $("#pr-flow").value = cfg.flow; $("#pr-before").value = cfg.before; $("#pr-after").value = cfg.after; $("#pr-feed").value = cfg.feed; $("#pr-block").value = cfg.block;
+  $("#pr-flow").value = cfg.flow; $("#pr-before").value = cfg.before; $("#pr-after").value = cfg.after; $("#pr-feed").value = cfg.feed; $("#pr-rate").value = cfg.rate;
   const lf = $("#lbl-flow"); if (lf) { lf.value = cfg.flow; lf.closest(".row").hidden = !(sup && on); }
 }
 /* drukowanie zestawu: [{ m, n }]; port otwieramy na czas całej kolejki i zamykamy na końcu */
@@ -2637,7 +2646,7 @@ function spiceLabelLines(sp, rid) {
 
 /* własne zdjęcie rysujemy rastrem Floyda-Steinberga, żeby na papierze termicznym wyglądało jak półton */
 function ditherDraw(x, img, dx, dy, dw, dh) {
-  const t = document.createElement("canvas"); t.width = dw; t.height = dh; const tx = t.getContext("2d");
+  const t = document.createElement("canvas"); t.width = dw; t.height = dh; const tx = t.getContext("2d"); tx.imageSmoothingQuality = "high";
   tx.fillStyle = "#fff"; tx.fillRect(0, 0, dw, dh); tx.drawImage(img, 0, 0, dw, dh);
   const d = tx.getImageData(0, 0, dw, dh), g = new Float32Array(dw * dh);
   for (let i = 0; i < g.length; i++) g[i] = 0.299 * d.data[i * 4] + 0.587 * d.data[i * 4 + 1] + 0.114 * d.data[i * 4 + 2];
@@ -2688,7 +2697,7 @@ function spiceListBlock(lines, W, Lh) {
 }
 /* tytuł etykiety: ręczna wersja zapamiętana dla dania albo nazwa dania (a bez dania nazwa przyprawy); enter oddziela duży napis od mniejszego */
 function spiceAutoTitle(sp, rid) { const rs = recipesOf(sp), r = rs.find(v => v.id === rid) || rs[0] || null; return String(r ? r.name : sp.name); }
-function spiceTitleOf(sp, rid) { const rs = recipesOf(sp), key = rid || (rs[0] || {}).id, ov = sp.labelTitle && key && sp.labelTitle[key]; return typeof ov === "string" && ov.trim() ? ov : spiceAutoTitle(sp, rid); }
+function spiceTitleOf(sp, rid) { const rs = recipesOf(sp), key = rid || (rs[0] || {}).id || "_", ov = sp.labelTitle && sp.labelTitle[key]; return typeof ov === "string" && ov.trim() ? ov : spiceAutoTitle(sp, rid); }
 async function spiceLabelCanvas(sp, rid) {
   const { w, h } = spiceLabelSize(), W = M02S.width, H = Math.round(W * h / w);
   const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
@@ -2743,11 +2752,11 @@ function printSpiceSet(items) { return m02sActive() ? m02sPrintSet(items) : prin
 async function spiceUpload(sp, file) {
   const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
   const img = await loadImg(url); if (!img) throw new Error("Nie udało się wczytać obrazka.");
-  for (const side of [360, 240, 160]) {
+  for (const side of [720, 560, 420, 300, 200, 140]) { /* im większy, tym ostrzejsza etykieta; schodzimy niżej tylko, gdy plik robi się za duży */
     const k = Math.min(1, side / Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
-    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+    const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
     const d = x.getImageData(0, 0, c.width, c.height); for (let i = 0; i < d.data.length; i += 4) { const g = 0.299 * d.data[i] + 0.587 * d.data[i + 1] + 0.114 * d.data[i + 2]; d.data[i] = d.data[i + 1] = d.data[i + 2] = g; } x.putImageData(d, 0, 0);
-    const out = c.toDataURL("image/png"); if (out.length < 160000 || side === 160) { sp.img = out; sp.icon = "own"; save(); return; }
+    const out = c.toDataURL("image/png"); if (out.length < 260000 || side === 140) { sp.img = out; sp.icon = "own"; save(); return; }
   }
 }
 
@@ -2812,7 +2821,7 @@ $("#lbl-flow-info").onclick = () => { const t = $("#lbl-via-info"); t.hidden = !
 $("#pr-mode").onchange = () => setPrinter($("#pr-mode").value);
 function setM02s(key, v) { S.settings.m02s = { ...(S.settings.m02s || {}), [key]: v }; save(); m02sUi(); if (!$("#lbl-modal").hidden) renderLabels(); }
 ["#pr-flow", "#lbl-flow"].forEach(sel => $(sel).onchange = () => setM02s("flow", $(sel).value));
-[["#pr-before", "before", 20], ["#pr-after", "after", 40], ["#pr-feed", "feed", 10], ["#pr-block", "block", 20]].forEach(([sel, key, max]) => $(sel).onchange = () => {
+[["#pr-before", "before", 20], ["#pr-after", "after", 40], ["#pr-feed", "feed", 10], ["#pr-rate", "rate", 1000]].forEach(([sel, key, max]) => $(sel).onchange = () => {
   const v = num($(sel).value); if ($(sel).value.trim() === "" || !(v >= 0 && v <= max)) return m02sUi(); /* błędna wartość: wraca poprzednia */
   setM02s(key, key === "feed" ? Math.round(v) : v);
 });
@@ -2866,12 +2875,12 @@ async function renderSpiceLabels() {
   lblPending = null; const items = spiceItems(), total = items.reduce((a, x) => a + x.n, 0), tok = ++lblTok;
   const icons = sp => Object.entries(SPICE_ICONS).map(([k, v]) => `<option value="${k}" ${(sp.icon || SPICE_ICON_DEFAULT) === k ? "selected" : ""}>${v[0]}</option>`).join("") + `<option value="none" ${sp.icon === "none" ? "selected" : ""}>Bez obrazka</option>` + (sp.img ? `<option value="own" ${sp.icon === "own" ? "selected" : ""}>Własny obrazek</option>` : "");
   $("#lbl-rows").innerHTML = items.map(({ sp, rid, n }) => { const rs = recipesOf(sp);
-    const ov = sp.labelText && rid && typeof sp.labelText[rid] === "string", txt = spiceLabelLines(sp, rid).join("\n"), tov = sp.labelTitle && rid && typeof sp.labelTitle[rid] === "string" && sp.labelTitle[rid].trim();
+    const ov = sp.labelText && rid && typeof sp.labelText[rid] === "string", txt = spiceLabelLines(sp, rid).join("\n"), tov = sp.labelTitle && typeof sp.labelTitle[rid || "_"] === "string" && sp.labelTitle[rid || "_"].trim(); /* przyprawa bez dania ma tytuł pod kluczem „_” */
     return `<div class="lbl-row" style="flex-wrap:wrap"><span><b>${esc(sp.name)}</b> <small class="muted">w magazynie: ${spStock(sp)}${rs.length ? "" : ", bez przypisanego dania: etykieta będzie bez składników"}</small>
       <div class="sl-opts">${rs.length > 1 ? `<select data-sl-var="${sp.id}" aria-label="Przepis na etykiecie">${rs.map(r => `<option value="${r.id}" ${r.id === rid ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
         <select data-sl-icon="${sp.id}" aria-label="Obrazek">${icons(sp)}</select><button class="btn ghost small" data-sl-up="${sp.id}">Wgraj obrazek</button>${rs.length ? "" : `<button class="btn small" data-sl-addrec="${sp.id}">Dodaj przepis</button>`}</div>
-      ${rid ? `<div class="sl-title"><label class="muted" for="slt-${sp.id}">Tytuł na etykiecie${tov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</label><textarea id="slt-${sp.id}" rows="2" data-sl-title="${sp.id}" data-rid="${rid}" aria-label="Tytuł na etykiecie">${esc(spiceTitleOf(sp, rid))}</textarea>
-        <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-tauto="${sp.id}" ${tov ? "" : "disabled"}>Przywróć nazwę dania</button><small class="muted">Enter w dowolnym miejscu: to, co przed nim, jest duże, a to, co po nim, mniejsze.</small></div></div>` : ""}
+      ${`<div class="sl-title"><label class="muted" for="slt-${sp.id}">Tytuł na etykiecie${tov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</label><textarea id="slt-${sp.id}" rows="2" data-sl-title="${sp.id}" data-rid="${rid || "_"}" aria-label="Tytuł na etykiecie">${esc(spiceTitleOf(sp, rid))}</textarea>
+        <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-tauto="${sp.id}" ${tov ? "" : "disabled"}>Przywróć nazwę dania</button><small class="muted">Enter w dowolnym miejscu: to, co przed nim, jest duże, a to, co po nim, mniejsze.</small></div></div>`}
       ${rid ? `<details class="sl-text" data-sl-det="${sp.id}" ${ov || spTextOpen.has(sp.id) ? "open" : ""}><summary>Skład na etykiecie${ov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</summary><textarea rows="${Math.min(10, Math.max(3, txt.split("\n").length + 1))}" data-sl-text="${sp.id}" data-rid="${rid}" aria-label="Skład na etykiecie, jedna pozycja w wierszu">${esc(txt)}</textarea>
         <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-auto="${sp.id}" ${ov ? "" : "disabled"}>Przywróć automatyczny</button><small class="muted">${spSaved === sp.id ? "<b>Zapisano na stałe.</b> Kolejne etykiety tego dania będą z tym składem." : "Jedna pozycja w wierszu. Odmiana jest automatyczna i może się mylić. Poprawka zapisuje się na stałe dla tego dania."}</small></div></details>` : ""}</span>
       <div class="n"><button class="btn ghost small" data-sn="${sp.id}" data-d="-1" aria-label="Mniej">−</button><input type="number" min="0" max="50" step="1" data-si="${sp.id}" value="${n}" aria-label="Liczba etykiet"><button class="btn ghost small" data-sn="${sp.id}" data-d="1" aria-label="Więcej">+</button></div></div>`; }).join("");
@@ -2907,7 +2916,7 @@ async function renderSpiceLabels() {
   };
   const live = (t, fn) => { t.oninput = () => { clearTimeout(spLiveT); spLiveT = setTimeout(() => { if (fn(t)) spPreview(); }, 300); }; };
   $("#lbl-rows").querySelectorAll("[data-sl-title]").forEach(t => { live(t, saveTitle); t.onchange = () => { clearTimeout(spLiveT); if (saveTitle(t)) { marks(t); spPreview(); } }; });
-  $("#lbl-rows").querySelectorAll("[data-sl-tauto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slTauto), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (sp.labelTitle) { delete sp.labelTitle[id]; if (!Object.keys(sp.labelTitle).length) delete sp.labelTitle; } save(); later(); });
+  $("#lbl-rows").querySelectorAll("[data-sl-tauto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slTauto), id = b.closest(".lbl-row").querySelector("[data-sl-title]").dataset.rid; if (sp.labelTitle) { delete sp.labelTitle[id]; if (!Object.keys(sp.labelTitle).length) delete sp.labelTitle; } save(); later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-text]").forEach(t => { live(t, saveText); t.onchange = () => { clearTimeout(spLiveT); const sp = saveText(t); if (sp) { spSaved = sp.id; marks(t); spPreview(); } }; });
   $("#lbl-rows").querySelectorAll("[data-sl-auto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slAuto), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (sp.labelText) { delete sp.labelText[id]; if (!Object.keys(sp.labelText).length) delete sp.labelText; } save(); later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-up]").forEach(b => b.onclick = () => { spSlId = b.dataset.slUp; $("#sl-file").value = ""; $("#sl-file").click(); });
