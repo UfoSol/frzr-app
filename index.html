@@ -638,7 +638,6 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <div id="pv-sp-view" hidden>
       <h4 class="pv-h">Skład</h4><ul class="pv-list" id="pv-sp-comp"></ul>
       <h4 class="pv-h">Przypisane przepisy (warianty)</h4><div id="pv-sp-recipe"></div>
-      <div class="row" style="margin-top:8px"><button class="btn ghost small" id="pv-new-rec">Nowy przepis dla tej przyprawy</button></div>
     </div>
     <div id="pv-sp-edit" hidden>
       <label>Skład (jeden składnik w wierszu albo po przecinku)<textarea id="pv-comp" rows="5"></textarea></label>
@@ -1753,7 +1752,7 @@ function useSpice(sp, recipeId) {
   const rs = recipesOf(sp), r = recipeId ? rs.find(x => x.id === recipeId) : rs.length === 1 ? rs[0] : null;
   if (!r) {
     showTab("gotuje"); setCookKind("dish");
-    return msg($("#ck-msg"), rs.length ? `Przyprawa „${sp.name}” ma kilka przepisów. Wybierz przepis w podglądzie przyprawy albo w trybie „Z przepisu” (przepisy z przyprawą mają zieloną ikonkę papryczki).` : `Przyprawa „${sp.name}” nie ma jeszcze przepisu. Dodaj go przyciskiem „Nowy przepis dla tej przyprawy” w podglądzie przyprawy.`, !rs.length);
+    return msg($("#ck-msg"), rs.length ? `Przyprawa „${sp.name}” ma kilka przepisów. Wybierz przepis w podglądzie przyprawy albo w trybie „Z przepisu” (przepisy z przyprawą mają zieloną ikonkę papryczki).` : `Przyprawa „${sp.name}” nie ma jeszcze przepisu. Dodaj go w „Edytuj” przyprawy (lista wariantów) albo zapisz przepis w Gotuję z opcją „Dodaj do przyprawy jako wariant”.`, !rs.length);
   }
   loadIntoEditor(r, { fromRecipe: r.id, spice: sp });
 }
@@ -1798,7 +1797,6 @@ $("#sp-new-rec").onclick = () => {
   ["#sp-name", "#sp-comp"].forEach(sel => $(sel).value = ""); recPickSet("#sp-rec-pick", []); msg($("#sp-msg"), "");
   newRecipeFor(sp);
 };
-$("#pv-new-rec").onclick = () => { const sp = pvItem(); closePreview(); newRecipeFor(sp); };
 $("#sp-save").onclick = () => {
   const name = $("#sp-name").value.trim(), err = saveSpice({ id: null, name, compText: $("#sp-comp").value, recipeIds: recPick["#sp-rec-pick"] });
   if (err) return msg($("#sp-msg"), err, true);
