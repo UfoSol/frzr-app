@@ -141,6 +141,11 @@ input[type="search"]{width:100%;font-size:16px;padding:10px 12px}
 mark{background:var(--frost);color:inherit;border-radius:2px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
 .modal .card{max-width:440px;width:100%}
+/* skaner: okno przewija się, a przycisk zamknięcia jest zawsze na górze (na telefonie obraz z kamery bywa wysoki) */
+#scan-modal .card{max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain}
+.scan-head{position:sticky;top:-16px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface);margin:-16px -16px 8px;padding:12px 16px 8px;border-bottom:1px solid var(--line)}
+.scan-head h3{margin:0}
+@media (max-width:600px){#reader{max-width:min(100%,260px);margin:0 auto}}
 svg text{fill:var(--muted);font:11px var(--body)}
 .wg-hero{display:flex;flex-direction:column;gap:6px}
 .wg-big{font:800 40px/1 var(--display);letter-spacing:-.02em}
@@ -657,7 +662,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
 
 <div class="modal" id="scan-modal" hidden>
   <div class="card">
-    <h3>Skanuj kod</h3>
+    <div class="scan-head"><h3>Skanuj kod</h3><button class="btn ghost small" id="scan-close-x" aria-label="Zamknij skaner">Zamknij ✕</button></div>
     <p class="muted" style="margin:0 0 8px">Kod QR z etykiety pudełka albo kod kreskowy produktu. Trzymaj telefon ok. 10 do 20 cm od kodu, a dotknięcie obrazu ustawia ostrość.</p>
     <div id="reader"></div>
     <div class="row" id="scan-zoom-row" hidden style="margin-top:8px;align-items:center"><span class="muted">Przybliżenie</span><input type="range" id="scan-zoom" style="flex:1" aria-label="Przybliżenie"></div>
@@ -1366,7 +1371,9 @@ $("#sc-add").onclick = () => {
 $("#sc-skip").onclick = () => { scanProdHide(); msg($("#scan-msg"), ""); scanResume(); };
 $("#scan-btn").onclick = () => scanOpen();
 async function scanClose() { $("#scan-modal").hidden = true; scanProdHide(); const sc = scanner; scanner = null; try { if (sc) { await sc.stop(); sc.clear(); } } catch (e) {} }
-$("#scan-close").onclick = () => scanClose();
+$("#scan-close").onclick = () => scanClose(); $("#scan-close-x").onclick = () => scanClose();
+$("#scan-modal").addEventListener("click", e => { if (e.target === $("#scan-modal")) scanClose(); }); /* dotknięcie tła też zamyka */
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#scan-modal").hidden) scanClose(); });
 
 /* ---------- kod kreskowy wpisany ręcznie (Open Food Facts) ---------- */
 function openEan() { $("#ean-modal").hidden = false; msg($("#ean-msg"), ""); $("#ean-code").focus(); }
