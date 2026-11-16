@@ -95,6 +95,7 @@ td input.num{width:72px;text-align:right}
 .m02s-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;z-index:70;width:calc(100% - 24px);max-width:560px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.22);font-size:14px}
 .m02s-bar.err{border-color:var(--bad);color:var(--bad)}
 .m02s-prog{height:4px;border-radius:2px;background:rgba(128,128,128,.25);overflow:hidden;margin-top:8px}.m02s-prog i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
+.chk-inline{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);flex-direction:row;margin-left:auto}
 .slabel{display:block;width:var(--lw,50mm);height:var(--lh,120mm);break-after:page;page-break-after:always}
 .sl-opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}.sl-opts select{font-size:13px;padding:3px 6px}
 .sl-thumb{width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;object-fit:contain;flex:none}
@@ -501,6 +502,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <div class="rp-wrap"><span class="rp-t">Przepisy (warianty dania, np. z ryżem i z ziemniakami)</span><div id="sp-rec-pick" class="rp"></div></div>
       </div>
       <div id="sp-existing" class="muted" hidden style="margin-top:8px"></div>
+      <div class="row" id="sp-assign-row" hidden style="margin-top:6px"><button class="btn ghost small" id="sp-assign">Dodaj przepis do tej przyprawy</button></div>
       <div class="row" style="margin-top:10px;align-items:flex-end">
         <label>Ile sztuk przygotowano<input type="number" id="sp-qty" min="0" max="99" step="1" value="1" style="width:90px"></label>
         <label id="sp-var-wrap" hidden>Przepis na etykiecie<select id="sp-lab-var"></select></label>
@@ -530,7 +532,8 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <details class="card fold" id="sp-box" open>
       <summary><h3>Moje przyprawy</h3> <span class="pill" id="sp-count"></span></summary>
       <p class="muted" style="margin:10px 0 8px">Przyprawa ma skład (do podglądu), przypisane przepisy i licznik przygotowanych sztuk (kolumna „Mam”). Etykietę przyprawy wydrukujesz z jej podglądu, z przycisku „Etykieta” albo po zaznaczeniu kilku. Kalorii przypraw nie liczę.</p>
-      <div class="row" style="margin-bottom:8px"><button class="btn ghost small" id="sp-add-new">Nowa przyprawa</button><button class="btn ghost small" id="sp-lbl-start">Drukuj etykiety przypraw</button></div>
+      <div class="row" style="margin-bottom:8px"><button class="btn ghost small" id="sp-add-new">Nowa przyprawa</button><button class="btn ghost small" id="sp-lbl-start">Drukuj etykiety przypraw</button><label class="chk-inline"><input type="checkbox" id="sp-empty"> tylko bez przepisu</label></div>
+      <div class="msg" id="sp-list-msg" hidden style="margin-bottom:8px"></div>
       <div class="pickbar" id="sp-pickbar" hidden></div>
       <div class="tablebox"><table id="sp-table"></table></div>
     </details>
@@ -683,6 +686,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <div class="row" style="align-items:center;gap:8px;margin:2px 0 8px"><b>Przygotowane:</b><span class="sp-qty"><button class="x" id="pv-sp-dec" aria-label="Mniej" title="Mniej">−</button><b id="pv-sp-stock"></b><button class="x" id="pv-sp-inc" aria-label="Więcej" title="Więcej">+</button></span><span class="muted">szt.</span></div>
       <h4 class="pv-h">Skład</h4><ul class="pv-list" id="pv-sp-comp"></ul>
       <h4 class="pv-h">Przypisane przepisy (warianty)</h4><div id="pv-sp-recipe"></div>
+      <div class="row" style="margin-top:6px"><button class="btn ghost small" id="pv-sp-addrec">Dodaj przepis</button></div>
     </div>
     <div id="pv-sp-edit" hidden>
       <label>Skład (jeden składnik w wierszu albo po przecinku)<textarea id="pv-comp" rows="5"></textarea></label>
@@ -729,6 +733,15 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <button class="btn ghost" id="lbl-back">Wstecz</button>
       <button class="btn ghost" id="lbl-cancel">Anuluj</button>
     </div>
+  </div>
+</div>
+<div class="modal" id="sa-modal" hidden>
+  <div class="card" style="max-width:520px;width:100%">
+    <h3 id="sa-title">Przepisy przyprawy</h3>
+    <p class="muted" style="margin:0 0 8px">Przepis to danie, którego składniki pojawią się na etykiecie przyprawy i którym wypełnisz tabelę w Gotuję. Możesz dodać kilka przepisów (warianty dania).</p>
+    <div id="sa-rec-pick" class="rp"></div>
+    <div class="msg" id="sa-msg" hidden style="margin-top:8px"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="sa-save">Zapisz</button><button class="btn ghost" id="sa-new">Nowy przepis</button><button class="btn ghost" id="sa-close">Anuluj</button></div>
   </div>
 </div>
 <div class="modal" id="ed-modal" hidden>
@@ -2153,10 +2166,10 @@ function renderRecipes() {
     : `<tbody><tr><td class="muted">Brak przepisów. Wpisz składniki w zakładce Gotuję i zapisz je w kroku 3 jako przepis bazowy.</td></tr></tbody>`;
   const pk = !!spPick, cols = pk ? 6 : 5;
   $("#sp-table").innerHTML = S.spices.length ? `<thead><tr>${pk ? "<th></th>" : ""}<th>Przyprawa</th><th class="n">Mam</th><th>Skład</th><th>Warianty (przepisy)</th><th></th></tr></thead><tbody>` +
-    (S.spices.filter(sp => matches(spiceHay(sp), q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(sp => { const rs = recipesOf(sp), st = spStock(sp);
+    (S.spices.filter(sp => spiceShown(sp, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")).map(sp => { const rs = recipesOf(sp), st = spStock(sp);
       return `<tr>${pk ? `<td><input type="checkbox" data-sp-pick="${sp.id}" ${spPick.has(sp.id) ? "checked" : ""} aria-label="Zaznacz"></td>` : ""}<td>${hl(sp.name, q)}</td>
       <td class="n" style="white-space:nowrap"><span class="sp-qty"><button class="x" data-sp-dec="${sp.id}" aria-label="Mniej" title="Mniej">−</button><b class="${st ? "" : "muted"}">${st}</b><button class="x" data-sp-inc="${sp.id}" aria-label="Więcej" title="Więcej">+</button></span></td>
-      <td class="${sp.comp.length ? "" : "muted"}">${sp.comp.length ? esc(sp.comp.join(", ")) : "bez składu"}</td><td class="${rs.length ? "" : "muted"}">${rs.length ? esc(rs.map(x => x.name).join(", ")) : "bez przepisu"}</td>
+      <td class="${sp.comp.length ? "" : "muted"}">${sp.comp.length ? esc(sp.comp.join(", ")) : "bez składu"}</td><td class="${rs.length ? "" : "muted"}">${rs.length ? esc(rs.map(x => x.name).join(", ")) : "bez przepisu"} <button class="btn ghost small" data-sp-addrec="${sp.id}">${rs.length ? "+ przepis" : "Dodaj przepis"}</button></td>
       <td class="n" style="white-space:nowrap"><button class="btn ghost small" data-sp-lbl="${sp.id}">Etykieta</button> <button class="btn ghost small" data-sp-view="${sp.id}">Podgląd</button> <button class="x" data-sp-del="${sp.id}" title="Usuń przyprawę">×</button></td></tr>`; }).join("") || `<tr><td class="muted" colspan="${cols}">Brak wyników.</td></tr>`) + `</tbody>`
     : `<tbody><tr><td class="muted">Brak przypraw. Kliknij „Nowa przyprawa” albo przełącz w zakładce Gotuję na „Samą przyprawę”.</td></tr></tbody>`;
   const on = (attr, list, fn) => document.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => fn(list.find(x => x.id === b.getAttribute(attr)), b));
@@ -2165,6 +2178,7 @@ function renderRecipes() {
   on("data-sp-view", S.spices, x => openPreview("spice", x.id));
   on("data-sp-inc", S.spices, sp => spAdd(sp, 1)); on("data-sp-dec", S.spices, sp => spAdd(sp, -1));
   on("data-sp-lbl", S.spices, sp => openSpiceLabels([sp.id]));
+  on("data-sp-addrec", S.spices, sp => openAssign(sp.id));
   document.querySelectorAll("[data-sp-pick]").forEach(i => i.onchange = () => { i.checked ? spPick.add(i.dataset.spPick) : spPick.delete(i.dataset.spPick); renderSpPickbar(); });
   renderSpPickbar();
   const del = (list, key) => (x, b) => {
@@ -2207,7 +2221,7 @@ function renderPv() {
     if (!edit) {
       $("#pv-sp-comp").innerHTML = it.comp.length ? it.comp.map(c => `<li>${esc(c)}</li>`).join("") : `<li class="muted">Skład nie został podany.</li>`;
       $("#pv-sp-recipe").innerHTML = recs.length ? recs.map(rec => `<div class="pv-var"><b>${esc(rec.name)}</b> <span class="muted">${f1(rec.portions)} szt., ${rec.rows.length} składników</span><ul class="pv-list">${rec.rows.map(r => `<li>${esc(r.name)}${r.abs ? "" : ` <span class="muted">${f1(r.g)} g</span>`}</li>`).join("")}</ul><div class="row" style="gap:6px;margin-top:6px"><button class="btn small" data-pv-cook="${rec.id}">Gotuję z tym przepisem</button><button class="btn ghost small" data-pv-open="${rec.id}">Podgląd przepisu</button></div></div>`).join("")
-        : `<span class="muted">Brak przypisanego przepisu. Kliknij „Edytuj”, żeby go przypisać.</span>`;
+        : `<span class="muted">Brak przypisanego przepisu. Kliknij „Dodaj przepis”.</span>`;
       $("#pv-sp-recipe").querySelectorAll("[data-pv-open]").forEach(b => b.onclick = () => openPreview("recipe", b.dataset.pvOpen));
       $("#pv-sp-recipe").querySelectorAll("[data-pv-cook]").forEach(b => b.onclick = () => { const sp = pvItem(); closePreview(); useSpice(sp, b.dataset.pvCook); });
     }
@@ -2806,7 +2820,7 @@ $("#lbl-print").onclick = () => {
 const spiceItems = () => spSel.map(id => S.spices.find(x => x.id === id)).filter(Boolean).map(sp => ({ sp, rid: spVar[sp.id] || (recipesOf(sp)[0] || {}).id, n: spN[sp.id] || 0 }));
 function renderSpPickbar() {
   const bar = $("#sp-pickbar"); bar.hidden = !spPick; $("#sp-lbl-start").hidden = !!spPick; if (!spPick) return;
-  const q = $("#rc-search").value.trim(), all = S.spices.filter(sp => matches(spiceHay(sp), q)), n = spPick.size, allOn = all.length > 0 && all.every(sp => spPick.has(sp.id));
+  const q = $("#rc-search").value.trim(), all = S.spices.filter(sp => spiceShown(sp, q)), n = spPick.size, allOn = all.length > 0 && all.every(sp => spPick.has(sp.id));
   bar.innerHTML = `<b>${n ? `Zaznaczone: ${n}` : "Zaznacz przyprawy do etykiet"}</b>
     <button class="btn ghost small" id="sp-pick-all">${allOn ? "Odznacz wszystko" : "Zaznacz wszystko"}</button>
     <button class="btn small" id="sp-pick-next" ${n ? "" : "disabled"}>Dalej</button>
@@ -2816,6 +2830,9 @@ function renderSpPickbar() {
   $("#sp-pick-cancel").onclick = () => endSpPick();
 }
 $("#sp-lbl-start").onclick = () => { spPick = new Set(); renderRecipes(); };
+/* lista przypraw: wyszukiwanie i filtr „tylko bez przepisu”, żeby łatwo znaleźć przyprawy do uzupełnienia */
+const spiceShown = (sp, q) => matches(spiceHay(sp), q) && (!$("#sp-empty").checked || !recipesOf(sp).length);
+$("#sp-empty").onchange = () => renderRecipes();
 function endSpPick() { spPick = null; spSel = []; lblKind = "dish"; $("#lbl-modal").hidden = true; renderRecipes(); }
 /* ids: przyprawy do druku; counts: opcjonalnie gotowe liczby etykiet (domyślnie tyle, ile przygotowanych sztuk, co najmniej 1) */
 function openSpiceLabels(ids, counts = {}, vars = {}) {
@@ -2832,7 +2849,7 @@ async function renderSpiceLabels() {
     const ov = sp.labelText && rid && typeof sp.labelText[rid] === "string", txt = spiceLabelLines(sp, rid).join("\n");
     return `<div class="lbl-row" style="flex-wrap:wrap"><span><b>${esc(sp.name)}</b> <small class="muted">w magazynie: ${spStock(sp)}${rs.length ? "" : ", bez przypisanego dania: etykieta będzie bez składników"}</small>
       <div class="sl-opts">${rs.length > 1 ? `<select data-sl-var="${sp.id}" aria-label="Przepis na etykiecie">${rs.map(r => `<option value="${r.id}" ${r.id === rid ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
-        <select data-sl-icon="${sp.id}" aria-label="Obrazek">${icons(sp)}</select><button class="btn ghost small" data-sl-up="${sp.id}">Wgraj obrazek</button></div>
+        <select data-sl-icon="${sp.id}" aria-label="Obrazek">${icons(sp)}</select><button class="btn ghost small" data-sl-up="${sp.id}">Wgraj obrazek</button>${rs.length ? "" : `<button class="btn small" data-sl-addrec="${sp.id}">Dodaj przepis</button>`}</div>
       ${rid ? `<details class="sl-text" data-sl-det="${sp.id}" ${ov || spTextOpen.has(sp.id) ? "open" : ""}><summary>Skład na etykiecie${ov ? " (poprawiony ręcznie)" : ""}</summary><textarea rows="${Math.min(10, Math.max(3, txt.split("\n").length + 1))}" data-sl-text="${sp.id}" aria-label="Skład na etykiecie, jedna pozycja w wierszu">${esc(txt)}</textarea>
         <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-auto="${sp.id}" ${ov ? "" : "disabled"}>Przywróć automatyczny</button><small class="muted">Jedna pozycja w wierszu. Odmiana jest automatyczna i może się mylić, poprawka zostaje zapamiętana.</small></div></details>` : ""}</span>
       <div class="n"><button class="btn ghost small" data-sn="${sp.id}" data-d="-1" aria-label="Mniej">−</button><input type="number" min="0" max="50" step="1" data-si="${sp.id}" value="${n}" aria-label="Liczba etykiet"><button class="btn ghost small" data-sn="${sp.id}" data-d="1" aria-label="Więcej">+</button></div></div>`; }).join("");
@@ -2843,6 +2860,7 @@ async function renderSpiceLabels() {
   $("#lbl-rows").querySelectorAll("[data-si]").forEach(i => i.onchange = () => set(i.dataset.si, i.value));
   $("#lbl-rows").querySelectorAll("[data-sl-var]").forEach(i => i.onchange = () => { spVar[i.dataset.slVar] = i.value; later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-icon]").forEach(i => i.onchange = () => { const sp = S.spices.find(x => x.id === i.dataset.slIcon); sp.icon = i.value; save(); later(); });
+  $("#lbl-rows").querySelectorAll("[data-sl-addrec]").forEach(b => b.onclick = () => openAssign(b.dataset.slAddrec));
   $("#lbl-rows").querySelectorAll("[data-sl-det]").forEach(d => d.ontoggle = () => { d.open ? spTextOpen.add(d.dataset.slDet) : spTextOpen.delete(d.dataset.slDet); });
   $("#lbl-rows").querySelectorAll("[data-sl-text]").forEach(t => t.onchange = () => {
     const sp = S.spices.find(x => x.id === t.dataset.slText), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (!id) return;
@@ -2871,11 +2889,11 @@ $("#pv-sp-label").onclick = () => { const sp = pvItem(); if (!sp) return; closeP
 /* ---------- „Gotuję” → Samą przyprawę: przygotowanie, magazyn i etykieta ---------- */
 function renderSpForm() {
   const old = $("#sp-which").value;
-  $("#sp-which").innerHTML = `<option value="">Nowa przyprawa</option>` + [...S.spices].sort((a, b) => a.name.localeCompare(b.name, "pl")).map(sp => `<option value="${sp.id}">${esc(sp.name)}</option>`).join("");
+  $("#sp-which").innerHTML = `<option value="">Nowa przyprawa</option>` + [...S.spices].sort((a, b) => a.name.localeCompare(b.name, "pl")).map(sp => `<option value="${sp.id}">${esc(sp.name)}${recipesOf(sp).length ? "" : " (bez przepisu)"}</option>`).join("");
   $("#sp-which").value = S.spices.some(x => x.id === old) ? old : "";
   const sp = S.spices.find(x => x.id === $("#sp-which").value), rs = sp ? recipesOf(sp) : [];
-  $("#sp-fields").hidden = !!sp; $("#sp-existing").hidden = !sp; $("#sp-new-rec").hidden = !!sp; $("#sp-h").textContent = sp ? "Przygotowuję przyprawę" : "Nowa przyprawa";
-  if (sp) $("#sp-existing").textContent = `Skład: ${sp.comp.length ? sp.comp.join(", ") : "nie podano"}. Przepisy: ${rs.length ? rs.map(r => r.name).join(", ") : "brak"}. W magazynie: ${spStock(sp)} szt.`;
+  $("#sp-fields").hidden = !!sp; $("#sp-existing").hidden = !sp; $("#sp-assign-row").hidden = !sp; $("#sp-new-rec").hidden = !!sp; $("#sp-h").textContent = sp ? "Przygotowuję przyprawę" : "Nowa przyprawa";
+  if (sp) { $("#sp-existing").textContent = `Skład: ${sp.comp.length ? sp.comp.join(", ") : "nie podano"}. Przepisy: ${rs.length ? rs.map(r => r.name).join(", ") : "brak"}. W magazynie: ${spStock(sp)} szt.`; $("#sp-assign").textContent = rs.length ? "Dodaj kolejny przepis" : "Dodaj przepis do tej przyprawy"; }
   $("#sp-save").textContent = sp ? "Dodaj do magazynu" : "Zapisz przyprawę"; $("#sp-save-print").textContent = sp ? "Dodaj do magazynu i podgląd etykiety" : "Zapisz i podgląd etykiety";
   keepSel($("#sp-lab-var"), rs.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join("")); $("#sp-var-wrap").hidden = rs.length < 2;
 }
@@ -2899,6 +2917,28 @@ function spiceSubmit(preview) {
 }
 $("#sp-save").onclick = () => spiceSubmit(false);
 $("#sp-save-print").onclick = () => spiceSubmit(true); /* zapis i podgląd etykiety */
+
+/* ---------- dodawanie przepisu do istniejącej przyprawy (lista, formularz, podgląd, okno etykiet) ---------- */
+let saId = null;
+function openAssign(spId) {
+  const sp = S.spices.find(x => x.id === spId); if (!sp) return; saId = spId;
+  $("#sa-title").textContent = `Przepisy przyprawy „${sp.name}”`; recPickSet("#sa-rec-pick", sp.recipeIds || []);
+  msg($("#sa-msg"), S.recipes.length ? "" : "Nie masz jeszcze żadnego przepisu. Kliknij „Nowy przepis”: ułożysz go w Gotuję, a po zapisaniu dołączy do tej przyprawy.");
+  $("#sa-modal").hidden = false;
+}
+const closeAssign = () => { $("#sa-modal").hidden = true; saId = null; };
+$("#sa-close").onclick = closeAssign;
+$("#sa-save").onclick = () => {
+  const sp = S.spices.find(x => x.id === saId); if (!sp) return closeAssign();
+  const err = saveSpice({ id: sp.id, name: sp.name, compText: (sp.comp || []).join("\n"), recipeIds: recPick["#sa-rec-pick"] }); if (err) return msg($("#sa-msg"), err, true);
+  const rs = recipesOf(sp), text = rs.length ? `Przyprawa „${sp.name}” ma teraz przepisy: ${rs.map(r => r.name).join(", ")}.` : `Przyprawa „${sp.name}” nie ma przypisanego przepisu.`;
+  closeAssign(); renderSpForm(); if (!$("#lbl-modal").hidden && lblKind === "spice") renderLabels();
+  msg($("#sp-list-msg"), text); clearTimeout(spListMsgT); spListMsgT = setTimeout(() => msg($("#sp-list-msg"), ""), 9000);
+};
+let spListMsgT = null;
+$("#sa-new").onclick = () => { const sp = S.spices.find(x => x.id === saId); if (!sp) return; closeAssign(); $("#lbl-modal").hidden = true; closePreview(); newRecipeFor(sp); };
+$("#pv-sp-addrec").onclick = () => { const sp = pvItem(); if (!sp) return; closePreview(); openAssign(sp.id); };
+$("#sp-assign").onclick = () => { if ($("#sp-which").value) openAssign($("#sp-which").value); };
 
 /* ---------- ZAMRAŻARKA ---------- */
 /* ręczne dodanie do zamrażarki, bez Gemini */
