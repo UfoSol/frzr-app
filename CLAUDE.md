@@ -135,6 +135,13 @@ Tryb jest osobny dla każdej osoby (27.10).
   - wszystkie etykiety idą w jednym wydruku, jedna etykieta na stronę,
   - drukarka etykiet ma 50 mm szerokości: rozmiar etykiety to ustawienie (`settings.label`, domyślnie 50 × 30 mm) zmieniane w oknie druku,
   - „Dodaj i drukuj etykiety” przy nowym posiłku drukuje od razu, w tym samym formacie.
+- Druk na Phomemo M02S przez Bluetooth (16.11, gałąź `drukarka-m02s`):
+  - integracja aplikacji przez Web Serial (Chrome lub Edge na komputerze), na wirtualnym porcie COM sparowanej drukarki, a nie sterownik systemowy: drukarka nie pojawia się w oknie „Drukuj”; bez Web Serial wszystko działa przez okno przeglądarki,
+  - ustawienie „Etykiety drukuj przez” (`settings.printer`: okno przeglądarki albo M02S) jest w Ustawieniach, w karcie „Drukarka etykiet”, i w oknie etykiet („Drukuj przez”); obejmuje też „Dodaj i drukuj etykiety”. Przyciski: „Połącz z M02S” (wybór portu, trzeba wskazać port wychodzący, np. „M02S 'JL_SPP' (COM4)”, numer COM jest inny na każdym komputerze), „Drukuj próbną etykietę” (z kodem QR do sprawdzenia skanerem), „Drukuj N etykiet” w oknie etykiet,
+  - sekwencja i opóźnienia odtwarzają sprawdzony skrypt Pythona (`M02S`): ESC @, 1 s, 5 pustych wierszy i bloki rastrowe po 255 wierszy (ostatni dopełniony pustymi), GS V 1, 5 s, ESC d 3, 2 s, bez resetu; port 9600, 8N1, bez sterowania przepływem (jak domyślne otwarcie w bibliotece); bajty są zgodne co do bajta z biblioteką phomemo_m02s (MIT, tekst licencji na końcu `index.html`); nie zakładać, że 115200 sprawdzono, ani nie twierdzić, że reset był przyczyną,
+  - etykieta idzie jako obraz 576 punktów szerokości w proporcjach ustawionego rozmiaru, te same treści co w oknie drukowania; kod QR rysowany modułami o całkowitej liczbie punktów bez wygładzania; w oknie etykiet podgląd pokazuje dokładnie czarno-biały obraz dla drukarki; nie wyliczać z tego DPI ani fizycznej szerokości papieru,
+  - kolejka: etykiety idą kolejno, nigdy równolegle, bez automatycznych ponowień; po błędzie albo przekroczeniu limitu zapisu (10 s) kolejka staje, a komunikat podaje, ile wysłano, i ostrzega przed duplikatami; „Zatrzymaj po tej etykiecie” przerywa kolejkę; komunikat końcowy mówi tylko, że wysyłanie się skończyło, a nie że papier wyszedł,
+  - nie testowano na prawdziwej drukarce (tylko atrapa portu); ewentualne skrócenie opóźnień i dopełnienia za etykietą dopiero po sprawdzeniu na sprzęcie.
 - Strona nie skacze na boki: pasek przewijania zawsze zajmuje miejsce (`scrollbar-gutter: stable`), bo przełączenie Danie / Samą przyprawę zmienia wysokość i pasek pojawiał się i znikał. (15.11)
 - Na liście przepisów (Przepisy i wyniki „Z przepisu”) przyprawę oznacza tylko zielona wektorowa ikonka papryczki chilli z trzema kuleczkami pieprzu (przepis ją ma albo nie), bez nazwy przyprawy, bo ważne jest samo posiadanie. (15.11)
 - Tabela dni w Wadze pokazuje 45 dni, starsze pod przyciskiem „Pokaż starsze dni”. (14.11)
@@ -182,4 +189,5 @@ Tryb jest osobny dla każdej osoby (27.10).
 | 15.11 | Bez trybu „Z przyprawy” w Gotuję. Przy mnożniku porcji ikonka „i” z objaśnieniem zamiast długiego opisu. |
 | 15.11 | Ikonka przyprawy: zielona papryczka chilli z trzema kuleczkami pieprzu (wektor). Ikonka „i” przy mnożniku o połowę mniejsza. |
 | 16.11 | Z podglądu przyprawy usunięty przycisk „Nowy przepis dla tej przyprawy”. |
+| 16.11 | Druk etykiet bezpośrednio na Phomemo M02S przez Bluetooth (Web Serial), gałąź `drukarka-m02s`: połączenie z portem, próbna etykieta, drukowanie zaznaczonych etykiet kolejką. |
 | 13.11 | Usuwanie z zamrażarki elementów widocznych tylko u jednej osoby (zawieszone resztki dzielonych pudełek). Przycisk przeniesiony z karty do okna „Edytuj”. |

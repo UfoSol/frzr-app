@@ -92,6 +92,9 @@ td input.num{width:72px;text-align:right}
 .msg.err{color:var(--bad)}
 .msg.busy{display:block}
 .spice-ico{width:18px;height:18px;color:var(--ok);vertical-align:-4px;flex:none}
+.m02s-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;z-index:70;width:calc(100% - 24px);max-width:560px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.22);font-size:14px}
+.m02s-bar.err{border-color:var(--bad);color:var(--bad)}
+.m02s-prog{height:4px;border-radius:2px;background:rgba(128,128,128,.25);overflow:hidden;margin-top:8px}.m02s-prog i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
 .tip{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
 .info-i{position:relative;width:10px;height:10px;border-radius:50%;border:0;padding:0;background:var(--accent);color:var(--accent-ink);font:700 8px/10px var(--body);text-align:center;cursor:pointer;flex:none;margin:0 2px}
 .info-i::after{content:"";position:absolute;inset:-9px}
@@ -274,7 +277,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
 .lbl-row input{width:56px;text-align:center}
 @media print{
   body{background:#fff;margin:0}
-  .wrap,.modal{display:none!important}
+  .wrap,.modal,.m02s-bar{display:none!important}
   #print{display:block!important}
   .label{break-after:page;page-break-after:always}
 }
@@ -595,6 +598,17 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <div class="msg" id="cache-msg" hidden></div>
     </div>
     <div class="card">
+      <h3>Drukarka etykiet</h3>
+      <p class="muted" style="margin:0 0 8px">Etykiety można drukować przez okno przeglądarki albo bezpośrednio na Phomemo M02S przez Bluetooth (Chrome lub Edge na komputerze z Windowsem). Najpierw sparuj drukarkę w ustawieniach Bluetooth Windowsa.</p>
+      <div class="row" style="align-items:flex-end">
+        <label>Etykiety drukuj przez<select id="pr-mode"><option value="browser">okno przeglądarki</option><option value="m02s">Phomemo M02S (Bluetooth)</option></select></label>
+        <button class="btn" id="pr-connect">Połącz z M02S</button>
+        <button class="btn ghost" id="pr-test">Drukuj próbną etykietę</button>
+      </div>
+      <p class="muted" id="pr-state" style="margin:8px 0 0"></p>
+      <p class="muted" style="margin:6px 0 0">W oknie wyboru portu wskaż port wychodzący drukarki, np. „M02S 'JL_SPP' (COM4)”, a nie przychodzący (COM3). Numer COM jest inny na każdym komputerze. Zamknij inne programy, które używają drukarki. Próbną etykietę zeskanuj skanerem FRZR: komunikat „Tego kodu nie ma w bazie” oznacza, że kod QR się czyta.</p>
+    </div>
+    <div class="card">
       <h3>Kopia danych</h3>
       <p class="muted" style="margin:0 0 8px">Dane są zapisane w tej przeglądarce na tym komputerze. Plik kopii warto zrobić raz w tygodniu i przy przenosinach na serwer.</p>
       <div class="row">
@@ -668,7 +682,12 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <label>Szerokość mm<input type="number" id="lbl-w" min="20" max="110" step="1" style="width:90px"></label>
       <label>Wysokość mm<input type="number" id="lbl-h" min="15" max="150" step="1" style="width:90px"></label>
     </div>
-    <p class="muted" style="margin:8px 0 6px">Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.</p>
+    <div class="row" style="margin-top:10px;align-items:flex-end">
+      <label>Drukuj przez<select id="lbl-via"><option value="browser">okno przeglądarki</option><option value="m02s">Phomemo M02S (Bluetooth)</option></select></label>
+      <button class="btn ghost small" id="lbl-connect" hidden>Połącz z M02S</button>
+    </div>
+    <p class="muted" id="lbl-via-info" hidden style="margin:6px 0 0"></p>
+    <p class="muted" id="lbl-hint" style="margin:8px 0 6px">Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.</p>
     <div class="label-prev" id="lbl-prev"></div>
     <div class="msg" id="lbl-msg" hidden style="margin-top:8px"></div>
     <div class="row" style="margin-top:12px">
@@ -722,6 +741,11 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
   </div>
 </div>
 
+<div class="m02s-bar" id="m02s-bar" hidden role="status" aria-live="polite">
+  <div id="m02s-t"></div>
+  <div class="m02s-prog" id="m02s-prog" hidden><i></i></div>
+  <div class="row" style="gap:6px;margin-top:8px"><button type="button" class="btn small" id="m02s-stop" hidden>Zatrzymaj po tej etykiecie</button><button type="button" class="btn ghost small" id="m02s-x" hidden>Zamknij</button></div>
+</div>
 <div id="print"></div>
 
 <script>
@@ -2168,6 +2192,7 @@ const labelSize = () => { const l = S.settings.label || {}; return { w: Math.min
 const labelVars = () => { const { w, h } = labelSize(); return `--lw:${w}mm;--lh:${h}mm;--lq:${Math.max(8, Math.min(16, h - 4, w * 0.34))}mm`; };
 /* jeden wydruk dla całego zestawu: list to [{ m, n }], każda etykieta na osobnej stronie w rozmiarze etykiety */
 function printLabelSet(list) {
+  if (m02sActive()) return m02sPrintSet(list); /* druk bezpośrednio na M02S zamiast okna przeglądarki */
   const { w, h } = labelSize(); let st = $("#page-size");
   if (!st) { st = document.createElement("style"); st.id = "page-size"; document.head.appendChild(st); }
   st.textContent = `@page{size:${w}mm ${h}mm;margin:0}`;
@@ -2176,17 +2201,173 @@ function printLabelSet(list) {
   setTimeout(() => window.print(), 100);
 }
 function printMany(meals) { printLabelSet(meals.map(m => ({ m, n: m.portions }))); }
-function labelParts(m, pp) {
-  const s1 = m.share ?? 100; if (s1 >= 100) return `${r0(pp.k)} kcal<br>B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`;
-  if (!TWO()) return `Moja część ${s1}%: ${r0(pp.k * s1 / 100)} kcal<br>B ${f1(pp.p * s1 / 100)} g · Bł ${f1(pp.f * s1 / 100)} g<br>Całe: ${r0(pp.k)} kcal`;
-  return `${esc(userName(0))} ${s1}%: ${r0(pp.k * s1 / 100)} kcal<br>${esc(userName(1))} ${100 - s1}%: ${r0(pp.k * (100 - s1) / 100)} kcal<br>Całe: ${r0(pp.k)} kcal`;
-}
+function labelParts(m, pp) { return labelLines(m, pp).map(esc).join("<br>"); }
 function labelHtml(m) {
   const pp = perPortion(m);
   const qr = qrImg("MROZNIK:" + m.id); /* bez biblioteki QR (brak internetu) etykieta wychodzi z samym tekstem */
   return `<div class="label">${qr ? `<img src="${qr}" alt="">` : ""}<div><b>${esc(m.name)}</b>${labelParts(m, pp)}<br>${dm(m.date)}</div></div>`;
 }
 function printLabels(m, n) { printLabelSet([{ m, n }]); }
+/* ---------- druk bezpośrednio na Phomemo M02S (Bluetooth, Web Serial) ----------
+   Działa w Chrome i Edge na komputerze: przeglądarka rozmawia z wirtualnym portem szeregowym (COM) sparowanej drukarki.
+   To integracja aplikacji, a nie sterownik systemowy: drukarka nie pojawia się w oknie „Drukuj”.
+   Sekwencja i opóźnienia są tym, co sprawdzono ręcznie w Pythonie (inicjalizacja, 1 s, obraz, 5 s, 3 linie, 2 s, bez resetu).
+   Protokół i podział obrazu odtworzono według biblioteki phomemo_m02s (Copyright (c) 2021 Alethea Katherine Flowers, licencja MIT,
+   pełny tekst na końcu tego pliku). Etykiety idą kolejno, nigdy równolegle, i bez automatycznych ponowień, żeby nie robić duplikatów. */
+const M02S = { width: 576, padTop: 5, chunk: 255, baud: 9600, waitInit: 1000, waitImage: 5000, waitFeed: 2000, feedLines: 3, writeTimeout: 10000 };
+const m02sSupported = () => !!navigator.serial;
+const m02sActive = () => m02sSupported() && S.settings.printer === "m02s";
+const pause = ms => new Promise(r => setTimeout(r, ms));
+let m02sPort = null, m02sBusy = false, m02sStop = false;
+const plEt = n => n === 1 ? "etykietę" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "etykiety" : "etykiet";
+
+/* obraz → bity: 1 to czarny punkt (jak po odwróceniu i zamianie na 1 bit w bibliotece) */
+function m02sBits(img) {
+  const { data, width, height } = img, bits = new Uint8Array(width * height);
+  for (let i = 0; i < bits.length; i++) {
+    const p = i * 4, a = data[p + 3] / 255, lum = (0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]) * a + 255 * (1 - a);
+    bits[i] = lum < 128 ? 1 : 0;
+  }
+  return bits;
+}
+/* jeden blok rastrowy: GS v 0, szerokość w bajtach i wysokość (do 255 wierszy), potem wiersze; poza obrazem puste */
+function m02sBlock(bits, w, y0, rows) {
+  const H = bits.length / w, bw = w / 8, out = new Uint8Array(8 + bw * rows);
+  out.set([0x1D, 0x76, 0x30, 0x00, bw & 255, bw >> 8, rows & 255, rows >> 8]);
+  for (let y = 0; y < rows && y0 + y < H; y++) for (let bx = 0; bx < bw; bx++) {
+    let b = 0; for (let k = 0; k < 8; k++) b |= (bits[(y0 + y) * w + bx * 8 + k] & 1) << (7 - k);
+    out[8 + y * bw + bx] = b;
+  }
+  return out;
+}
+/* plan jednej etykiety: bajty do wysłania i przerwy, dokładnie jak w sprawdzonym skrypcie */
+function m02sPlan(img) {
+  const w = img.width, h = img.height;
+  if (w % 8) throw new Error("Szerokość obrazu musi być wielokrotnością 8.");
+  const bits = m02sBits(img), steps = [{ bytes: Uint8Array.of(0x1B, 0x40) }, { wait: M02S.waitInit }];
+  steps.push({ bytes: m02sBlock(new Uint8Array(w * M02S.padTop), w, 0, M02S.padTop) }); /* puste wiersze na początku */
+  for (let c = 0; c <= Math.floor(h / M02S.chunk); c++) steps.push({ bytes: m02sBlock(bits, w, c * M02S.chunk, M02S.chunk) });
+  steps.push({ bytes: Uint8Array.of(0x1D, 0x56, 0x01) }, { wait: M02S.waitImage }, { bytes: Uint8Array.of(0x1B, 0x64, M02S.feedLines) }, { wait: M02S.waitFeed });
+  return steps;
+}
+/* zapis z limitem czasu; po przekroczeniu przerywamy, bez ponawiania */
+async function m02sWrite(writer, bytes) {
+  let t; const lim = new Promise((_, rej) => { t = setTimeout(() => rej(new Error("timeout")), M02S.writeTimeout); });
+  try { await Promise.race([writer.write(bytes), lim]); } finally { clearTimeout(t); }
+}
+async function m02sRun(writer, steps) { for (const s of steps) { if (s.bytes) await m02sWrite(writer, s.bytes); else await pause(s.wait); } }
+
+/* etykieta jako obraz: te same treści co w oknie drukowania, w proporcjach ustawionego rozmiaru, na całej szerokości 576 punktów */
+function labelLines(m, pp) {
+  const s1 = m.share ?? 100; if (s1 >= 100) return [`${r0(pp.k)} kcal`, `B ${f1(pp.p)} g · Bł ${f1(pp.f)} g`];
+  if (!TWO()) return [`Moja część ${s1}%: ${r0(pp.k * s1 / 100)} kcal`, `B ${f1(pp.p * s1 / 100)} g · Bł ${f1(pp.f * s1 / 100)} g`, `Całe: ${r0(pp.k)} kcal`];
+  return [`${userName(0)} ${s1}%: ${r0(pp.k * s1 / 100)} kcal`, `${userName(1)} ${100 - s1}%: ${r0(pp.k * (100 - s1) / 100)} kcal`, `Całe: ${r0(pp.k)} kcal`];
+}
+function m02sCanvas(m) {
+  const { w, h } = labelSize(), W = M02S.width, k = W / w, H = Math.max(16, Math.round(h * k));
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.fillStyle = "#000"; x.textBaseline = "top";
+  const mm = v => v * k, pad = mm(2); let tx = pad;
+  if (window.qrcode) {
+    /* moduły o całkowitej liczbie punktów, bez wygładzania, żeby kod dało się odczytać */
+    const q = qrcode(0, "M"); q.addData("MROZNIK:" + m.id); q.make();
+    const n = q.getModuleCount(), lq = Math.max(8, Math.min(16, h - 4, w * 0.34)), mod = Math.max(1, Math.floor(mm(lq) / (n + 4))), size = mod * (n + 4);
+    const qx = Math.round(pad), qy = Math.round((H - size) / 2);
+    for (let r = 0; r < n; r++) for (let cc = 0; cc < n; cc++) if (q.isDark(r, cc)) x.fillRect(qx + (cc + 2) * mod, qy + (r + 2) * mod, mod, mod);
+    tx = qx + size + mm(2);
+  }
+  const tw = W - pad - tx, th = H - 2 * pad, PT = 0.352778 * k;
+  const wrap = (txt, font, maxW) => {
+    x.font = font; const out = []; let cur = "";
+    String(txt).split(/\s+/).filter(Boolean).forEach(word => {
+      let w2 = word; if (x.measureText(w2).width > maxW) { /* bardzo długie słowo łamiemy w dowolnym miejscu */
+        if (cur) { out.push(cur); cur = ""; } while (w2.length > 1 && x.measureText(w2).width > maxW) { let i = w2.length - 1; while (i > 1 && x.measureText(w2.slice(0, i)).width > maxW) i--; out.push(w2.slice(0, i)); w2 = w2.slice(i); } cur = w2; return; }
+      const t = cur ? cur + " " + w2 : w2; if (x.measureText(t).width <= maxW) cur = t; else { out.push(cur); cur = w2; }
+    });
+    if (cur) out.push(cur); return out;
+  };
+  const body = labelLines(m, perPortion(m)).concat(dm(m.date));
+  const layout = s => {
+    const tf = `bold ${8.5 * PT * s}px Arial, sans-serif`, bf = `${7 * PT * s}px Arial, sans-serif`;
+    let tl = wrap(m.name, tf, tw); if (tl.length > 3) { tl = tl.slice(0, 3); tl[2] = tl[2].replace(/.$/, "…"); }
+    const bl = body.flatMap(t => wrap(t, bf, tw));
+    return { tf, bf, tl, bl, lt: 1.15 * 8.5 * PT * s, lb: 1.25 * 7 * PT * s, gap: 0.6 * k * s, h: 0 };
+  };
+  let L = layout(1); for (let s = 1; s >= 0.55; s -= 0.05) { L = layout(s); L.h = L.tl.length * L.lt + L.gap + L.bl.length * L.lb; if (L.h <= th) break; }
+  let y = pad + Math.max(0, (th - L.h) / 2);
+  x.font = L.tf; L.tl.forEach(t => { x.fillText(t, tx, y); y += L.lt; }); y += L.gap;
+  x.font = L.bf; L.bl.forEach(t => { x.fillText(t, tx, y); y += L.lb; });
+  return c;
+}
+/* podgląd dokładnie tego, co poleci do drukarki: czarno-biały obraz po progu */
+function m02sPreview(m) {
+  const c = m02sCanvas(m), x = c.getContext("2d"), img = x.getImageData(0, 0, c.width, c.height), bits = m02sBits(img);
+  for (let i = 0; i < bits.length; i++) { const v = bits[i] ? 0 : 255; img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255; }
+  x.putImageData(img, 0, 0); return c.toDataURL("image/png");
+}
+const m02sSample = () => ({ id: "probny", name: "Próbna etykieta M02S", share: 100, portions: 1, stock: 1, date: todayIso(), rows: [{ abs: true, name: "próba", qty: "", g: 0, k: 400, p: 30, f: 5, src: "" }] });
+
+/* pasek stanu u dołu strony: postęp, zatrzymanie po bieżącej etykiecie i komunikat końcowy */
+function m02sNote(text, kind, prog) {
+  const bar = $("#m02s-bar"); bar.hidden = !text; if (!text) return;
+  bar.classList.toggle("err", kind === "err"); $("#m02s-t").textContent = text;
+  $("#m02s-prog").hidden = prog === undefined; if (prog !== undefined) $("#m02s-prog i").style.width = Math.round(prog * 100) + "%";
+  $("#m02s-stop").hidden = kind !== "busy"; $("#m02s-x").hidden = kind === "busy";
+}
+$("#m02s-stop").onclick = () => { m02sStop = true; $("#m02s-stop").disabled = true; $("#m02s-t").textContent += " Zatrzymam po tej etykiecie."; };
+$("#m02s-x").onclick = () => m02sNote("");
+/* wybór portu: wymaga kliknięcia; w oknie trzeba wskazać port wychodzący drukarki */
+async function m02sConnect() {
+  if (!m02sSupported()) throw new Error("Ta przeglądarka nie obsługuje druku przez Bluetooth (Web Serial). Użyj Chrome lub Edge na komputerze albo druku przez okno przeglądarki.");
+  try { m02sPort = await navigator.serial.requestPort(); }
+  catch (e) { throw new Error(e && e.name === "NotFoundError" ? "Nie wybrano portu drukarki." : "Nie udało się wybrać portu: " + (e && e.message || e)); }
+  m02sUi(); return m02sPort;
+}
+function m02sUi() {
+  const sup = m02sSupported(), on = S.settings.printer === "m02s";
+  $("#pr-mode").value = sup ? (S.settings.printer || "browser") : "browser"; $("#pr-mode").disabled = !sup;
+  ["#pr-connect", "#pr-test"].forEach(s => $(s).disabled = !sup || m02sBusy);
+  const st = !sup ? "Ta przeglądarka nie obsługuje druku przez Bluetooth (Web Serial). Użyj Chrome lub Edge na komputerze. Druk przez okno przeglądarki działa wszędzie."
+    : m02sPort ? "Port drukarki wybrany. Czy drukarka odpowiada, okaże się przy pierwszym wydruku." : "Nie wybrano portu drukarki.";
+  $("#pr-state").textContent = st; $("#pr-connect").textContent = m02sPort ? "Wybierz inny port" : "Połącz z M02S";
+  const via = $("#lbl-via"); if (via) { via.value = sup ? (S.settings.printer || "browser") : "browser"; via.disabled = !sup; }
+  $("#lbl-via-info").hidden = !(sup && on); $("#lbl-connect").hidden = !(sup && on && !m02sPort);
+  $("#lbl-via-info").textContent = `Jedna etykieta trwa ok. ${Math.round((M02S.waitInit + M02S.waitImage + M02S.waitFeed) / 1000)} s. Etykiety idą kolejno.`;
+}
+/* drukowanie zestawu: [{ m, n }]; port otwieramy na czas całej kolejki i zamykamy na końcu */
+async function m02sPrintSet(list) {
+  if (m02sBusy) return m02sNote("Poprzednie drukowanie jeszcze trwa. Poczekaj, aż się skończy.", "err");
+  let port = m02sPort;
+  try { if (!port) port = await m02sConnect(); } catch (e) { return m02sNote(e.message, "err"); }
+  const jobs = []; list.forEach(({ m, n }) => { for (let i = 0; i < Math.max(1, Math.round(n)); i++) jobs.push(m); });
+  if (!jobs.length) return;
+  m02sBusy = true; m02sStop = false; m02sUi(); $("#m02s-stop").disabled = false;
+  let sent = 0, writer = null, opened = false, failed = null;
+  try {
+    m02sNote("Otwieram port drukarki…", "busy", 0);
+    await port.open({ baudRate: M02S.baud, dataBits: 8, stopBits: 1, parity: "none", flowControl: "none" }); opened = true;
+    writer = port.writable.getWriter();
+    for (let i = 0; i < jobs.length && !m02sStop; i++) {
+      m02sNote(`Wysyłam etykietę ${i + 1} z ${jobs.length}…`, "busy", i / jobs.length);
+      const c = m02sCanvas(jobs[i]); await m02sRun(writer, m02sPlan(c.getContext("2d").getImageData(0, 0, c.width, c.height))); sent++;
+    }
+  } catch (e) { failed = e; }
+  /* zamykanie z limitem czasu: zawieszony zapis nie może zablokować aplikacji */
+  const within = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), pause(ms)]);
+  try { if (writer) { if (failed) await within(writer.abort(), 2000); try { writer.releaseLock(); } catch (e) { /* zapis w toku */ } } if (opened) await within(port.close(), 3000); } catch (e) { /* port zamknie się sam przy odłączeniu */ }
+  m02sBusy = false; m02sUi();
+  if (failed) {
+    const timeout = failed.message === "timeout", noOpen = !opened;
+    const why = noOpen ? "Nie mogę otworzyć portu. Zamknij inne programy używające drukarki (np. okno Pythona), sprawdź, czy drukarka jest włączona i sparowana, i wybierz port wychodzący (np. „M02S 'JL_SPP'”)."
+      : timeout ? "Drukarka nie odpowiada (limit 10 s)." : "Błąd drukowania: " + (failed.message || failed);
+    m02sNote(`${why} Wysłano ${sent} z ${jobs.length} etykiet. Etykieta ${sent + 1} mogła wyjść niepełna albo wcale: sprawdź papier, zanim ponowisz, żeby nie powstały duplikaty.`, "err");
+  } else m02sNote(m02sStop ? `Zatrzymano. Wysłano ${sent} z ${jobs.length} etykiet.` : `Wysłano ${sent} ${plEt(sent)} do drukarki. To koniec wysyłania, nie sprawdzam papieru.`, "ok");
+}
+if (m02sSupported()) {
+  navigator.serial.getPorts().then(p => { if (p.length === 1) { m02sPort = p[0]; m02sUi(); } }).catch(() => {});
+  navigator.serial.addEventListener("disconnect", e => { if (e.target === m02sPort) { m02sPort = null; m02sUi(); } });
+}
+
 
 /* ---------- etykiety: zaznaczanie w zamrażarce jak w galerii zdjęć ----------
    pick to null (zwykły widok) albo zbiór id zaznaczonych posiłków. Krok 1: zaznaczanie kart, krok 2: okno z liczbą etykiet i drukiem. */
@@ -2207,7 +2388,7 @@ function endPick() { pick = null; pickN = {}; $("#lbl-modal").hidden = true; ren
 $("#lbl-start").onclick = () => { pick = new Set(); pickN = {}; renderFreezer(); };
 const picked = () => S.meals.filter(m => pick && pick.has(m.id));
 function openLabels() {
-  const { w, h } = labelSize(); $("#lbl-w").value = w; $("#lbl-h").value = h; msg($("#lbl-msg"), "");
+  m02sUi(); const { w, h } = labelSize(); $("#lbl-w").value = w; $("#lbl-h").value = h; msg($("#lbl-msg"), "");
   /* domyślnie tyle etykiet, ile pudełek na stanie */
   picked().forEach(m => { if (!(pickN[m.id] >= 0)) pickN[m.id] = Math.max(1, Math.ceil(m.stock || 0)); });
   renderLabels(); $("#lbl-modal").hidden = false;
@@ -2219,7 +2400,14 @@ function renderLabels() {
   $("#lbl-print").textContent = total ? `Drukuj ${total} ${total === 1 ? "etykietę" : total % 10 >= 2 && total % 10 <= 4 && (total % 100 < 12 || total % 100 > 14) ? "etykiety" : "etykiet"}` : "Drukuj";
   $("#lbl-print").disabled = !total;
   const first = list.find(m => pickN[m.id] > 0) || list[0];
-  $("#lbl-prev").style.cssText = labelVars(); $("#lbl-prev").innerHTML = first ? labelHtml(first) : "";
+  if (m02sActive()) {
+    /* na M02S widać dokładnie to, co poleci do drukarki (czarno-biały obraz), żeby ocenić czytelność kodu QR */
+    $("#lbl-prev").style.cssText = ""; $("#lbl-prev").innerHTML = first ? `<img src="${m02sPreview(first)}" alt="Podgląd etykiety dla M02S" style="width:100%;max-width:420px;display:block">` : "";
+    $("#lbl-hint").textContent = "Podgląd pierwszej etykiety dokładnie tak, jak trafi do drukarki (czarno-biały obraz). Po wydruku zeskanuj kod QR skanerem FRZR.";
+  } else {
+    $("#lbl-prev").style.cssText = labelVars(); $("#lbl-prev").innerHTML = first ? labelHtml(first) : "";
+    $("#lbl-hint").textContent = "Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.";
+  }
   const set = (id, v) => { pickN[id] = Math.min(50, Math.max(0, Math.round(num(v)))); renderLabels(); };
   $("#lbl-rows").querySelectorAll("[data-ln]").forEach(b => b.onclick = () => set(b.dataset.ln, (pickN[b.dataset.ln] || 0) + +b.dataset.d));
   $("#lbl-rows").querySelectorAll("[data-li]").forEach(i => i.onchange = () => set(i.dataset.li, i.value));
@@ -2230,6 +2418,13 @@ function renderLabels() {
   S.settings.label = { w, h }; save(); msg($("#lbl-msg"), ""); renderLabels();
 });
 $("#lbl-back").onclick = () => { $("#lbl-modal").hidden = true; };
+/* sposób druku: to samo ustawienie w oknie etykiet i w Ustawieniach */
+function setPrinter(v) { S.settings.printer = v === "m02s" ? "m02s" : "browser"; save(); m02sUi(); if (!$("#lbl-modal").hidden) renderLabels(); }
+$("#lbl-via").onchange = () => setPrinter($("#lbl-via").value);
+$("#pr-mode").onchange = () => setPrinter($("#pr-mode").value);
+const connectBtn = () => m02sConnect().then(() => { m02sNote(""); if (!$("#lbl-modal").hidden) renderLabels(); }).catch(e => m02sNote(e.message, "err"));
+$("#lbl-connect").onclick = connectBtn; $("#pr-connect").onclick = connectBtn;
+$("#pr-test").onclick = () => m02sPrintSet([{ m: m02sSample(), n: 1 }]);
 $("#lbl-cancel").onclick = () => endPick();
 $("#lbl-print").onclick = () => {
   const list = picked().map(m => ({ m, n: pickN[m.id] || 0 })).filter(x => x.n > 0); if (!list.length) return;
@@ -2776,7 +2971,7 @@ $("#w-copy").onclick = async () => {
 /* ---------- USTAWIENIA ---------- */
 function fillSettings() {
   const s = S.settings; $("#g-k").value = s.goals.k; $("#g-p").value = s.goals.p; $("#g-f").value = s.goals.f; $("#g-w").value = s.weightGoal; $("#g-track").value = s.track || "kp"; $("#g-mode").value = dietMode(); $("#mode-hint").textContent = MODE_HINT[dietMode()];
-  $("#s-key").value = s.key; $("#s-model").value = s.model;
+  $("#s-key").value = s.key; $("#s-model").value = s.model; m02sUi();
   const nc = Object.keys(S.calcCache || {}).length; $("#cache-info").textContent = nc ? `Zapamiętane: ${nc}` : "Nic nie jest zapamiętane."; $("#cache-clear").disabled = !nc; msg($("#cache-msg"), ""); cacheAsk = false; $("#cache-clear").textContent = "Wyczyść zapamiętane z Gemini";
   $("#u-name-0").value = userName(0); $("#u-name-1").value = userName(1); $("#goals-who").textContent = TWO() ? ": " + userName(ACT()) : "";
   $("#u-people").value = TWO() ? "2" : "1"; $("#u-split").value = String(S.settings.split ?? 40); document.querySelectorAll("[data-two]").forEach(el => el.hidden = !TWO());
@@ -2912,7 +3107,17 @@ $("#demo-bar").hidden = !DEMO;
 /* wyjście z przykładu wraca na tę samą stronę bez ?demo, a nie do katalogu, w którym leży plik */
 $("#demo-exit").href = location.href.split(/[?#]/)[0];
 if (DEMO) { $("#demo-link").hidden = true; document.title = "FRZR: przykład"; }
-fillSettings(); renderCook(); render();
+fillSettings(); renderCook(); render(); m02sUi();
+/* Licencja kodu, na podstawie którego odtworzono protokół druku M02S (biblioteka phomemo_m02s, https://github.com/theacodes/phomemo_m02s):
+   The MIT License (MIT). Copyright (c) 2021 Alethea Katherine Flowers.
+   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
+   (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
+   publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
+   subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or
+   substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 </script>
 </body>
 </html>
