@@ -627,6 +627,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <label>Odstęp przed etykietą (mm)<input type="number" id="pr-before" min="0" max="20" step="0.5" style="width:90px"></label>
         <label>Odstęp po etykiecie (mm)<input type="number" id="pr-after" min="0" max="40" step="0.5" style="width:90px"></label>
         <label>Przesuw papieru na końcu (linie)<input type="number" id="pr-feed" min="0" max="10" step="1" style="width:90px"></label>
+        <label>Przerwa między częściami długiej etykiety (s)<input type="number" id="pr-block" min="0" max="20" step="0.5" style="width:90px"></label>
       </div>
       <p class="muted" style="margin:6px 0 0">Odstępy są przybliżone (ok. 12 punktów na milimetr). Puste miejsce na etykiecie jest przycinane, a tu ustawiasz, ile papieru zostaje przed i po niej. Papier musi wyjechać poza krawędź do odrywania, więc odstęp po etykiecie nie powinien być za mały. Tryb „po każdej czekaj na kliknięcie” pozwala odrywać etykiety jedna po drugiej.</p>
       <p class="muted" id="pr-state" style="margin:8px 0 0"></p>
@@ -2377,12 +2378,12 @@ function printLabels(m, n) { printLabelSet([{ m, n }]); }
    Sekwencja i opóźnienia są tym, co sprawdzono ręcznie w Pythonie (inicjalizacja, 1 s, obraz, 5 s, 3 linie, 2 s, bez resetu).
    Protokół i podział obrazu odtworzono według biblioteki phomemo_m02s (Copyright (c) 2021 Alethea Katherine Flowers, licencja MIT,
    pełny tekst na końcu tego pliku). Etykiety idą kolejno, nigdy równolegle, i bez automatycznych ponowień, żeby nie robić duplikatów. */
-const M02S = { width: 576, padTop: 5, chunk: 255, baud: 9600, waitInit: 1000, waitImage: 5000, waitFeed: 2000, waitBlock: 1000, longRows: 510, writeTimeout: 10000, pxMm: 12 };
+const M02S = { width: 576, padTop: 5, chunk: 255, baud: 9600, waitInit: 1000, waitImage: 5000, waitFeed: 2000, waitBlock: 3000, longRows: 510, writeTimeout: 10000, pxMm: 12 };
 /* ustawienia druku: odstęp przed i po etykiecie w mm (przybliżone, ok. 12 punktów na mm), przesuw papieru na końcu w liniach
    i tryb wielu etykiet: auto (po kolei, z przerwą) albo click (po każdej czeka na kliknięcie) */
 const m02sCfg = () => {
   const c = S.settings.m02s || {}, cl = (v, lo, hi, d) => { v = num(v); return isFinite(v) && String(v) !== "" ? Math.min(hi, Math.max(lo, v)) : d; };
-  return { flow: c.flow === "click" ? "click" : "auto", before: c.before === undefined ? 2 : cl(c.before, 0, 20, 2), after: c.after === undefined ? 6 : cl(c.after, 0, 40, 6), feed: c.feed === undefined ? 3 : Math.round(cl(c.feed, 0, 10, 3)) };
+  return { flow: c.flow === "click" ? "click" : "auto", before: c.before === undefined ? 2 : cl(c.before, 0, 20, 2), after: c.after === undefined ? 6 : cl(c.after, 0, 40, 6), feed: c.feed === undefined ? 3 : Math.round(cl(c.feed, 0, 10, 3)), block: c.block === undefined ? M02S.waitBlock / 1000 : cl(c.block, 0, 20, M02S.waitBlock / 1000) };
 };
 const m02sSupported = () => !!navigator.serial;
 const m02sActive = () => m02sSupported() && S.settings.printer === "m02s";
@@ -2413,14 +2414,15 @@ function m02sBlock(bits, w, y0, rows) {
 function m02sPlan(img, opt = {}) {
   const w = img.width, h = img.height;
   if (w % 8) throw new Error("Szerokość obrazu musi być wielokrotnością 8.");
+  const wb = Math.round(m02sCfg().block * 1000), long = h > M02S.longRows; /* przerwa między blokami długiej etykiety (ustawienie) */
   const bits = m02sBits(img), steps = [{ bytes: Uint8Array.of(0x1B, 0x40) }, { wait: M02S.waitInit }];
   steps.push({ bytes: m02sBlock(new Uint8Array(w * M02S.padTop), w, 0, M02S.padTop) }); /* puste wiersze na początku */
   if (opt.fill255) for (let c = 0; c <= Math.floor(h / M02S.chunk); c++) steps.push({ bytes: m02sBlock(bits, w, c * M02S.chunk, M02S.chunk) }); /* dokładnie jak w bibliotece */
   else for (let y = 0; y < h; y += M02S.chunk) { /* tylko prawdziwe wiersze, bez pustego dopełnienia */
-    if (y && h > M02S.longRows) steps.push({ wait: M02S.waitBlock }); /* długa etykieta: przerwa między blokami, żeby bufor drukarki nadążył (bajty bez zmian) */
+    if (y && h > M02S.longRows) steps.push({ wait: wb }); /* długa etykieta: przerwa między blokami, żeby bufor drukarki nadążył (bajty bez zmian) */
     steps.push({ bytes: m02sBlock(bits, w, y, Math.min(M02S.chunk, h - y)) });
   }
-  steps.push({ bytes: Uint8Array.of(0x1D, 0x56, 0x01) }, { wait: M02S.waitImage });
+  steps.push({ bytes: Uint8Array.of(0x1D, 0x56, 0x01) }, { wait: M02S.waitImage + (long ? 2 * wb : 0) }); /* długa etykieta: drukarka jeszcze drukuje to, co ma w buforze, więc czekamy dłużej, zanim zamkniemy port */
   const feed = opt.feed ?? m02sCfg().feed;
   if (feed > 0) steps.push({ bytes: Uint8Array.of(0x1B, 0x64, feed) });
   steps.push({ wait: M02S.waitFeed });
@@ -2522,7 +2524,7 @@ function m02sUi() {
   if (!(sup && on)) $("#lbl-via-info").hidden = true; $("#lbl-connect").hidden = !(sup && on && !m02sPort);
   const cfg = m02sCfg();
   $("#lbl-via-info").textContent = cfg.flow === "click" ? "Po każdej etykiecie program czeka na kliknięcie „Następna etykieta”, żeby zdążyć oderwać papier." : `Jedna etykieta trwa ok. ${Math.round((M02S.waitInit + M02S.waitImage + M02S.waitFeed) / 1000)} s. Etykiety idą kolejno, z przerwą.`;
-  $("#pr-flow").value = cfg.flow; $("#pr-before").value = cfg.before; $("#pr-after").value = cfg.after; $("#pr-feed").value = cfg.feed;
+  $("#pr-flow").value = cfg.flow; $("#pr-before").value = cfg.before; $("#pr-after").value = cfg.after; $("#pr-feed").value = cfg.feed; $("#pr-block").value = cfg.block;
   const lf = $("#lbl-flow"); if (lf) { lf.value = cfg.flow; lf.closest(".row").hidden = !(sup && on); }
 }
 /* drukowanie zestawu: [{ m, n }]; port otwieramy na czas całej kolejki i zamykamy na końcu */
@@ -2798,7 +2800,7 @@ $("#lbl-flow-info").onclick = () => { const t = $("#lbl-via-info"); t.hidden = !
 $("#pr-mode").onchange = () => setPrinter($("#pr-mode").value);
 function setM02s(key, v) { S.settings.m02s = { ...(S.settings.m02s || {}), [key]: v }; save(); m02sUi(); if (!$("#lbl-modal").hidden) renderLabels(); }
 ["#pr-flow", "#lbl-flow"].forEach(sel => $(sel).onchange = () => setM02s("flow", $(sel).value));
-[["#pr-before", "before", 20], ["#pr-after", "after", 40], ["#pr-feed", "feed", 10]].forEach(([sel, key, max]) => $(sel).onchange = () => {
+[["#pr-before", "before", 20], ["#pr-after", "after", 40], ["#pr-feed", "feed", 10], ["#pr-block", "block", 20]].forEach(([sel, key, max]) => $(sel).onchange = () => {
   const v = num($(sel).value); if ($(sel).value.trim() === "" || !(v >= 0 && v <= max)) return m02sUi(); /* błędna wartość: wraca poprzednia */
   setM02s(key, key === "feed" ? Math.round(v) : v);
 });
