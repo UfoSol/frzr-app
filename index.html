@@ -316,6 +316,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <button class="btn small" id="day-today" hidden>Dziś</button>
       </div>
       <button class="btn" id="scan-btn">Skanuj kod</button>
+      <div class="msg" id="scan-result" hidden style="margin-top:8px"></div>
     </div>
     <div class="card meters" id="meters"></div>
     <div class="card">
@@ -1225,7 +1226,7 @@ function eatFromLabel(pl) {
   return { name, k: pp.k * s };
 }
 async function scanOpen() {
-  $("#scan-modal").hidden = false; msg($("#scan-msg"), ""); scanProdHide(); scanHold = false;
+  $("#scan-modal").hidden = false; msg($("#scan-msg"), ""); msg($("#scan-result"), ""); scanProdHide(); scanHold = false; lastScan = 0;
   if (!window.Html5Qrcode) return msg($("#scan-msg"), "Nie wczytała się biblioteka skanera. Sprawdź internet i odśwież stronę.", true);
   const fm = SCAN_FORMATS();
   /* natywny detektor kodów (jeśli jest) i wyższa rozdzielczość pomagają, gdy ostrość jest słaba */
@@ -1256,6 +1257,13 @@ $("#reader").onclick = async () => {
     setTimeout(() => { if (scanner && fmode.includes("continuous")) scanner.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {}); }, 1500);
   } catch (e) { /* bez ostrości na dotyk */ }
 };
+/* udany skan zamyka okno skanera, a potwierdzenie widać na stronie „Dziś”; przy błędzie okno zostaje i można spróbować jeszcze raz */
+let scanResultT = null;
+async function scanDone(text, err) {
+  scanHold = true; /* do zamknięcia kamery nie przyjmujemy kolejnych kodów */
+  await scanClose(); msg($("#scan-result"), text, err);
+  clearTimeout(scanResultT); scanResultT = setTimeout(() => msg($("#scan-result"), ""), 12000);
+}
 function scanText(text) {
   if (scanHold || Date.now() - lastScan < 2500) return; lastScan = Date.now();
   const b = parseBoxCode(text);
@@ -1265,8 +1273,8 @@ function scanText(text) {
 }
 function scanBox(b) {
   const m = S.meals.find(x => x.id === b.id);
-  if (m) { const r = eat(m.id, 1); return msg($("#scan-msg"), `Dodano: ${m.name}, moja część ${myShare(m)}%: ${r0(myPart(m).k)} kcal. Zostało ${f1(m.stock)} szt.` + shortNote(m, r), !!r.short); }
-  if (b.pl) { const r = eatFromLabel(b.pl); return msg($("#scan-msg"), `Dodano z etykiety: ${r.name}, ${r0(r.k)} kcal. Tego pudełka nie ma w tej przeglądarce, więc stan zamrażarki się nie zmienił.`); }
+  if (m) { scanHold = true; const r = eat(m.id, 1); return scanDone(`Dodano: ${m.name}, moja część ${myShare(m)}%: ${r0(myPart(m).k)} kcal. Zostało ${f1(m.stock)} szt.` + shortNote(m, r), !!r.short); }
+  if (b.pl) { scanHold = true; const r = eatFromLabel(b.pl); return scanDone(`Dodano z etykiety: ${r.name}, ${r0(r.k)} kcal. Tego pudełka nie ma w tej przeglądarce, więc stan zamrażarki się nie zmienił.`); }
   msg($("#scan-msg"), "Tego pudełka nie ma w tej przeglądarce. Dane FRZR są zapisane osobno na każdym urządzeniu, a ta etykieta nie ma w kodzie danych posiłku. Wczytaj na telefonie kopię danych z komputera (Ustawienia) albo wydrukuj etykiety jeszcze raz.", true);
 }
 /* kod kreskowy: dane z Open Food Facts, potem wybór, ile zjadam, i dopisanie do dnia */
@@ -1305,11 +1313,12 @@ $("#sc-g").oninput = scanProdCalc;
 $("#sc-add").onclick = () => {
   const p = scanProd, g = num($("#sc-g").value); if (!p || !(g > 0)) return;
   const name = `${p.name}, ${f1(g)} g`; logFood(name, g * p.k100 / 100, g * p.p100 / 100, g * p.f100 / 100);
-  msg($("#scan-msg"), `Dodano: ${name}, ${r0(g * p.k100 / 100)} kcal.`); scanProdHide(); scanResume();
+  scanProdHide(); scanDone(`Dodano: ${name}, ${r0(g * p.k100 / 100)} kcal.`);
 };
 $("#sc-skip").onclick = () => { scanProdHide(); msg($("#scan-msg"), ""); scanResume(); };
 $("#scan-btn").onclick = () => scanOpen();
-$("#scan-close").onclick = async () => { $("#scan-modal").hidden = true; scanProdHide(); scanHold = false; try { if (scanner) { await scanner.stop(); scanner.clear(); } } catch (e) {} scanner = null; };
+async function scanClose() { $("#scan-modal").hidden = true; scanProdHide(); const sc = scanner; scanner = null; try { if (sc) { await sc.stop(); sc.clear(); } } catch (e) {} }
+$("#scan-close").onclick = () => scanClose();
 
 /* ---------- kod kreskowy wpisany ręcznie (Open Food Facts) ---------- */
 function openEan() { $("#ean-modal").hidden = false; msg($("#ean-msg"), ""); $("#ean-code").focus(); }
