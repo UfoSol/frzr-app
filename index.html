@@ -134,6 +134,8 @@ td input.num{width:72px;text-align:right}
 .sugg-list .hint{padding:4px 9px 6px;font-size:12px;color:var(--muted)}
 input[type="search"]{width:100%;font-size:16px;padding:10px 12px}
 .results{display:flex;flex-direction:column;margin-top:6px}
+/* przepisy w „Gotuję”: zwijana lista z suwakiem */
+.ck-rec{margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:0 10px}.ck-rec>summary{cursor:pointer;padding:9px 0;font-weight:600}.ck-list{max-height:min(48vh,340px);overflow-y:auto;margin:0 0 8px;padding-right:4px}
 .res{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .res .t{min-width:0;flex:1}
 .res .t small{display:block;color:var(--muted);font-size:12px}
@@ -445,7 +447,9 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       </div>
       <div data-ck-panel="przepis" hidden>
         <input type="search" id="ck-search" placeholder="Szukaj po nazwie albo składniku, np. curry, kurczak" autocomplete="off" aria-label="Szukaj przepisu">
-        <div class="results" id="ck-results"></div>
+        <details class="ck-rec" id="ck-rec-box"><summary id="ck-rec-sum">Moje przepisy</summary>
+          <div class="results ck-list" id="ck-results"></div>
+        </details>
       </div>
       <div class="msg" id="ck-msg" hidden style="margin-top:10px"></div>
       <div class="msg" id="ck-from" hidden style="margin-top:10px"></div>
@@ -1993,12 +1997,12 @@ $("#sp-new-rec").onclick = () => {
 };
 function renderSearch() {
   const q = $("#ck-search").value.trim(), box = $("#ck-results");
+  $("#ck-rec-sum").textContent = q ? `Pasujące przepisy (${S.recipes.filter(r => matches(r, q)).length} z ${S.recipes.length})` : `Moje przepisy (${S.recipes.length})`; if (q) $("#ck-rec-box").open = true; /* wpisanie w wyszukiwarkę rozwija listę */
   if (!S.recipes.length) { box.innerHTML = `<p class="muted" style="margin:6px 0 0">Nie masz jeszcze przepisów. Dodaj składniki w trybie „Opisowo” albo „Tabela”, a w kroku 3 rozwiń „Zapisz na później” i wybierz „Zapisz jako przepis bazowy”.</p>`; return; }
-  const found = S.recipes.filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")), all = found.slice(0, 12);
+  const found = S.recipes.filter(r => matches(r, q)).sort((a, b) => a.name.localeCompare(b.name, "pl")), all = found;
   box.innerHTML = all.length ? all.map(r => `<div class="res"><div class="t">${hl(r.name, q)}<small>${spiceMark(r)}${spicesOf(r).length ? " " : ""}${r.portions} szt. · moja część ${r0(myPart(r).k)} kcal</small></div><button class="btn small" data-s-rc="${r.id}">Gotuję</button></div>`).join("")
-      + (found.length > all.length ? `<p class="muted" style="margin:6px 0 0">Pokazuję 12 z ${found.length}. Wpisz nazwę albo składnik, żeby zawęzić.</p>` : "")
     : `<p class="muted" style="margin:6px 0 0">Nic nie pasuje.</p>`;
-  box.querySelectorAll("[data-s-rc]").forEach(b => b.onclick = () => { const r = S.recipes.find(x => x.id === b.dataset.sRc); $("#ck-search").value = ""; loadIntoEditor(r, { fromRecipe: r.id }); });
+  box.querySelectorAll("[data-s-rc]").forEach(b => b.onclick = () => { const r = S.recipes.find(x => x.id === b.dataset.sRc); $("#ck-search").value = ""; $("#ck-rec-box").open = false; loadIntoEditor(r, { fromRecipe: r.id }); });
 }
 $("#ck-search").oninput = renderSearch;
 $("#ck-search").onkeydown = e => { if (e.key === "Enter") { const b = $("#ck-results button"); if (b) b.click(); } };
