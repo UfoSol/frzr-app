@@ -862,9 +862,29 @@ function demoData() {
   const foodsOf = logs => { const m = {}; logs.forEach((log, u) => log.filter(e => !e.mealId).forEach(e => { const x = m[e.name] = m[e.name] || { id: id(), name: e.name, c: [0, 0], l: ["", ""] }; if (!x.k || u === 0) Object.assign(x, { k: e.k / (u ? 1.35 : 1), p: e.p / (u ? 1.35 : 1), f: e.f }); x.c[u]++; x.l[u] = e.date; })); return Object.values(m); };
   const weightsOf = (from, to, noise) => { const w = {}; for (let i = 45; i >= 0; i--) { if (rnd() < 0.12 && i) continue; w[addDays(today, -i)] = Math.round((from + (to - from) * (45 - i) / 45 + (rnd() - 0.5) * noise) * 20) / 20; } return w; };
   const log1 = dayLog(0, 1), log2 = dayLog(1, 1.35);
+  /* przepisy z prawdziwymi składnikami (do „Z przepisu”, podglądu i edycji) i przyprawy z magazynem, obrazkami i wariantami */
+  const ing = (name, g, k, p, f) => ({ name, qty: g + " g", g, k100: k, p100: p, f100: f, src: "baza FRZR" });
+  const chicken = g => ing("Pierś z kurczaka (surowa)", g, 120, 22.5, 0), rice = g => ing("Ryż biały (suchy)", g, 365, 7.1, 1.3), pasta = g => ing("Makaron (suchy)", g, 371, 13, 3.2);
+  const rc = (name, rows) => ({ id: id(), name, portions: 2, share: 40, text: "", rows });
+  const rCurry = rc("Kurczak curry z ryżem", [chicken(400), rice(150), ing("Mleko kokosowe", 200, 197, 2, 0), ing("Papryka (czerwona, żółta)", 150, 31, 1, 2.1), ing("Olej rzepakowy", 15, 884, 0, 0)]);
+  const rCurryP = rc("Kurczak curry z ziemniakami", [chicken(400), ing("Ziemniaki gotowane", 500, 77, 2, 1.8), ing("Mleko kokosowe", 200, 197, 2, 0), ing("Papryka (czerwona, żółta)", 150, 31, 1, 2.1), ing("Olej rzepakowy", 15, 884, 0, 0)]);
+  const rSalmon = rc("Łosoś z masłem", [ing("Łosoś (świeży)", 400, 208, 20.4, 0), ing("Śmietana 18%", 125, 186, 2.7, 0), ing("Masło", 40, 736, 0.7, 0)]);
+  const rPenne = rc("Penne w sosie pomidorowym z mozzarellą", [pasta(300), ing("Passata pomidorowa", 500, 33, 1.6, 1.5), ing("Śmietanka 30%", 200, 290, 2.2, 0), ing("Mozzarella", 125, 250, 18.5, 0)]);
+  const rThai = rc("Makaron smażony po tajsku", [chicken(300), pasta(200), ing("Papryka (czerwona, żółta)", 300, 31, 1, 2.1), { ...ing("Jajko", 110, 143, 12.6, 0), qty: "2 szt." }, ing("Sos sojowy", 16, 53, 8.1, 0.8)]);
+  const rTomato = rc("Kurczak z suszonymi pomidorami", [chicken(400), ing("Cukinia", 200, 17, 1.2, 1), ing("Pomidory suszone", 40, 258, 14.1, 12.3), rice(200), ing("Śmietana 18%", 200, 186, 2.7, 0), ing("Olej rzepakowy", 27.6, 884, 0, 0)]);
+  const recipes = [rCurry, rCurryP, rSalmon, rPenne, rThai, rTomato];
+  const sp = (name, stock, icon, recipeIds, comp, labelTitle) => ({ id: id(), name, comp, recipeIds, stock, icon, ...(labelTitle ? { labelTitle } : {}) });
+  const spices = [
+    sp("Kurczak curry", 3, "curry", [rCurry.id, rCurryP.id], ["Pasta curry 20 g", "Kurkuma 2 g", "Kmin rzymski 2 g", "Sól 3 g"]),
+    sp("Łosoś z masłem", 2, "losos", [rSalmon.id], ["Skrobia ziemniaczana 8 g", "Mąka pszenna 6 g", "Sól 4 g", "Suszona cebula 2 g", "Pieprz czarny 0,5 g"], { [rSalmon.id]: "Łosoś\nz masłem" }),
+    sp("Penne pomidorowe", 1, "penne", [rPenne.id], ["Oregano 1 g", "Bazylia 1 g", "Czosnek granulowany 2 g", "Sól 2 g"], { [rPenne.id]: "Penne\nw sosie pomidorowym z mozzarellą" }),
+    sp("Makaron po tajsku", 0, "makaron", [rThai.id], ["Papryka słodka 2 g", "Czosnek granulowany 2 g", "Imbir 1 g"], { [rThai.id]: "Makaron\nsmażony po tajsku" }),
+    sp("Kurczak z pomidorami", 4, "kurczak", [rTomato.id], ["Zioła prowansalskie 3 g", "Papryka słodka 2 g", "Sól 3 g"], { [rTomato.id]: "Kurczak\nz suszonymi pomidorami" }),
+    sp("Mieszanka ziołowa", 1, undefined, [], ["Tymianek 1 g", "Oregano 1 g", "Rozmaryn 1 g"])
+  ];
   return {
     settings: { key: "", model: "gemini-3.8-flash", goals: { k: 1800, p: 85, f: 22 }, weightGoal: 59, track: "kpf", mode: "cut", people: 2 },
-    meals, log: log1, weights: weightsOf(63.2, 59.9, 0.7), foods: foodsOf([log1, log2]), spices: [],
+    meals, log: log1, weights: weightsOf(63.2, 59.9, 0.7), foods: foodsOf([log1, log2]), recipes, spices,
     profiles: { active: 0, list: [{ name: "Ania" }, { name: "Tomek", log: log2, weights: weightsOf(82.3, 81.9, 0.8), goals: { k: 2500, p: 140, f: 30 }, weightGoal: 82, track: "kpf", mode: "keep" }] }
   };
 }
@@ -2658,12 +2678,13 @@ function genPhrase(name) {
 }
 /* jedna pozycja składu: „150 g ryżu jaśminowego”, „2 łyżki oleju”, „2 szalotki” (sztuki bez odmiany), „sól do smaku” */
 function spiceIngLine(r) {
-  const nm = String(r.name || "").replace(/\s*\(przyprawa\)/i, "").trim(); if (!nm) return "";
+  const full = String(r.name || "").replace(/\s*\(przyprawa\)/i, "").trim(); if (!full) return "";
+  const pm = full.match(/^(.*?)\s*(\([^)]*\))$/), nm = pm && pm[1] ? pm[1] : full, suf = pm && pm[1] ? " " + pm[2] : ""; /* dopisek w nawiasie („surowa”, „świeży”) zostaje na końcu, nie jest odmieniany */
   const q = String(qtyOf(r) || "").trim(), low = nm.charAt(0).toLowerCase() + nm.slice(1);
-  if (!q) return low; if (/do smaku/i.test(q)) return `${low} do smaku`;
-  const m = q.match(/^([\d.,/]+)\s*(.*)$/); if (!m) return `${q} ${genPhrase(nm)}`;
-  const unit = m[2].trim(); if (!unit || /^(szt\.?|sztuk\w*|sztuki)$/i.test(unit)) return `${m[1]} ${low}`;
-  return `${m[1]} ${unit} ${genPhrase(nm)}`;
+  if (!q) return low + suf; if (/do smaku/i.test(q)) return `${low} do smaku${suf}`;
+  const m = q.match(/^([\d.,/]+)\s*(.*)$/); if (!m) return `${q} ${genPhrase(nm)}${suf}`;
+  const unit = m[2].trim(); if (!unit || /^(szt\.?|sztuk\w*|sztuki)$/i.test(unit)) return `${m[1]} ${low}${suf}`;
+  return `${m[1]} ${unit} ${genPhrase(nm)}${suf}`;
 }
 /* skład na etykiecie: tylko składniki dania przypisanego do przyprawy (nigdy skład samej przyprawy); ręczna poprawka ma pierwszeństwo */
 const spiceAutoLines = (sp, rid) => { const rs = recipesOf(sp), r = rs.find(v => v.id === rid) || rs[0]; return r ? r.rows.filter(v => !v.abs).map(spiceIngLine).filter(Boolean) : []; };
