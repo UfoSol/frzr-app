@@ -98,6 +98,7 @@ td input.num{width:72px;text-align:right}
 .chk-inline{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);flex-direction:row;margin-left:auto}
 .slabel{display:block;width:var(--lw,50mm);height:var(--lh,120mm);break-after:page;page-break-after:always}
 .sl-opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}.sl-opts select{font-size:13px;padding:3px 6px}
+.sl-title{margin-top:6px}.sl-title textarea{width:100%;box-sizing:border-box;font:inherit}
 .sl-thumb{width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;object-fit:contain;flex:none}
 .sp-qty{display:inline-flex;align-items:center;gap:6px}
 .tip{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--frost)}
@@ -950,6 +951,7 @@ function migrate() {
     sp.stock = Math.max(0, Math.round(parseFloat(sp.stock) || 0));
     if (typeof sp.img !== "string" || !sp.img.startsWith("data:image/")) delete sp.img;
     if (sp.labelText && typeof sp.labelText === "object" && !Array.isArray(sp.labelText)) { Object.keys(sp.labelText).forEach(k => { if (typeof sp.labelText[k] !== "string") delete sp.labelText[k]; }); } else delete sp.labelText;
+    if (sp.labelTitle && typeof sp.labelTitle === "object" && !Array.isArray(sp.labelTitle)) { Object.keys(sp.labelTitle).forEach(k => { if (typeof sp.labelTitle[k] !== "string") delete sp.labelTitle[k]; }); } else delete sp.labelTitle;
     if (!(sp.icon === "none" || (sp.icon === "own" && sp.img) || ["miska", "garnek", "papryczka", "sloik", "lisc", "lyzka"].includes(sp.icon))) delete sp.icon;
   });
   /* naprawa wpisów, w których białko i błonnik zostały w nazwie */
@@ -2667,38 +2669,47 @@ function spiceHeadText(x, t, px, py, size) { x.fillText(t, px, py); if (!spiceHa
 function spiceListBlock(lines, W, Lh) {
   const c = document.createElement("canvas"); c.width = W; c.height = Lh; const x = c.getContext("2d");
   x.fillStyle = "#fff"; x.fillRect(0, 0, W, Lh); x.fillStyle = "#000"; x.textBaseline = "top";
-  const hs = W * 0.085, headH = hs * 1.25, left = W * 0.12, tx = W * 0.16, tw = W - tx - W * 0.08;
+  const hs = W * 0.085, headH = hs * 1.25, left = W * 0.115, tx = W * 0.17, tw = W - tx - W * 0.08;
   x.strokeStyle = "#000"; x.textAlign = "center"; x.font = SPICE_HEAD_FONT(hs); spiceHeadText(x, "SKŁADNIKI", W / 2, 0, hs); x.textAlign = "left";
-  const avail = Lh - headH - W * 0.02;
-  let fs = W * 0.056, items = [];
-  for (; fs >= W * 0.034; fs -= W * 0.002) {
+  const gap = W * 0.05, avail = Lh - headH - gap - W * 0.02; /* odstęp między nagłówkiem a listą */
+  let fs = W * 0.068, items = [];
+  for (; fs >= W * 0.036; fs -= W * 0.002) {
     const f = `${fs}px Arial, Helvetica, sans-serif`; items = lines.map(t => wrapText(x, t, f, tw));
     const h = items.reduce((a, l) => a + l.length * fs * 1.28 + fs * 0.3, 0); if (h <= avail) break;
   }
-  const f = `${fs}px Arial, Helvetica, sans-serif`; x.font = f; let y = headH + W * 0.012;
+  const f = `${fs}px Arial, Helvetica, sans-serif`; x.font = f; let y = headH + gap;
   for (let i = 0; i < items.length; i++) {
-    const need = items[i].length * fs * 1.28; if (y + need > headH + avail + fs * 0.3) { x.fillText("…", tx, y); break; }
-    x.beginPath(); x.arc(left, y + fs * 0.62, fs * 0.11, 0, 7); x.fill();
+    const need = items[i].length * fs * 1.28; if (y + need > headH + gap + avail + fs * 0.3) { x.fillText("…", tx, y); break; }
+    x.beginPath(); x.arc(left, y + fs * 0.62, fs * 0.17, 0, 7); x.fill();
     items[i].forEach(l => { x.fillText(l, tx, y); y += fs * 1.28; }); y += fs * 0.3;
   }
   return c;
 }
+/* tytuł etykiety: ręczna wersja zapamiętana dla dania albo nazwa dania (a bez dania nazwa przyprawy); enter oddziela duży napis od mniejszego */
+function spiceAutoTitle(sp, rid) { const rs = recipesOf(sp), r = rs.find(v => v.id === rid) || rs[0] || null; return String(r ? r.name : sp.name); }
+function spiceTitleOf(sp, rid) { const rs = recipesOf(sp), key = rid || (rs[0] || {}).id, ov = sp.labelTitle && key && sp.labelTitle[key]; return typeof ov === "string" && ov.trim() ? ov : spiceAutoTitle(sp, rid); }
 async function spiceLabelCanvas(sp, rid) {
   const { w, h } = spiceLabelSize(), W = M02S.width, H = Math.round(W * h / w);
   const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
   x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.fillStyle = "#000"; x.strokeStyle = "#000"; x.textBaseline = "top";
   const rs = recipesOf(sp), r = rs.find(v => v.id === rid) || rs[0] || null;
-  const title = String(r ? r.name : sp.name).toUpperCase();
+  const title = spiceTitleOf(sp, r ? r.id : null).toUpperCase(), parts = title.split("\n"), bigT = parts[0].trim(), smallT = parts.slice(1).join(" ").trim(); /* przed pierwszym enterem duże, po nim mniejsze */
   const lines = spiceLabelLines(sp, rid); /* składniki dania przypisanego do przyprawy; skład samej przyprawy nigdy nie trafia na etykietę */
   /* ramka u góry: nazwa dania i obrazek */
   const m = Math.round(W * 0.05), lw = Math.round(W * 0.014), fy = Math.round(W * 0.012), fh = Math.round(Math.min(H * 0.53, H - W * 0.5)), fw = W - 2 * m;
   x.lineWidth = lw; x.strokeRect(m + lw / 2, fy + lw / 2, fw - lw, fh - lw);
   const tx0 = m + W * 0.05, tw = fw - W * 0.1, ty0 = fy + lw + fh * 0.05, th = fh * 0.5;
-  let fs = W * 0.17, tl = [];
-  for (; fs >= W * 0.06; fs -= W * 0.004) { tl = wrapText(x, title, SPICE_HEAD_FONT(fs), tw); if (tl.length <= 3 && tl.length * fs * 1.08 <= th && tl.every(l => x.measureText(l).width <= tw)) break; }
+  let fs = W * 0.17, tl = [], sl = [], fs2 = 0;
+  for (; fs >= W * 0.06; fs -= W * 0.004) {
+    tl = wrapText(x, bigT, SPICE_HEAD_FONT(fs), tw); const fit = tl.every(l => x.measureText(l).width <= tw) && tl.join(" ") === bigT.replace(/\s+/g, " "); /* słowo nie może być połamane */ fs2 = smallT ? fs * 0.5 : 0; sl = smallT ? wrapText(x, smallT, SPICE_HEAD_FONT(fs2), tw) : [];
+    const hh = tl.length * fs * 1.08 + (sl.length ? fs * 0.25 + sl.length * fs2 * 1.12 : 0);
+    if (tl.length <= (smallT ? 2 : 3) && sl.length <= 3 && hh <= th && fit) break;
+  }
+  const totalT = tl.length * fs * 1.08 + (sl.length ? fs * 0.25 + sl.length * fs2 * 1.12 : 0); let ty = ty0 + Math.max(0, (th - totalT) / 2);
   x.font = SPICE_HEAD_FONT(fs); x.textAlign = "center";
-  const totalT = tl.length * fs * 1.08; let ty = ty0 + Math.max(0, (th - totalT) / 2);
-  tl.forEach(l => { spiceHeadText(x, l, m + fw / 2, ty, fs); ty += fs * 1.08; }); x.textAlign = "left";
+  tl.forEach(l => { spiceHeadText(x, l, m + fw / 2, ty, fs); ty += fs * 1.08; });
+  if (sl.length) { ty += fs * 0.25; x.font = SPICE_HEAD_FONT(fs2); sl.forEach(l => { spiceHeadText(x, l, m + fw / 2, ty, fs2); ty += fs2 * 1.12; }); }
+  x.textAlign = "left";
   const im = await spiceImage(sp);
   if (im) {
     const py0 = ty0 + th + fh * 0.02, ph = fy + fh - lw - fh * 0.05 - py0, pw = tw;
@@ -2852,10 +2863,12 @@ async function renderSpiceLabels() {
   lblPending = null; const items = spiceItems(), total = items.reduce((a, x) => a + x.n, 0), tok = ++lblTok;
   const icons = sp => Object.entries(SPICE_ICONS).map(([k, v]) => `<option value="${k}" ${(sp.icon || SPICE_ICON_DEFAULT) === k ? "selected" : ""}>${v[0]}</option>`).join("") + `<option value="none" ${sp.icon === "none" ? "selected" : ""}>Bez obrazka</option>` + (sp.img ? `<option value="own" ${sp.icon === "own" ? "selected" : ""}>Własny obrazek</option>` : "");
   $("#lbl-rows").innerHTML = items.map(({ sp, rid, n }) => { const rs = recipesOf(sp);
-    const ov = sp.labelText && rid && typeof sp.labelText[rid] === "string", txt = spiceLabelLines(sp, rid).join("\n");
+    const ov = sp.labelText && rid && typeof sp.labelText[rid] === "string", txt = spiceLabelLines(sp, rid).join("\n"), tov = sp.labelTitle && rid && typeof sp.labelTitle[rid] === "string" && sp.labelTitle[rid].trim();
     return `<div class="lbl-row" style="flex-wrap:wrap"><span><b>${esc(sp.name)}</b> <small class="muted">w magazynie: ${spStock(sp)}${rs.length ? "" : ", bez przypisanego dania: etykieta będzie bez składników"}</small>
       <div class="sl-opts">${rs.length > 1 ? `<select data-sl-var="${sp.id}" aria-label="Przepis na etykiecie">${rs.map(r => `<option value="${r.id}" ${r.id === rid ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
         <select data-sl-icon="${sp.id}" aria-label="Obrazek">${icons(sp)}</select><button class="btn ghost small" data-sl-up="${sp.id}">Wgraj obrazek</button>${rs.length ? "" : `<button class="btn small" data-sl-addrec="${sp.id}">Dodaj przepis</button>`}</div>
+      ${rid ? `<div class="sl-title"><label class="muted" for="slt-${sp.id}">Tytuł na etykiecie${tov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</label><textarea id="slt-${sp.id}" rows="2" data-sl-title="${sp.id}" aria-label="Tytuł na etykiecie">${esc(spiceTitleOf(sp, rid))}</textarea>
+        <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-tauto="${sp.id}" ${tov ? "" : "disabled"}>Przywróć nazwę dania</button><small class="muted">Enter w dowolnym miejscu: to, co przed nim, jest duże, a to, co po nim, mniejsze.</small></div></div>` : ""}
       ${rid ? `<details class="sl-text" data-sl-det="${sp.id}" ${ov || spTextOpen.has(sp.id) ? "open" : ""}><summary>Skład na etykiecie${ov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</summary><textarea rows="${Math.min(10, Math.max(3, txt.split("\n").length + 1))}" data-sl-text="${sp.id}" aria-label="Skład na etykiecie, jedna pozycja w wierszu">${esc(txt)}</textarea>
         <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-auto="${sp.id}" ${ov ? "" : "disabled"}>Przywróć automatyczny</button><small class="muted">${spSaved === sp.id ? "<b>Zapisano na stałe.</b> Kolejne etykiety tego dania będą z tym składem." : "Jedna pozycja w wierszu. Odmiana jest automatyczna i może się mylić. Poprawka zapisuje się na stałe dla tego dania."}</small></div></details>` : ""}</span>
       <div class="n"><button class="btn ghost small" data-sn="${sp.id}" data-d="-1" aria-label="Mniej">−</button><input type="number" min="0" max="50" step="1" data-si="${sp.id}" value="${n}" aria-label="Liczba etykiet"><button class="btn ghost small" data-sn="${sp.id}" data-d="1" aria-label="Więcej">+</button></div></div>`; }).join("");
@@ -2874,6 +2887,13 @@ async function renderSpiceLabels() {
     sp.labelText = sp.labelText || {}; if (val === auto) delete sp.labelText[id]; else sp.labelText[id] = val;
     if (!Object.keys(sp.labelText).length) delete sp.labelText; save(); spSaved = sp.id; later();
   });
+  $("#lbl-rows").querySelectorAll("[data-sl-title]").forEach(t => t.onchange = () => {
+    const sp = S.spices.find(x => x.id === t.dataset.slTitle), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (!id) return;
+    const val = t.value.split("\n").map(l => l.trim()).filter((l, i) => l || i === 0).join("\n").trim(); /* puste wiersze znikają */
+    sp.labelTitle = sp.labelTitle || {}; if (!val || val === spiceAutoTitle(sp, id)) delete sp.labelTitle[id]; else sp.labelTitle[id] = val;
+    if (!Object.keys(sp.labelTitle).length) delete sp.labelTitle; save(); later();
+  });
+  $("#lbl-rows").querySelectorAll("[data-sl-tauto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slTauto), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (sp.labelTitle) { delete sp.labelTitle[id]; if (!Object.keys(sp.labelTitle).length) delete sp.labelTitle; } save(); later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-auto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slAuto), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (sp.labelText) { delete sp.labelText[id]; if (!Object.keys(sp.labelText).length) delete sp.labelText; } save(); later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-up]").forEach(b => b.onclick = () => { spSlId = b.dataset.slUp; $("#sl-file").value = ""; $("#sl-file").click(); });
   $("#lbl-hint").textContent = "Podgląd";
