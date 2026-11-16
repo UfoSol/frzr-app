@@ -948,13 +948,15 @@ function migrate() {
   const noSpice = r => { if (r.spiceId) { r.k100 = r.p100 = r.f100 = 0; delete r.spiceId; r.src = "przyprawa"; } };
   S.recipes.forEach(r => r.rows.forEach(noSpice)); S.meals.forEach(m => m.rows.forEach(noSpice));
   S.spices.forEach(sp => { sp.recipeIds = [...new Set(sp.recipeIds)].filter(id => S.recipes.some(r => r.id === id)); });
+  /* wspólna biblioteka „Moje obrazki” (wgrane obrazki do wyboru przy każdej przyprawie), do 20 pozycji */
+  S.spiceImages = (Array.isArray(S.spiceImages) ? S.spiceImages : []).filter(x => x && typeof x.id === "string" && typeof x.img === "string" && x.img.startsWith("data:image/")).slice(0, 20).map(x => ({ id: x.id, name: String(x.name || "Obrazek").slice(0, 60), img: x.img }));
   /* magazyn przygotowanych sztuk i obrazek na etykiecie (ikona z listy, brak albo własny wgrany) */
   S.spices.forEach(sp => {
     sp.stock = Math.max(0, Math.round(parseFloat(sp.stock) || 0));
     if (typeof sp.img !== "string" || !sp.img.startsWith("data:image/")) delete sp.img;
     if (sp.labelText && typeof sp.labelText === "object" && !Array.isArray(sp.labelText)) { Object.keys(sp.labelText).forEach(k => { if (typeof sp.labelText[k] !== "string") delete sp.labelText[k]; }); } else delete sp.labelText;
     if (sp.labelTitle && typeof sp.labelTitle === "object" && !Array.isArray(sp.labelTitle)) { Object.keys(sp.labelTitle).forEach(k => { if (typeof sp.labelTitle[k] !== "string") delete sp.labelTitle[k]; }); } else delete sp.labelTitle;
-    if (!(sp.icon === "none" || (sp.icon === "own" && sp.img) || ["losos", "curry", "butter", "penne", "zapiekanka"].includes(sp.icon) /* klucze gotowych obrazków (SPICE_ICONS), lista osobno, bo migrate działa przed ich definicją */)) delete sp.icon;
+    if (!(sp.icon === "none" || (sp.icon === "own" && sp.img) || (typeof sp.icon === "string" && sp.icon.startsWith("lib:") && S.spiceImages.some(x => "lib:" + x.id === sp.icon)) || ["losos", "curry", "butter", "penne", "zapiekanka"].includes(sp.icon) /* klucze gotowych obrazków (SPICE_ICONS), lista osobno, bo migrate działa przed ich definicją */)) delete sp.icon;
   });
   /* naprawa wpisów, w których białko i błonnik zostały w nazwie */
   S.log.forEach(e => { if (!e.p && !e.f && (PROT_RE.test(e.name) || FIB_RE.test(e.name))) { const x = parseFree(e.name); if (x.p !== undefined) e.p = x.p; if (x.f !== undefined) e.f = x.f; if (x.k && !e.k) e.k = x.k; e.name = x.name || e.name; } });
@@ -2601,6 +2603,8 @@ const loadImg = src => new Promise(res => { const i = new Image(); i.onload = ()
 async function spiceImage(sp) {
   if (sp.icon === "none") return null;
   if (sp.icon === "own" && sp.img) { const i = await loadImg(sp.img); return i ? { img: i, own: true } : null; }
+  const lib = typeof sp.icon === "string" && sp.icon.startsWith("lib:") && (S.spiceImages || []).find(x => "lib:" + x.id === sp.icon);
+  if (lib) { const i = await loadImg(lib.img); return i ? { img: i, own: true } : null; }
   const i = await loadImg(spiceIconUrl(SPICE_ICONS[sp.icon] ? sp.icon : SPICE_ICON_DEFAULT)); return i ? { img: i, own: true } : null; /* gotowe obrazki też są rastrowe: rysowane z rastrowaniem jak własne */
 }
 /* ---------- składniki na etykiecie przyprawy: „150 g ryżu jaśminowego” ----------
@@ -2756,7 +2760,12 @@ async function spiceUpload(sp, file) {
     const k = Math.min(1, side / Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
     const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
     const d = x.getImageData(0, 0, c.width, c.height); for (let i = 0; i < d.data.length; i += 4) { const g = 0.299 * d.data[i] + 0.587 * d.data[i + 1] + 0.114 * d.data[i + 2]; d.data[i] = d.data[i + 1] = d.data[i + 2] = g; } x.putImageData(d, 0, 0);
-    const out = c.toDataURL("image/png"); if (out.length < 260000 || side === 140) { sp.img = out; sp.icon = "own"; save(); return; }
+    const out = c.toDataURL("image/png"); if (out.length < 260000 || side === 140) {
+      S.spiceImages = S.spiceImages || [];
+      if (S.spiceImages.length < 20) { const it = { id: uid(), name: sp.name || "Obrazek", img: out }; S.spiceImages.push(it); sp.icon = "lib:" + it.id; delete sp.img; } /* do wspólnej biblioteki, żeby był do wyboru przy innych przyprawach */
+      else { sp.img = out; sp.icon = "own"; } /* biblioteka pełna: obrazek tylko przy tej przyprawie */
+      save(); return;
+    }
   }
 }
 
@@ -2866,19 +2875,19 @@ function endSpPick() { spPick = null; spSel = []; lblKind = "dish"; $("#lbl-moda
 function openSpiceLabels(ids, counts = {}, vars = {}) {
   lblKind = "spice"; spSel = ids.filter(id => S.spices.some(x => x.id === id)); spN = {}; spVar = { ...vars };
   spSel.forEach(id => { const sp = S.spices.find(x => x.id === id); spN[id] = counts[id] ?? Math.max(1, spStock(sp)); });
-  spSaved = null; $("#lbl-title").textContent = "Etykiety przypraw"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdej przyprawy, jaki przepis i jaki obrazek ma być na etykiecie. Wszystkie wyjdą w jednym wydruku.";
+  spSaved = null; spDelAsk = null; $("#lbl-title").textContent = "Etykiety przypraw"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdej przyprawy, jaki przepis i jaki obrazek ma być na etykiecie. Wszystkie wyjdą w jednym wydruku.";
   const { w, h } = spiceLabelSize(); $("#lbl-w").value = w; $("#lbl-h").value = h; msg($("#lbl-msg"), "");
   m02sUi(); renderLabels(); $("#lbl-modal").hidden = false;
 }
-let spLiveT = 0, spSaved = null; /* przyprawa, której skład właśnie zapisano (potwierdzenie w oknie etykiet) */
+let spLiveT = 0, spSaved = null, spDelAsk = null; /* przyprawa, której skład właśnie zapisano (potwierdzenie w oknie etykiet) */
 async function renderSpiceLabels() {
   lblPending = null; const items = spiceItems(), total = items.reduce((a, x) => a + x.n, 0), tok = ++lblTok;
-  const icons = sp => Object.entries(SPICE_ICONS).map(([k, v]) => `<option value="${k}" ${(sp.icon || SPICE_ICON_DEFAULT) === k ? "selected" : ""}>${v[0]}</option>`).join("") + `<option value="none" ${sp.icon === "none" ? "selected" : ""}>Bez obrazka</option>` + (sp.img ? `<option value="own" ${sp.icon === "own" ? "selected" : ""}>Własny obrazek</option>` : "");
+  const icons = sp => Object.entries(SPICE_ICONS).map(([k, v]) => `<option value="${k}" ${(sp.icon || SPICE_ICON_DEFAULT) === k ? "selected" : ""}>${v[0]}</option>`).join("") + `<option value="none" ${sp.icon === "none" ? "selected" : ""}>Bez obrazka</option>` + (S.spiceImages || []).map(x => `<option value="lib:${x.id}" ${sp.icon === "lib:" + x.id ? "selected" : ""}>Moje: ${esc(x.name)}</option>`).join("") + (sp.img ? `<option value="own" ${sp.icon === "own" ? "selected" : ""}>Własny obrazek (tylko tu)</option>` : "");
   $("#lbl-rows").innerHTML = items.map(({ sp, rid, n }) => { const rs = recipesOf(sp);
     const ov = sp.labelText && rid && typeof sp.labelText[rid] === "string", txt = spiceLabelLines(sp, rid).join("\n"), tov = sp.labelTitle && typeof sp.labelTitle[rid || "_"] === "string" && sp.labelTitle[rid || "_"].trim(); /* przyprawa bez dania ma tytuł pod kluczem „_” */
     return `<div class="lbl-row" style="flex-wrap:wrap"><span><b>${esc(sp.name)}</b> <small class="muted">w magazynie: ${spStock(sp)}${rs.length ? "" : ", bez przypisanego dania: etykieta będzie bez składników"}</small>
       <div class="sl-opts">${rs.length > 1 ? `<select data-sl-var="${sp.id}" aria-label="Przepis na etykiecie">${rs.map(r => `<option value="${r.id}" ${r.id === rid ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
-        <select data-sl-icon="${sp.id}" aria-label="Obrazek">${icons(sp)}</select><button class="btn ghost small" data-sl-up="${sp.id}">Wgraj obrazek</button>${rs.length ? "" : `<button class="btn small" data-sl-addrec="${sp.id}">Dodaj przepis</button>`}</div>
+        <select data-sl-icon="${sp.id}" aria-label="Obrazek">${icons(sp)}</select><button class="btn ghost small" data-sl-up="${sp.id}">Wgraj obrazek</button>${typeof sp.icon === "string" && sp.icon.startsWith("lib:") ? `<button class="btn ghost small" data-sl-imgdel="${sp.id}">${spDelAsk === sp.id ? "Na pewno? Zniknie u wszystkich" : "Usuń z moich obrazków"}</button>` : ""}${rs.length ? "" : `<button class="btn small" data-sl-addrec="${sp.id}">Dodaj przepis</button>`}</div>
       ${`<div class="sl-title"><label class="muted" for="slt-${sp.id}">Tytuł na etykiecie${tov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</label><textarea id="slt-${sp.id}" rows="2" data-sl-title="${sp.id}" data-rid="${rid || "_"}" aria-label="Tytuł na etykiecie">${esc(spiceTitleOf(sp, rid))}</textarea>
         <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-tauto="${sp.id}" ${tov ? "" : "disabled"}>Przywróć nazwę dania</button><small class="muted">Enter w dowolnym miejscu: to, co przed nim, jest duże, a to, co po nim, mniejsze.</small></div></div>`}
       ${rid ? `<details class="sl-text" data-sl-det="${sp.id}" ${ov || spTextOpen.has(sp.id) ? "open" : ""}><summary>Skład na etykiecie${ov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</summary><textarea rows="${Math.min(10, Math.max(3, txt.split("\n").length + 1))}" data-sl-text="${sp.id}" data-rid="${rid}" aria-label="Skład na etykiecie, jedna pozycja w wierszu">${esc(txt)}</textarea>
@@ -2890,7 +2899,7 @@ async function renderSpiceLabels() {
   $("#lbl-rows").querySelectorAll("[data-sn]").forEach(b => b.onclick = () => set(b.dataset.sn, (spN[b.dataset.sn] || 0) + +b.dataset.d));
   $("#lbl-rows").querySelectorAll("[data-si]").forEach(i => i.onchange = () => set(i.dataset.si, i.value));
   $("#lbl-rows").querySelectorAll("[data-sl-var]").forEach(i => i.onchange = () => { spVar[i.dataset.slVar] = i.value; later(); });
-  $("#lbl-rows").querySelectorAll("[data-sl-icon]").forEach(i => i.onchange = () => { const sp = S.spices.find(x => x.id === i.dataset.slIcon); sp.icon = i.value; save(); later(); });
+  $("#lbl-rows").querySelectorAll("[data-sl-icon]").forEach(i => i.onchange = () => { const sp = S.spices.find(x => x.id === i.dataset.slIcon); sp.icon = i.value; spDelAsk = null; save(); later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-addrec]").forEach(b => b.onclick = () => openAssign(b.dataset.slAddrec));
   $("#lbl-rows").querySelectorAll("[data-sl-det]").forEach(d => d.ontoggle = () => { d.open ? spTextOpen.add(d.dataset.slDet) : spTextOpen.delete(d.dataset.slDet); });
   const saveTitle = t => {
@@ -2919,6 +2928,11 @@ async function renderSpiceLabels() {
   $("#lbl-rows").querySelectorAll("[data-sl-tauto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slTauto), id = b.closest(".lbl-row").querySelector("[data-sl-title]").dataset.rid; if (sp.labelTitle) { delete sp.labelTitle[id]; if (!Object.keys(sp.labelTitle).length) delete sp.labelTitle; } save(); later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-text]").forEach(t => { live(t, saveText); t.onchange = () => { clearTimeout(spLiveT); const sp = saveText(t); if (sp) { spSaved = sp.id; marks(t); spPreview(); } }; });
   $("#lbl-rows").querySelectorAll("[data-sl-auto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slAuto), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (sp.labelText) { delete sp.labelText[id]; if (!Object.keys(sp.labelText).length) delete sp.labelText; } save(); later(); });
+  $("#lbl-rows").querySelectorAll("[data-sl-imgdel]").forEach(b => b.onclick = () => {
+    const sp = S.spices.find(x => x.id === b.dataset.slImgdel); if (!sp || !String(sp.icon).startsWith("lib:")) return;
+    if (spDelAsk !== sp.id) { spDelAsk = sp.id; return later(); } /* drugie kliknięcie potwierdza */
+    const key = sp.icon; S.spiceImages = S.spiceImages.filter(x => "lib:" + x.id !== key); S.spices.forEach(x => { if (x.icon === key) delete x.icon; }); spDelAsk = null; save(); later();
+  });
   $("#lbl-rows").querySelectorAll("[data-sl-up]").forEach(b => b.onclick = () => { spSlId = b.dataset.slUp; $("#sl-file").value = ""; $("#sl-file").click(); });
   $("#lbl-hint").textContent = "Podgląd";
   await spPreview(tok);
