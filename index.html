@@ -605,6 +605,13 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <button class="btn" id="pr-connect">Połącz z M02S</button>
         <button class="btn ghost" id="pr-test">Drukuj próbną etykietę</button>
       </div>
+      <div class="row" style="margin-top:10px;align-items:flex-end">
+        <label>Wiele etykiet<select id="pr-flow"><option value="auto">po kolei, z przerwą</option><option value="click">po każdej czekaj na kliknięcie</option></select></label>
+        <label>Odstęp przed etykietą (mm)<input type="number" id="pr-before" min="0" max="20" step="0.5" style="width:90px"></label>
+        <label>Odstęp po etykiecie (mm)<input type="number" id="pr-after" min="0" max="40" step="0.5" style="width:90px"></label>
+        <label>Przesuw papieru na końcu (linie)<input type="number" id="pr-feed" min="0" max="10" step="1" style="width:90px"></label>
+      </div>
+      <p class="muted" style="margin:6px 0 0">Odstępy są przybliżone (ok. 12 punktów na milimetr). Puste miejsce na etykiecie jest przycinane, a tu ustawiasz, ile papieru zostaje przed i po niej. Papier musi wyjechać poza krawędź do odrywania, więc odstęp po etykiecie nie powinien być za mały. Tryb „po każdej czekaj na kliknięcie” pozwala odrywać etykiety jedna po drugiej.</p>
       <p class="muted" id="pr-state" style="margin:8px 0 0"></p>
       <p class="muted" style="margin:6px 0 0">W oknie wyboru portu wskaż port wychodzący drukarki, np. „M02S 'JL_SPP' (COM4)”, a nie przychodzący (COM3). Numer COM jest inny na każdym komputerze. Zamknij inne programy, które używają drukarki. Próbną etykietę zeskanuj skanerem FRZR: komunikat „Tego kodu nie ma w bazie” oznacza, że kod QR się czyta.</p>
     </div>
@@ -686,6 +693,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <label>Drukuj przez<select id="lbl-via"><option value="browser">okno przeglądarki</option><option value="m02s">Phomemo M02S (Bluetooth)</option></select></label>
       <button class="btn ghost small" id="lbl-connect" hidden>Połącz z M02S</button>
     </div>
+    <div class="row" style="margin-top:6px;align-items:flex-end"><label>Wiele etykiet<select id="lbl-flow"><option value="auto">po kolei, z przerwą</option><option value="click">po każdej czekaj na kliknięcie</option></select></label></div>
     <p class="muted" id="lbl-via-info" hidden style="margin:6px 0 0"></p>
     <p class="muted" id="lbl-hint" style="margin:8px 0 6px">Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.</p>
     <div class="label-prev" id="lbl-prev"></div>
@@ -744,7 +752,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
 <div class="m02s-bar" id="m02s-bar" hidden role="status" aria-live="polite">
   <div id="m02s-t"></div>
   <div class="m02s-prog" id="m02s-prog" hidden><i></i></div>
-  <div class="row" style="gap:6px;margin-top:8px"><button type="button" class="btn small" id="m02s-stop" hidden>Zatrzymaj po tej etykiecie</button><button type="button" class="btn ghost small" id="m02s-x" hidden>Zamknij</button></div>
+  <div class="row" style="gap:6px;margin-top:8px"><button type="button" class="btn small" id="m02s-next" hidden>Następna etykieta</button><button type="button" class="btn ghost small" id="m02s-stop" hidden>Zatrzymaj po tej etykiecie</button><button type="button" class="btn ghost small" id="m02s-x" hidden>Zamknij</button></div>
 </div>
 <div id="print"></div>
 
@@ -2214,11 +2222,17 @@ function printLabels(m, n) { printLabelSet([{ m, n }]); }
    Sekwencja i opóźnienia są tym, co sprawdzono ręcznie w Pythonie (inicjalizacja, 1 s, obraz, 5 s, 3 linie, 2 s, bez resetu).
    Protokół i podział obrazu odtworzono według biblioteki phomemo_m02s (Copyright (c) 2021 Alethea Katherine Flowers, licencja MIT,
    pełny tekst na końcu tego pliku). Etykiety idą kolejno, nigdy równolegle, i bez automatycznych ponowień, żeby nie robić duplikatów. */
-const M02S = { width: 576, padTop: 5, chunk: 255, baud: 9600, waitInit: 1000, waitImage: 5000, waitFeed: 2000, feedLines: 3, writeTimeout: 10000 };
+const M02S = { width: 576, padTop: 5, chunk: 255, baud: 9600, waitInit: 1000, waitImage: 5000, waitFeed: 2000, writeTimeout: 10000, pxMm: 12 };
+/* ustawienia druku: odstęp przed i po etykiecie w mm (przybliżone, ok. 12 punktów na mm), przesuw papieru na końcu w liniach
+   i tryb wielu etykiet: auto (po kolei, z przerwą) albo click (po każdej czeka na kliknięcie) */
+const m02sCfg = () => {
+  const c = S.settings.m02s || {}, cl = (v, lo, hi, d) => { v = num(v); return isFinite(v) && String(v) !== "" ? Math.min(hi, Math.max(lo, v)) : d; };
+  return { flow: c.flow === "click" ? "click" : "auto", before: c.before === undefined ? 2 : cl(c.before, 0, 20, 2), after: c.after === undefined ? 6 : cl(c.after, 0, 40, 6), feed: c.feed === undefined ? 3 : Math.round(cl(c.feed, 0, 10, 3)) };
+};
 const m02sSupported = () => !!navigator.serial;
 const m02sActive = () => m02sSupported() && S.settings.printer === "m02s";
 const pause = ms => new Promise(r => setTimeout(r, ms));
-let m02sPort = null, m02sBusy = false, m02sStop = false;
+let m02sPort = null, m02sBusy = false, m02sStop = false, m02sNext = null;
 const plEt = n => n === 1 ? "etykietę" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "etykiety" : "etykiet";
 
 /* obraz → bity: 1 to czarny punkt (jak po odwróceniu i zamianie na 1 bit w bibliotece) */
@@ -2241,13 +2255,17 @@ function m02sBlock(bits, w, y0, rows) {
   return out;
 }
 /* plan jednej etykiety: bajty do wysłania i przerwy, dokładnie jak w sprawdzonym skrypcie */
-function m02sPlan(img) {
+function m02sPlan(img, opt = {}) {
   const w = img.width, h = img.height;
   if (w % 8) throw new Error("Szerokość obrazu musi być wielokrotnością 8.");
   const bits = m02sBits(img), steps = [{ bytes: Uint8Array.of(0x1B, 0x40) }, { wait: M02S.waitInit }];
   steps.push({ bytes: m02sBlock(new Uint8Array(w * M02S.padTop), w, 0, M02S.padTop) }); /* puste wiersze na początku */
-  for (let c = 0; c <= Math.floor(h / M02S.chunk); c++) steps.push({ bytes: m02sBlock(bits, w, c * M02S.chunk, M02S.chunk) });
-  steps.push({ bytes: Uint8Array.of(0x1D, 0x56, 0x01) }, { wait: M02S.waitImage }, { bytes: Uint8Array.of(0x1B, 0x64, M02S.feedLines) }, { wait: M02S.waitFeed });
+  if (opt.fill255) for (let c = 0; c <= Math.floor(h / M02S.chunk); c++) steps.push({ bytes: m02sBlock(bits, w, c * M02S.chunk, M02S.chunk) }); /* dokładnie jak w bibliotece */
+  else for (let y = 0; y < h; y += M02S.chunk) steps.push({ bytes: m02sBlock(bits, w, y, Math.min(M02S.chunk, h - y)) }); /* tylko prawdziwe wiersze, bez pustego dopełnienia */
+  steps.push({ bytes: Uint8Array.of(0x1D, 0x56, 0x01) }, { wait: M02S.waitImage });
+  const feed = opt.feed ?? m02sCfg().feed;
+  if (feed > 0) steps.push({ bytes: Uint8Array.of(0x1B, 0x64, feed) });
+  steps.push({ wait: M02S.waitFeed });
   return steps;
 }
 /* zapis z limitem czasu; po przekroczeniu przerywamy, bez ponawiania */
@@ -2299,9 +2317,18 @@ function m02sCanvas(m) {
   x.font = L.bf; L.bl.forEach(t => { x.fillText(t, tx, y); y += L.lb; });
   return c;
 }
+/* etykieta do druku: puste pasy u góry i u dołu (wyśrodkowanie w etykiecie) są przycinane, a odstępy ustawia użytkownik */
+function m02sFinal(m) {
+  const src = m02sCanvas(m), W = src.width, bits = m02sBits(src.getContext("2d").getImageData(0, 0, W, src.height));
+  const has = y => { for (let i = 0; i < W; i++) if (bits[y * W + i]) return true; return false; };
+  let top = 0, bot = src.height - 1; while (top < bot && !has(top)) top++; while (bot > top && !has(bot)) bot--;
+  const cfg = m02sCfg(), b = Math.round(cfg.before * M02S.pxMm), a = Math.round(cfg.after * M02S.pxMm), ch = bot - top + 1;
+  const c = document.createElement("canvas"); c.width = W; c.height = ch + b + a;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(src, 0, top, W, ch, 0, b, W, ch); return c;
+}
 /* podgląd dokładnie tego, co poleci do drukarki: czarno-biały obraz po progu */
 function m02sPreview(m) {
-  const c = m02sCanvas(m), x = c.getContext("2d"), img = x.getImageData(0, 0, c.width, c.height), bits = m02sBits(img);
+  const c = m02sFinal(m), x = c.getContext("2d"), img = x.getImageData(0, 0, c.width, c.height), bits = m02sBits(img);
   for (let i = 0; i < bits.length; i++) { const v = bits[i] ? 0 : 255; img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255; }
   x.putImageData(img, 0, 0); return c.toDataURL("image/png");
 }
@@ -2312,9 +2339,11 @@ function m02sNote(text, kind, prog) {
   const bar = $("#m02s-bar"); bar.hidden = !text; if (!text) return;
   bar.classList.toggle("err", kind === "err"); $("#m02s-t").textContent = text;
   $("#m02s-prog").hidden = prog === undefined; if (prog !== undefined) $("#m02s-prog i").style.width = Math.round(prog * 100) + "%";
-  $("#m02s-stop").hidden = kind !== "busy"; $("#m02s-x").hidden = kind === "busy";
+  $("#m02s-stop").hidden = kind !== "busy" && kind !== "wait"; $("#m02s-x").hidden = kind === "busy" || kind === "wait"; $("#m02s-next").hidden = kind !== "wait";
+  $("#m02s-stop").textContent = kind === "wait" ? "Zakończ" : "Zatrzymaj po tej etykiecie";
 }
-$("#m02s-stop").onclick = () => { m02sStop = true; $("#m02s-stop").disabled = true; $("#m02s-t").textContent += " Zatrzymam po tej etykiecie."; };
+$("#m02s-stop").onclick = () => { m02sStop = true; if (m02sNext) return m02sNext(); $("#m02s-stop").disabled = true; $("#m02s-t").textContent += " Zatrzymam po tej etykiecie."; };
+$("#m02s-next").onclick = () => { if (m02sNext) m02sNext(); };
 $("#m02s-x").onclick = () => m02sNote("");
 /* wybór portu: wymaga kliknięcia; w oknie trzeba wskazać port wychodzący drukarki */
 async function m02sConnect() {
@@ -2332,7 +2361,10 @@ function m02sUi() {
   $("#pr-state").textContent = st; $("#pr-connect").textContent = m02sPort ? "Wybierz inny port" : "Połącz z M02S";
   const via = $("#lbl-via"); if (via) { via.value = sup ? (S.settings.printer || "browser") : "browser"; via.disabled = !sup; }
   $("#lbl-via-info").hidden = !(sup && on); $("#lbl-connect").hidden = !(sup && on && !m02sPort);
-  $("#lbl-via-info").textContent = `Jedna etykieta trwa ok. ${Math.round((M02S.waitInit + M02S.waitImage + M02S.waitFeed) / 1000)} s. Etykiety idą kolejno.`;
+  const cfg = m02sCfg();
+  $("#lbl-via-info").textContent = cfg.flow === "click" ? "Po każdej etykiecie program czeka na kliknięcie „Następna etykieta”, żeby zdążyć oderwać papier." : `Jedna etykieta trwa ok. ${Math.round((M02S.waitInit + M02S.waitImage + M02S.waitFeed) / 1000)} s. Etykiety idą kolejno, z przerwą.`;
+  $("#pr-flow").value = cfg.flow; $("#pr-before").value = cfg.before; $("#pr-after").value = cfg.after; $("#pr-feed").value = cfg.feed;
+  const lf = $("#lbl-flow"); if (lf) { lf.value = cfg.flow; lf.closest(".row").hidden = !(sup && on); }
 }
 /* drukowanie zestawu: [{ m, n }]; port otwieramy na czas całej kolejki i zamykamy na końcu */
 async function m02sPrintSet(list) {
@@ -2349,7 +2381,11 @@ async function m02sPrintSet(list) {
     writer = port.writable.getWriter();
     for (let i = 0; i < jobs.length && !m02sStop; i++) {
       m02sNote(`Wysyłam etykietę ${i + 1} z ${jobs.length}…`, "busy", i / jobs.length);
-      const c = m02sCanvas(jobs[i]); await m02sRun(writer, m02sPlan(c.getContext("2d").getImageData(0, 0, c.width, c.height))); sent++;
+      const c = m02sFinal(jobs[i]); await m02sRun(writer, m02sPlan(c.getContext("2d").getImageData(0, 0, c.width, c.height))); sent++;
+      if (m02sCfg().flow === "click" && i < jobs.length - 1 && !m02sStop) { /* tryb „po kliknięciu”: czekamy na użytkownika, port zostaje otwarty */
+        m02sNote(`Etykieta ${i + 1} z ${jobs.length} wysłana. Oderwij ją i kliknij „Następna etykieta”.`, "wait", (i + 1) / jobs.length);
+        await new Promise(res => { m02sNext = res; }); m02sNext = null;
+      }
     }
   } catch (e) { failed = e; }
   /* zamykanie z limitem czasu: zawieszony zapis nie może zablokować aplikacji */
@@ -2422,6 +2458,12 @@ $("#lbl-back").onclick = () => { $("#lbl-modal").hidden = true; };
 function setPrinter(v) { S.settings.printer = v === "m02s" ? "m02s" : "browser"; save(); m02sUi(); if (!$("#lbl-modal").hidden) renderLabels(); }
 $("#lbl-via").onchange = () => setPrinter($("#lbl-via").value);
 $("#pr-mode").onchange = () => setPrinter($("#pr-mode").value);
+function setM02s(key, v) { S.settings.m02s = { ...(S.settings.m02s || {}), [key]: v }; save(); m02sUi(); if (!$("#lbl-modal").hidden) renderLabels(); }
+["#pr-flow", "#lbl-flow"].forEach(sel => $(sel).onchange = () => setM02s("flow", $(sel).value));
+[["#pr-before", "before", 20], ["#pr-after", "after", 40], ["#pr-feed", "feed", 10]].forEach(([sel, key, max]) => $(sel).onchange = () => {
+  const v = num($(sel).value); if ($(sel).value.trim() === "" || !(v >= 0 && v <= max)) return m02sUi(); /* błędna wartość: wraca poprzednia */
+  setM02s(key, key === "feed" ? Math.round(v) : v);
+});
 const connectBtn = () => m02sConnect().then(() => { m02sNote(""); if (!$("#lbl-modal").hidden) renderLabels(); }).catch(e => m02sNote(e.message, "err"));
 $("#lbl-connect").onclick = connectBtn; $("#pr-connect").onclick = connectBtn;
 $("#pr-test").onclick = () => m02sPrintSet([{ m: m02sSample(), n: 1 }]);
