@@ -623,6 +623,8 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <button class="btn" id="pr-connect">Połącz z M02S</button>
         <button class="btn ghost" id="pr-test">Drukuj próbną etykietę</button>
       </div>
+      <div id="pr-test-box" hidden style="margin-top:10px"><p class="muted" style="margin:0 0 6px">Podgląd próbnej etykiety (tak poleci do drukarki). Nic się jeszcze nie drukuje.</p><img id="pr-test-img" alt="Podgląd próbnej etykiety" style="max-width:100%;max-height:220px;border:1px solid var(--line);background:#fff;display:block">
+        <div class="row" style="margin-top:6px"><button class="btn" id="pr-test-go">Drukuj</button><button class="btn ghost" id="pr-test-no">Anuluj</button></div></div>
       <div class="row" style="margin-top:10px;align-items:flex-end">
         <label>Wiele etykiet<select id="pr-flow"><option value="auto">po kolei, z przerwą</option><option value="click">po każdej czekaj na kliknięcie</option></select></label>
         <label>Odstęp przed etykietą (mm)<input type="number" id="pr-before" min="0" max="20" step="0.5" style="width:90px"></label>
@@ -2672,16 +2674,16 @@ function spiceListBlock(lines, W, Lh) {
   const hs = W * 0.085, headH = hs * 1.25, left = W * 0.115, tx = W * 0.17, tw = W - tx - W * 0.08;
   x.strokeStyle = "#000"; x.textAlign = "center"; x.font = SPICE_HEAD_FONT(hs); spiceHeadText(x, "SKŁADNIKI", W / 2, 0, hs); x.textAlign = "left";
   const gap = W * 0.05, avail = Lh - headH - gap - W * 0.02; /* odstęp między nagłówkiem a listą */
-  let fs = W * 0.068, items = [];
+  let fs = W * 0.058, items = [];
   for (; fs >= W * 0.036; fs -= W * 0.002) {
     const f = `${fs}px Arial, Helvetica, sans-serif`; items = lines.map(t => wrapText(x, t, f, tw));
-    const h = items.reduce((a, l) => a + l.length * fs * 1.28 + fs * 0.3, 0); if (h <= avail) break;
+    const h = items.reduce((a, l) => a + l.length * fs * 1.12 + fs * 0.22, 0); if (h <= avail) break;
   }
   const f = `${fs}px Arial, Helvetica, sans-serif`; x.font = f; let y = headH + gap;
   for (let i = 0; i < items.length; i++) {
-    const need = items[i].length * fs * 1.28; if (y + need > headH + gap + avail + fs * 0.3) { x.fillText("…", tx, y); break; }
+    const need = items[i].length * fs * 1.12; if (y + need > headH + gap + avail + fs * 0.3) { x.fillText("…", tx, y); break; }
     x.beginPath(); x.arc(left, y + fs * 0.62, fs * 0.17, 0, 7); x.fill();
-    items[i].forEach(l => { x.fillText(l, tx, y); y += fs * 1.28; }); y += fs * 0.3;
+    items[i].forEach(l => { x.fillText(l, tx, y); y += fs * 1.12; }); y += fs * 0.22;
   }
   return c;
 }
@@ -2817,7 +2819,9 @@ function setM02s(key, v) { S.settings.m02s = { ...(S.settings.m02s || {}), [key]
 });
 const connectBtn = () => m02sConnect().then(() => { m02sNote(""); if (!$("#lbl-modal").hidden) renderLabels(); }).catch(e => m02sNote(e.message, "err"));
 $("#lbl-connect").onclick = connectBtn; $("#pr-connect").onclick = connectBtn;
-$("#pr-test").onclick = () => m02sPrintSet([{ m: m02sSample(), n: 1 }]);
+$("#pr-test").onclick = () => { $("#pr-test-img").src = m02sPreview(m02sSample()); $("#pr-test-box").hidden = false; }; /* najpierw podgląd, żeby nie drukować przez przypadek */
+$("#pr-test-no").onclick = () => { $("#pr-test-box").hidden = true; };
+$("#pr-test-go").onclick = () => { $("#pr-test-box").hidden = true; m02sPrintSet([{ m: m02sSample(), n: 1 }]); };
 $("#lbl-cancel").onclick = () => lblKind === "spice" ? endSpPick() : endPick();
 $("#lbl-print").onclick = () => {
   if (lblKind === "spice") {
