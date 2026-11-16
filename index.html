@@ -732,6 +732,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
     <p class="muted" id="lbl-hint" style="margin:8px 0 6px">Podgląd pierwszej etykiety w ustawionym rozmiarze. W oknie drukowania wybierz drukarkę etykiet, skalę 100% i brak marginesów.</p>
     <div class="label-prev" id="lbl-prev"></div>
     <div class="msg" id="lbl-msg" hidden style="margin-top:8px"></div>
+    <p class="muted" id="lbl-saved" hidden style="margin:8px 0 0"><b>Zmiany są zapisane.</b> Tytuł, skład i obrazek zapisują się od razu, więc po zamknięciu okna bez drukowania zostają.</p>
     <div class="row" style="margin-top:12px">
       <button class="btn" id="lbl-print">Drukuj</button>
       <button class="btn ghost" id="lbl-back">Wstecz</button>
@@ -2793,7 +2794,7 @@ function endPick() { pick = null; pickN = {}; $("#lbl-modal").hidden = true; ren
 $("#lbl-start").onclick = () => { pick = new Set(); pickN = {}; renderFreezer(); };
 const picked = () => S.meals.filter(m => pick && pick.has(m.id));
 function openLabels() {
-  lblKind = "dish"; $("#lbl-title").textContent = "Etykiety do druku"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdego posiłku. Wszystkie wyjdą w jednym wydruku, jedna etykieta na stronę.";
+  lblKind = "dish"; $("#lbl-saved").hidden = true; $("#lbl-cancel").textContent = "Anuluj"; $("#lbl-title").textContent = "Etykiety do druku"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdego posiłku. Wszystkie wyjdą w jednym wydruku, jedna etykieta na stronę.";
   m02sUi(); const { w, h } = labelSize(); $("#lbl-w").value = w; $("#lbl-h").value = h; msg($("#lbl-msg"), "");
   /* domyślnie tyle etykiet, ile pudełek na stanie */
   picked().forEach(m => { if (!(pickN[m.id] >= 0)) pickN[m.id] = Math.max(1, Math.ceil(m.stock || 0)); });
@@ -2878,7 +2879,7 @@ function endSpPick() { spPick = null; spSel = []; lblKind = "dish"; $("#lbl-moda
 function openSpiceLabels(ids, counts = {}, vars = {}) {
   lblKind = "spice"; spSel = ids.filter(id => S.spices.some(x => x.id === id)); spN = {}; spVar = { ...vars };
   spSel.forEach(id => { const sp = S.spices.find(x => x.id === id); spN[id] = counts[id] ?? Math.max(1, spStock(sp)); });
-  spSaved = null; spDelAsk = null; $("#lbl-title").textContent = "Etykiety przypraw"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdej przyprawy, jaki przepis i jaki obrazek ma być na etykiecie. Wszystkie wyjdą w jednym wydruku.";
+  spSaved = null; spDelAsk = null; $("#lbl-saved").hidden = false; $("#lbl-cancel").textContent = "Zamknij"; $("#lbl-title").textContent = "Etykiety przypraw"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdej przyprawy, jaki przepis i jaki obrazek ma być na etykiecie. Wszystkie wyjdą w jednym wydruku.";
   const { w, h } = spiceLabelSize(); $("#lbl-w").value = w; $("#lbl-h").value = h; msg($("#lbl-msg"), "");
   m02sUi(); renderLabels(); $("#lbl-modal").hidden = false;
 }
