@@ -2838,10 +2838,11 @@ function endSpPick() { spPick = null; spSel = []; lblKind = "dish"; $("#lbl-moda
 function openSpiceLabels(ids, counts = {}, vars = {}) {
   lblKind = "spice"; spSel = ids.filter(id => S.spices.some(x => x.id === id)); spN = {}; spVar = { ...vars };
   spSel.forEach(id => { const sp = S.spices.find(x => x.id === id); spN[id] = counts[id] ?? Math.max(1, spStock(sp)); });
-  $("#lbl-title").textContent = "Etykiety przypraw"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdej przyprawy, jaki przepis i jaki obrazek ma być na etykiecie. Wszystkie wyjdą w jednym wydruku.";
+  spSaved = null; $("#lbl-title").textContent = "Etykiety przypraw"; $("#lbl-intro").textContent = "Ustaw, ile etykiet wydrukować dla każdej przyprawy, jaki przepis i jaki obrazek ma być na etykiecie. Wszystkie wyjdą w jednym wydruku.";
   const { w, h } = spiceLabelSize(); $("#lbl-w").value = w; $("#lbl-h").value = h; msg($("#lbl-msg"), "");
   m02sUi(); renderLabels(); $("#lbl-modal").hidden = false;
 }
+let spSaved = null; /* przyprawa, której skład właśnie zapisano (potwierdzenie w oknie etykiet) */
 async function renderSpiceLabels() {
   lblPending = null; const items = spiceItems(), total = items.reduce((a, x) => a + x.n, 0), tok = ++lblTok;
   const icons = sp => Object.entries(SPICE_ICONS).map(([k, v]) => `<option value="${k}" ${(sp.icon || SPICE_ICON_DEFAULT) === k ? "selected" : ""}>${v[0]}</option>`).join("") + `<option value="none" ${sp.icon === "none" ? "selected" : ""}>Bez obrazka</option>` + (sp.img ? `<option value="own" ${sp.icon === "own" ? "selected" : ""}>Własny obrazek</option>` : "");
@@ -2850,8 +2851,8 @@ async function renderSpiceLabels() {
     return `<div class="lbl-row" style="flex-wrap:wrap"><span><b>${esc(sp.name)}</b> <small class="muted">w magazynie: ${spStock(sp)}${rs.length ? "" : ", bez przypisanego dania: etykieta będzie bez składników"}</small>
       <div class="sl-opts">${rs.length > 1 ? `<select data-sl-var="${sp.id}" aria-label="Przepis na etykiecie">${rs.map(r => `<option value="${r.id}" ${r.id === rid ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
         <select data-sl-icon="${sp.id}" aria-label="Obrazek">${icons(sp)}</select><button class="btn ghost small" data-sl-up="${sp.id}">Wgraj obrazek</button>${rs.length ? "" : `<button class="btn small" data-sl-addrec="${sp.id}">Dodaj przepis</button>`}</div>
-      ${rid ? `<details class="sl-text" data-sl-det="${sp.id}" ${ov || spTextOpen.has(sp.id) ? "open" : ""}><summary>Skład na etykiecie${ov ? " (poprawiony ręcznie)" : ""}</summary><textarea rows="${Math.min(10, Math.max(3, txt.split("\n").length + 1))}" data-sl-text="${sp.id}" aria-label="Skład na etykiecie, jedna pozycja w wierszu">${esc(txt)}</textarea>
-        <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-auto="${sp.id}" ${ov ? "" : "disabled"}>Przywróć automatyczny</button><small class="muted">Jedna pozycja w wierszu. Odmiana jest automatyczna i może się mylić, poprawka zostaje zapamiętana.</small></div></details>` : ""}</span>
+      ${rid ? `<details class="sl-text" data-sl-det="${sp.id}" ${ov || spTextOpen.has(sp.id) ? "open" : ""}><summary>Skład na etykiecie${ov ? " (poprawiony ręcznie, zapisany na stałe)" : ""}</summary><textarea rows="${Math.min(10, Math.max(3, txt.split("\n").length + 1))}" data-sl-text="${sp.id}" aria-label="Skład na etykiecie, jedna pozycja w wierszu">${esc(txt)}</textarea>
+        <div class="row" style="gap:6px;margin-top:4px"><button class="btn ghost small" data-sl-auto="${sp.id}" ${ov ? "" : "disabled"}>Przywróć automatyczny</button><small class="muted">${spSaved === sp.id ? "<b>Zapisano na stałe.</b> Kolejne etykiety tego dania będą z tym składem." : "Jedna pozycja w wierszu. Odmiana jest automatyczna i może się mylić. Poprawka zapisuje się na stałe dla tego dania."}</small></div></details>` : ""}</span>
       <div class="n"><button class="btn ghost small" data-sn="${sp.id}" data-d="-1" aria-label="Mniej">−</button><input type="number" min="0" max="50" step="1" data-si="${sp.id}" value="${n}" aria-label="Liczba etykiet"><button class="btn ghost small" data-sn="${sp.id}" data-d="1" aria-label="Więcej">+</button></div></div>`; }).join("");
   $("#lbl-print").textContent = total ? `Drukuj ${total} ${plEt(total)}` : "Drukuj"; $("#lbl-print").disabled = !total;
   const later = () => setTimeout(renderLabels, 0); /* odświeżenie po zmianie pola, poza obsługą jego zdarzenia (inaczej konflikt przy utracie fokusu) */
@@ -2866,7 +2867,7 @@ async function renderSpiceLabels() {
     const sp = S.spices.find(x => x.id === t.dataset.slText), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (!id) return;
     const val = t.value.split("\n").map(l => l.trim()).filter(Boolean).join("\n"), auto = spiceAutoLines(sp, id).join("\n");
     sp.labelText = sp.labelText || {}; if (val === auto) delete sp.labelText[id]; else sp.labelText[id] = val;
-    if (!Object.keys(sp.labelText).length) delete sp.labelText; save(); later();
+    if (!Object.keys(sp.labelText).length) delete sp.labelText; save(); spSaved = sp.id; later();
   });
   $("#lbl-rows").querySelectorAll("[data-sl-auto]").forEach(b => b.onclick = () => { const sp = S.spices.find(x => x.id === b.dataset.slAuto), id = spVar[sp.id] || (recipesOf(sp)[0] || {}).id; if (sp.labelText) { delete sp.labelText[id]; if (!Object.keys(sp.labelText).length) delete sp.labelText; } save(); later(); });
   $("#lbl-rows").querySelectorAll("[data-sl-up]").forEach(b => b.onclick = () => { spSlId = b.dataset.slUp; $("#sl-file").value = ""; $("#sl-file").click(); });
