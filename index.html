@@ -315,7 +315,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
         <button class="btn ghost small" id="day-next">→</button>
         <button class="btn small" id="day-today" hidden>Dziś</button>
       </div>
-      <button class="btn" id="scan-btn">Skanuj kod QR</button>
+      <button class="btn" id="scan-btn">Skanuj kod</button>
     </div>
     <div class="card meters" id="meters"></div>
     <div class="card">
@@ -428,7 +428,6 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <div data-ck-panel="tabela" hidden>
         <div class="row">
           <button class="btn" id="ck-row">Dodaj wiersz</button>
-          <button class="btn ghost" id="ck-ean">Dodaj z kodu kreskowego</button>
         </div>
       </div>
       <div data-ck-panel="przepis" hidden>
@@ -636,9 +635,18 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
 
 <div class="modal" id="scan-modal" hidden>
   <div class="card">
-    <h3>Skanuj etykietę</h3>
+    <h3>Skanuj kod</h3>
+    <p class="muted" style="margin:0 0 8px">Kod QR z etykiety pudełka albo kod kreskowy produktu. Trzymaj telefon ok. 10 do 20 cm od kodu, a dotknięcie obrazu ustawia ostrość.</p>
     <div id="reader"></div>
-    <div class="msg" id="scan-msg" hidden></div>
+    <div class="row" id="scan-zoom-row" hidden style="margin-top:8px;align-items:center"><span class="muted">Przybliżenie</span><input type="range" id="scan-zoom" style="flex:1" aria-label="Przybliżenie"></div>
+    <div class="card" id="scan-prod" hidden style="margin:10px 0 0;padding:12px">
+      <b id="sc-n"></b>
+      <div class="muted" id="sc-per" style="margin-top:2px"></div>
+      <div class="row" style="margin-top:8px;align-items:flex-end"><label>Ile zjadam (g)<input type="number" id="sc-g" min="1" step="1" style="width:100px"></label><div class="chips" id="sc-chips"></div></div>
+      <div id="sc-calc" style="margin-top:6px;font-weight:600"></div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="sc-add">Dodaj do dziś</button><button class="btn ghost" id="sc-skip">Anuluj</button></div>
+    </div>
+    <div class="msg" id="scan-msg" hidden style="margin-top:8px"></div>
     <div class="row" style="margin-top:10px"><button class="btn ghost" id="scan-close">Zamknij</button></div>
   </div>
 </div>
@@ -676,7 +684,7 @@ details.wg-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-we
       <button class="btn ghost" id="pv-close">Zamknij</button>
       <button class="btn" id="pv-save" hidden>Zapisz zmiany</button>
       <button class="btn ghost" id="pv-cancel" hidden>Anuluj</button>
-      <button class="btn ghost small" id="pv-adv" hidden style="margin-left:auto" title="Policzenie składników przez Gemini, kod kreskowy i inne opcje">Więcej opcji w Gotuję</button>
+      <button class="btn ghost small" id="pv-adv" hidden style="margin-left:auto" title="Policzenie składników przez Gemini i inne opcje">Więcej opcji w Gotuję</button>
     </div>
   </div>
 </div>
@@ -1202,29 +1210,110 @@ $("#free-ai").onclick = async () => {
   b.disabled = false;
 };
 
-/* ---------- skaner QR ---------- */
-let scanner = null, lastScan = 0;
-$("#scan-btn").onclick = async () => {
-  $("#scan-modal").hidden = false; msg($("#scan-msg"), "");
+/* ---------- skaner: kody QR pudełek i kody kreskowe produktów ---------- */
+let scanner = null, lastScan = 0, scanHold = false, scanCaps = {}, scanProd = null;
+const SCAN_FORMATS = () => { const F = window.Html5QrcodeSupportedFormats || {}; return [F.QR_CODE, F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E].filter(x => x !== undefined); };
+/* wpis do dziennika dnia, który jest otwarty: jedzenie spoza zamrażarki (z kodu kreskowego) i z etykiety bez pudełka na stanie */
+function logFood(name, k, p, f) {
+  const d0 = day, u0 = ACT(); S.log.push({ id: uid(), date: d0, name, k, p, f }); upsertFood(name, k, p, f, d0, u0); save(); render();
+}
+/* pudełko z etykiety, którego nie ma w tej przeglądarce: dopisujemy porcję z danych w kodzie, stan zamrażarki się nie zmienia */
+function eatFromLabel(pl) {
+  const m = { id: pl.id, name: pl.name || "Posiłek z etykiety", portions: 1, share: pl.s, rows: [{ abs: true, name: "z etykiety", qty: "", g: 0, k: pl.k, p: pl.p, f: pl.f, src: "etykieta" }] };
+  const s = myShare(m) / 100, pp = perPortion(m), name = m.name + (s < 1 ? `, moja część ${r0(s * 100)}%` : "");
+  S.log.push({ id: uid(), date: day, name, k: pp.k * s, p: pp.p * s, f: pp.f * s }); save(); render();
+  return { name, k: pp.k * s };
+}
+async function scanOpen() {
+  $("#scan-modal").hidden = false; msg($("#scan-msg"), ""); scanProdHide(); scanHold = false;
   if (!window.Html5Qrcode) return msg($("#scan-msg"), "Nie wczytała się biblioteka skanera. Sprawdź internet i odśwież stronę.", true);
-  scanner = new Html5Qrcode("reader");
+  const fm = SCAN_FORMATS();
+  /* natywny detektor kodów (jeśli jest) i wyższa rozdzielczość pomagają, gdy ostrość jest słaba */
+  scanner = new Html5Qrcode("reader", { formatsToSupport: fm.length ? fm : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
   try {
-    await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 }, text => {
-      if (Date.now() - lastScan < 2500) return; lastScan = Date.now();
-      const id = text.startsWith("MROZNIK:") ? text.slice(8) : null;
-      const m = id && S.meals.find(x => x.id === id);
-      if (!m) return msg($("#scan-msg"), "Tego kodu nie ma w bazie.", true);
-      const r = eat(m.id, 1); msg($("#scan-msg"), `Dodano: ${m.name}, moja część ${myShare(m)}%: ${r0(myPart(m).k)} kcal. Zostało ${f1(m.stock)} szt.` + shortNote(m, r), !!r.short);
-    });
+    await scanner.start({ facingMode: "environment" }, {
+      fps: 12, qrbox: (vw, vh) => ({ width: Math.floor(vw * 0.85), height: Math.floor(Math.min(vh * 0.7, vw * 0.55)) }),
+      videoConstraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+    }, scanText);
+    await scanTune();
   } catch (e) { msg($("#scan-msg"), "Brak dostępu do kamery: " + e, true); }
+}
+/* ostrość ciągła i zbliżenie, jeśli kamera je ma; nie każda przeglądarka na to pozwala, wtedy skaner działa jak dotąd */
+async function scanTune() {
+  scanCaps = {}; $("#scan-zoom-row").hidden = true;
+  try {
+    const c = scanner.getRunningTrackCapabilities() || {}; scanCaps = c;
+    if (c.focusMode && c.focusMode.includes("continuous")) await scanner.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] });
+    if (c.zoom && c.zoom.max > c.zoom.min) { const z = $("#scan-zoom"); z.min = c.zoom.min; z.max = c.zoom.max; z.step = c.zoom.step || 0.1; z.value = c.zoom.min; $("#scan-zoom-row").hidden = false; }
+  } catch (e) { /* kamera bez tych funkcji */ }
+}
+$("#scan-zoom").oninput = () => { if (scanner) scanner.applyVideoConstraints({ advanced: [{ zoom: +$("#scan-zoom").value }] }).catch(() => {}); };
+/* dotknięcie obrazu: jednorazowe złapanie ostrości, potem z powrotem ostrość ciągła */
+$("#reader").onclick = async () => {
+  const fmode = scanCaps.focusMode || []; if (!scanner || !fmode.includes("single-shot")) return;
+  try {
+    await scanner.applyVideoConstraints({ advanced: [{ focusMode: "single-shot" }] });
+    setTimeout(() => { if (scanner && fmode.includes("continuous")) scanner.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {}); }, 1500);
+  } catch (e) { /* bez ostrości na dotyk */ }
 };
-$("#scan-close").onclick = async () => { $("#scan-modal").hidden = true; try { if (scanner) { await scanner.stop(); scanner.clear(); } } catch (e) {} scanner = null; };
+function scanText(text) {
+  if (scanHold || Date.now() - lastScan < 2500) return; lastScan = Date.now();
+  const b = parseBoxCode(text);
+  if (b) return scanBox(b);
+  if (/^\d{8,14}$/.test(String(text).trim())) return scanProduct(String(text).trim());
+  msg($("#scan-msg"), "Nie znam tego kodu. FRZR czyta kody z etykiet pudełek i kody kreskowe produktów.", true);
+}
+function scanBox(b) {
+  const m = S.meals.find(x => x.id === b.id);
+  if (m) { const r = eat(m.id, 1); return msg($("#scan-msg"), `Dodano: ${m.name}, moja część ${myShare(m)}%: ${r0(myPart(m).k)} kcal. Zostało ${f1(m.stock)} szt.` + shortNote(m, r), !!r.short); }
+  if (b.pl) { const r = eatFromLabel(b.pl); return msg($("#scan-msg"), `Dodano z etykiety: ${r.name}, ${r0(r.k)} kcal. Tego pudełka nie ma w tej przeglądarce, więc stan zamrażarki się nie zmienił.`); }
+  msg($("#scan-msg"), "Tego pudełka nie ma w tej przeglądarce. Dane FRZR są zapisane osobno na każdym urządzeniu, a ta etykieta nie ma w kodzie danych posiłku. Wczytaj na telefonie kopię danych z komputera (Ustawienia) albo wydrukuj etykiety jeszcze raz.", true);
+}
+/* kod kreskowy: dane z Open Food Facts, potem wybór, ile zjadam, i dopisanie do dnia */
+const scanPause = () => { scanHold = true; try { scanner && scanner.pause(true); } catch (e) {} };
+const scanResume = () => { scanHold = false; try { scanner && scanner.resume(); } catch (e) {} };
+function scanProdHide() { $("#scan-prod").hidden = true; scanProd = null; }
+async function scanProduct(code) {
+  scanPause(); msg($("#scan-msg"), `Szukam kodu ${code}…`);
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 10000);
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_pl,brands,nutriments,serving_quantity`, { signal: ac.signal });
+    const j = await res.json(), pr = j.product; if (!pr) throw new Error("Nie ma tego kodu w Open Food Facts. Dodaj produkt ręcznie w „Dodaj coś spoza zamrażarki”.");
+    const n = pr.nutriments || {}, kcal = num(n["energy-kcal_100g"]) || (num(n.energy_100g) ? num(n.energy_100g) / 4.184 : 0);
+    if (!(kcal > 0)) throw new Error("Open Food Facts nie ma kalorii tego produktu. Dodaj go ręcznie w „Dodaj coś spoza zamrażarki”.");
+    const name = [pr.product_name_pl || pr.product_name, pr.brands].filter(Boolean).join(", ") || code;
+    scanProd = { code, name, k100: kcal, p100: num(n.proteins_100g), f100: num(n.fiber_100g), serving: num(pr.serving_quantity) || 0 };
+    msg($("#scan-msg"), ""); scanProdShow();
+  } catch (e) { msg($("#scan-msg"), e.name === "AbortError" ? "Open Food Facts nie odpowiedział na czas. Spróbuj jeszcze raz." : (e.message || "Nie udało się pobrać produktu."), true); scanResume(); }
+  clearTimeout(t);
+}
+function scanProdShow() {
+  const p = scanProd; $("#scan-prod").hidden = false; $("#sc-n").textContent = p.name;
+  $("#sc-per").textContent = `Na 100 g: ${r0(p.k100)} kcal, białko ${f1(p.p100)} g, błonnik ${f1(p.f100)} g`;
+  $("#sc-g").value = p.serving || 100;
+  const sizes = [...new Set([p.serving, 25, 50, 100].filter(x => x > 0))];
+  $("#sc-chips").innerHTML = sizes.map(g => `<button type="button" class="chip" data-g="${g}">${g === p.serving ? "porcja " : ""}${f1(g)} g</button>`).join("");
+  $("#sc-chips").querySelectorAll("[data-g]").forEach(b => b.onclick = () => { $("#sc-g").value = b.dataset.g; scanProdCalc(); });
+  scanProdCalc();
+}
+function scanProdCalc() {
+  const p = scanProd, g = num($("#sc-g").value); if (!p) return;
+  $("#sc-calc").textContent = g > 0 ? `${r0(g * p.k100 / 100)} kcal, białko ${f1(g * p.p100 / 100)} g, błonnik ${f1(g * p.f100 / 100)} g` : "Podaj, ile gramów zjadasz.";
+  $("#sc-add").disabled = !(g > 0);
+}
+$("#sc-g").oninput = scanProdCalc;
+$("#sc-add").onclick = () => {
+  const p = scanProd, g = num($("#sc-g").value); if (!p || !(g > 0)) return;
+  const name = `${p.name}, ${f1(g)} g`; logFood(name, g * p.k100 / 100, g * p.p100 / 100, g * p.f100 / 100);
+  msg($("#scan-msg"), `Dodano: ${name}, ${r0(g * p.k100 / 100)} kcal.`); scanProdHide(); scanResume();
+};
+$("#sc-skip").onclick = () => { scanProdHide(); msg($("#scan-msg"), ""); scanResume(); };
+$("#scan-btn").onclick = () => scanOpen();
+$("#scan-close").onclick = async () => { $("#scan-modal").hidden = true; scanProdHide(); scanHold = false; try { if (scanner) { await scanner.stop(); scanner.clear(); } } catch (e) {} scanner = null; };
 
-/* ---------- kod kreskowy (Open Food Facts) ---------- */
-let eanTarget = "free";
-function openEan(target) { eanTarget = target; $("#ean-modal").hidden = false; msg($("#ean-msg"), ""); $("#ean-code").focus(); }
-$("#free-ean").onclick = () => openEan("free");
-$("#ck-ean").onclick = () => openEan("cook");
+/* ---------- kod kreskowy wpisany ręcznie (Open Food Facts) ---------- */
+function openEan() { $("#ean-modal").hidden = false; msg($("#ean-msg"), ""); $("#ean-code").focus(); }
+$("#free-ean").onclick = () => openEan();
 $("#ean-close").onclick = () => $("#ean-modal").hidden = true;
 $("#ean-go").onclick = async () => {
   const code = $("#ean-code").value.replace(/\D/g, ""), g = num($("#ean-g").value);
@@ -1235,10 +1324,8 @@ $("#ean-go").onclick = async () => {
     const j = await res.json();
     if (!j.product) throw new Error("Nie ma tego kodu w Open Food Facts. Dodaj produkt ręcznie albo przez Gemini.");
     const n = j.product.nutriments || {};
-    const row = { name: [j.product.product_name, j.product.brands].filter(Boolean).join(", ") || code, qty: g + " g", g,
-      k100: num(n["energy-kcal_100g"]), p100: num(n.proteins_100g), f100: num(n.fiber_100g), src: "Open Food Facts " + code };
-    if (eanTarget === "cook") { draft.rows.push(row); renderCook(); }
-    else { $("#free-name").value = `${row.name}, ${g} g`; $("#free-k").value = r0(g * row.k100 / 100); $("#free-p").value = r1(g * row.p100 / 100); $("#free-f").value = r1(g * row.f100 / 100); msg($("#free-msg"), "Wartości z etykiety. Kliknij Dodaj."); }
+    const row = { name: [j.product.product_name, j.product.brands].filter(Boolean).join(", ") || code, k100: num(n["energy-kcal_100g"]), p100: num(n.proteins_100g), f100: num(n.fiber_100g) };
+    $("#free-name").value = `${row.name}, ${g} g`; $("#free-k").value = r0(g * row.k100 / 100); $("#free-p").value = r1(g * row.p100 / 100); $("#free-f").value = r1(g * row.f100 / 100); msg($("#free-msg"), "Wartości z etykiety. Kliknij Dodaj.");
     $("#ean-modal").hidden = true; $("#ean-code").value = ""; $("#ean-g").value = "";
   } catch (e) { msg($("#ean-msg"), e.message, true); }
 };
@@ -2191,13 +2278,31 @@ $("#pv-save").onclick = () => {
 $("#ck-save-print").onclick = () => { const m = saveDraft(); if (m) printLabels(m, m.portions); };
 
 /* ---------- etykiety ---------- */
+/* polskie litery w kodzie QR: bajty UTF-8 zamiast pojedynczych znaków */
+let qrUtf8Set = false;
+function qrUtf8() { if (!qrUtf8Set && window.qrcode) { qrcode.stringToBytes = t => Array.from(new TextEncoder().encode(t)); qrUtf8Set = true; } }
+/* Kod na etykiecie niesie identyfikator pudełka i dane jednej porcji (kcal, białko, błonnik, część osoby 1, nazwa), żeby telefon bez
+   danych z komputera mógł dopisać posiłek do dnia. Całość mieści się w 62 bajtach, żeby kod pozostał mało gęsty (wersja 4, poziom M). */
+function labelQrText(m) {
+  const pp = perPortion(m), head = `MROZNIK:${m.id}|${r0(pp.k)}|${r1(pp.p)}|${r1(pp.f)}|${m.share ?? 100}|`, bytes = t => new TextEncoder().encode(t).length;
+  let name = String(m.name || "").replace(/[|\n]/g, " ").trim();
+  while (name && bytes(head + name) > 62) name = name.slice(0, -1);
+  return head + name.trim();
+}
+/* odczyt kodu z etykiety: stare etykiety mają tylko identyfikator, nowe także dane porcji */
+function parseBoxCode(text) {
+  if (!String(text).startsWith("MROZNIK:")) return null;
+  const a = String(text).slice(8).split("|"), id = a[0]; if (!id) return null;
+  const pl = a.length >= 5 && [1, 2, 3, 4].every(i => isFinite(parseFloat(a[i]))) ? { id, k: +a[1], p: +a[2], f: +a[3], s: Math.min(100, Math.max(1, +a[4] || 100)), name: a.slice(5).join("|").trim() } : null;
+  return { id, pl };
+}
 function qrImg(text) {
-  if (!window.qrcode) return "";
+  qrUtf8(); if (!window.qrcode) return "";
   const q = qrcode(0, "M"); q.addData(text); q.make(); return q.createDataURL(6, 2);
 }
-/* Rozmiar etykiety (mm) jest wspólnym ustawieniem. Kod QR ma najwyżej 16 mm i mieści się w wysokości i 1/3 szerokości. */
+/* Rozmiar etykiety (mm) jest wspólnym ustawieniem. Kod QR ma najwyżej 18 mm (z danymi porcji jest gęstszy, więc większy) i mieści się w wysokości i około 1/3 szerokości. */
 const labelSize = () => { const l = S.settings.label || {}; return { w: Math.min(110, Math.max(20, num(l.w) || 50)), h: Math.min(150, Math.max(15, num(l.h) || 30)) }; };
-const labelVars = () => { const { w, h } = labelSize(); return `--lw:${w}mm;--lh:${h}mm;--lq:${Math.max(8, Math.min(16, h - 4, w * 0.34))}mm`; };
+const labelVars = () => { const { w, h } = labelSize(); return `--lw:${w}mm;--lh:${h}mm;--lq:${Math.max(8, Math.min(18, h - 4, w * 0.37))}mm`; };
 /* jeden wydruk dla całego zestawu: list to [{ m, n }], każda etykieta na osobnej stronie w rozmiarze etykiety */
 function printLabelSet(list) {
   if (m02sActive()) return m02sPrintSet(list); /* druk bezpośrednio na M02S zamiast okna przeglądarki */
@@ -2212,7 +2317,7 @@ function printMany(meals) { printLabelSet(meals.map(m => ({ m, n: m.portions }))
 function labelParts(m, pp) { return labelLines(m, pp).map(esc).join("<br>"); }
 function labelHtml(m) {
   const pp = perPortion(m);
-  const qr = qrImg("MROZNIK:" + m.id); /* bez biblioteki QR (brak internetu) etykieta wychodzi z samym tekstem */
+  const qr = qrImg(labelQrText(m)); /* bez biblioteki QR (brak internetu) etykieta wychodzi z samym tekstem */
   return `<div class="label">${qr ? `<img src="${qr}" alt="">` : ""}<div><b>${esc(m.name)}</b>${labelParts(m, pp)}<br>${dm(m.date)}</div></div>`;
 }
 function printLabels(m, n) { printLabelSet([{ m, n }]); }
@@ -2288,8 +2393,8 @@ function m02sCanvas(m) {
   const mm = v => v * k, pad = mm(2); let tx = pad;
   if (window.qrcode) {
     /* moduły o całkowitej liczbie punktów, bez wygładzania, żeby kod dało się odczytać */
-    const q = qrcode(0, "M"); q.addData("MROZNIK:" + m.id); q.make();
-    const n = q.getModuleCount(), lq = Math.max(8, Math.min(16, h - 4, w * 0.34)), mod = Math.max(1, Math.floor(mm(lq) / (n + 4))), size = mod * (n + 4);
+    qrUtf8(); const q = qrcode(0, "M"); q.addData(labelQrText(m)); q.make();
+    const n = q.getModuleCount(), lq = Math.max(8, Math.min(18, h - 4, w * 0.37)), mod = Math.max(1, Math.floor(mm(lq) / (n + 4))), size = mod * (n + 4);
     const qx = Math.round(pad), qy = Math.round((H - size) / 2);
     for (let r = 0; r < n; r++) for (let cc = 0; cc < n; cc++) if (q.isDark(r, cc)) x.fillRect(qx + (cc + 2) * mod, qy + (r + 2) * mod, mod, mod);
     tx = qx + size + mm(2);
