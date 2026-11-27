@@ -51,6 +51,9 @@ button.ghost{background:transparent;color:var(--accent)}
 button.small{padding:4px 9px;font-size:13px}
 button.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
 button.x:hover{color:var(--bad)}
+button.ico{border:0;background:none;color:var(--muted);cursor:pointer;padding:3px 5px;line-height:0;border-radius:6px;vertical-align:middle}
+button.ico:hover,button.ico.on{color:var(--accent);background:var(--frost)}
+button.ico svg{width:18px;height:18px;display:block}
 button:disabled{opacity:.5;cursor:default}
 .meters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 @media (max-width:560px){.meters{grid-template-columns:1fr}}
@@ -1132,7 +1135,7 @@ function renderToday() {
   const rows = S.log.filter(e => e.date === day);
   $("#log-table").innerHTML = rows.length
     ? `<thead><tr><th>Co</th><th class="n">kcal</th><th class="n">Białko</th><th class="n">Błonnik</th><th></th></tr></thead><tbody>` +
-      rows.map(e => `<tr><td>${esc(e.name)}${e.mealId ? ' <span class="pill">z zamrażarki</span>' : ""}</td><td class="n">${r0(e.k)}</td><td class="n">${f1(e.p)}</td><td class="n">${f1(e.f)}</td><td class="n" style="white-space:nowrap">${qtyCan(e) ? `<button class="btn ghost small" data-qty="${e.id}" title="Zmień ilość tego wpisu">Ilość</button> ` : ""}<button class="x" data-del="${e.id}" title="Usuń">×</button></td></tr>` + (qtyEdit === e.id ? qtyRow(e) : "")).join("") +
+      rows.map(e => `<tr><td>${esc(e.name)}${e.mealId ? ' <span class="pill">z zamrażarki</span>' : ""}</td><td class="n">${r0(e.k)}</td><td class="n">${f1(e.p)}</td><td class="n">${f1(e.f)}</td><td class="n" style="white-space:nowrap">${qtyCan(e) ? `<button class="ico${qtyEdit === e.id ? " on" : ""}" data-qty="${e.id}" title="Zmień ilość tego wpisu" aria-label="Zmień ilość tego wpisu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 3.5v8M3 7.5h8M13 17.5h8M4 20.5l16-16"/></svg></button> ` : ""}<button class="x" data-del="${e.id}" title="Usuń">×</button></td></tr>` + (qtyEdit === e.id ? qtyRow(e) : "")).join("") +
       `</tbody><tfoot><tr><td>Razem</td><td class="n">${r0(t.k)}</td><td class="n">${f1(t.p)}</td><td class="n">${f1(t.f)}</td><td></td></tr></tfoot>`
     : `<tbody><tr><td class="muted">Nic jeszcze nie zapisano tego dnia. Zeskanuj etykietę albo dodaj posiłek poniżej.</td></tr></tbody>`;
   $("#log-table").querySelectorAll("[data-qty]").forEach(b => b.onclick = () => { qtyEdit = qtyEdit === b.dataset.qty ? null : b.dataset.qty; qtyAsk = null; render(); if (qtyEdit) { const i = $("#qe-in"); if (i) { i.focus(); i.select(); } } });
